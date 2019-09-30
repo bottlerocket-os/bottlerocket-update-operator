@@ -1,5 +1,0 @@
-.direnv/
-*.nix
-.envrc
-*.el
-*.tar*
