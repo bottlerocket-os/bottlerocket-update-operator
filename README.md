@@ -7,9 +7,9 @@ Dogswatch is a [Kubernetes operator](https://Kubernetes.io/docs/concepts/extend-
 
 To run the Dogswatch Operator in a Kubernetes cluster, the following are required resources and configuration ([suggested deployment is defined in `dogswatch.yaml`](./dogswatch.yaml)):
 
-- **`dogswatch` Container Image**
+- **Operator's Container Image**
 
-  Holding the Dogswatch binaries and its supporting environment.
+  Holding the Operator's binaries and supporting environment (CA certificates).
 
 - **Controller Deployment**
 
@@ -96,21 +96,32 @@ The Agent and Controller processes listen to an event stream from the Kubernetes
 
 ### Observing Progress and State
 
-Dogwatch's operation can be simply observed by inspecting the labels and annotations on the Node resource.
-The state and pending activity are posted as progress is made.
+The Update Operator can be closely monitored through the labels and annotations assigned to Node resources.
+The state and pending activity are updated as progress is being made.
+The following command requires `kubectl` to be configured for the development cluster to be monitored and `jq` to be available on `$PATH`.
 
 ``` sh
-# With a configured kubectl and jq available on $PATH
 kubectl get nodes -o json \
   | jq -C -S '.items | map(.metadata|{(.name): (.annotations*.labels|to_entries|map(select(.key|startswith("bottlerocket")))|from_entries)}) | add'
 ```
 
+There is a `get-nodes-status` `Makefile` target provided for monitoring nodes during development.
+Note: the same dependencies and assumptions for the above command apply here.
+
+```sh
+# get the current status:
+make get-nodes-status
+
+# or periodically (handy for watching closely):
+watch -- make get-nodes-status
+```
+
 ### Current Limitations
 
-- Pod replication & healthy count is not taken into consideration (#502)
-- Nodes update without pause between each Node (#503)
-- Single Node cluster degrades into unscheduleable on update (#501)
-- Node labels are not automatically applied to allow scheduling (#504)
+- Pod replication & healthy count is not taken into consideration (https://github.com/bottlerocket-os/bottlerocket/issues/502)
+- Nodes update without pause between each Node (https://github.com/bottlerocket-os/bottlerocket/issues/503)
+- Single Node cluster degrades into unscheduleable on update (https://github.com/bottlerocket-os/bottlerocket/issues/501)
+- Node labels are not automatically applied to allow scheduling (https://github.com/bottlerocket-os/bottlerocket/issues/504)
 
 ## How to Contribute and Develop Changes for Dogswatch
 
@@ -126,16 +137,24 @@ Much of the development workflow can be accommodated by the `Makefile` provided 
 Each of these targets utilize tools and environments they're configured to access - for example: `kubectl`, as configured on a host, will be used.
 If `kubectl` is configured to configured with access to production, please ensure take steps to reconfigure `kubectl` to affect only a development cluster.
 
-**General use targets**
+**Build targets**
 
-- `container` - build a container image used by the Kubernetes resources
+- `build` - build executable using go toolchain in `$PATH`
+- `test` - run `go test` for the Operator using go toolchain in `$PATH`
+- `container` - build a container image for use in Kubernetes resources
+- `container-test` - run Operator's unit tests in a container
+- `check` - run checks for container image
+- `dist` - create a distributable archive of the container image
+- `clean` - remove cached build artifacts from workspace
+
+**Development targets**
+
 - `dashboard` - create or update Kubernetes-dashboard (*not suitable for use in Production*)
-- `deploy` - create or update Dogswatch Kubernetes resources
-- `rollout` - reload and restart Dogswatch processes in the cluster
-- `test` - run `go test` against `dogswatch`
+- `deploy-dev` - create or update the Operator's Kubernetes resources
+- `rollout` - reload and restart the Operator's Pods
 
 **`kind` development targets**
 
-- `load`
-- `cluster`
-- `rollout-kind`
+- `kind-cluster` - create a local [`kind`](https://github.com/Kubernetes-sigs/kind) cluster
+- `kind-load` - build and load container image for use in a `kind` cluster
+- `kind-rollout` - reload container image & config, then restart Pods
