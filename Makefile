@@ -11,7 +11,7 @@ IMAGE_NAME = $(IMAGE_REPO_NAME)$(IMAGE_ARCH_SUFFIX):$(IMAGE_VERSION)$(addprefix 
 # could be an ECR Repository name or a Docker Hub name such as
 # `example-org/example-image`. If the repository includes the architecture name,
 # IMAGE_ARCH_SUFFIX must be overridden as needed.
-IMAGE_REPO_NAME = bottlerocket/$(notdir $(shell pwd -P))
+IMAGE_REPO_NAME = bottlerocket-os/$(notdir $(shell pwd -P))
 # IMAGE_VERSION is the semver version that's tagged on the image.
 IMAGE_VERSION = $(shell cat VERSION)
 # SHORT_SHA is the revision that the container image was built with.
@@ -41,7 +41,7 @@ export DOCKER_BUILDKIT = 1
 .PHONY: all build check
 
 # Go compliation specific to selected build and target system architecture.
-GOPKG = github.com/amazonlinux/bottlerocket/dogswatch
+GOPKG = github.com/bottlerocket-os/bottlerocket-update-operator
 GOPKGS = $(GOPKG) $(GOPKG)/pkg/... $(GOPKG)/cmd/...
 export GOBIN = $(shell pwd -P)/bin
 export GOARCH = $(ARCH)
@@ -71,7 +71,7 @@ container:
 		--build-arg GO_LDFLAGS \
 		--build-arg GOARCH \
 		--build-arg SHORT_SHA='$(SHORT_SHA)' \
-		--target="dogswatch" \
+		--target="update-operator" \
 		--tag $(IMAGE_NAME) \
 		.
 
@@ -104,7 +104,7 @@ check: check-executable
 check-executable:
 	@echo "Running check: $@"
 	docker run --rm $(IMAGE_NAME) -help 2>&1 \
-		| grep -q '/dogswatch'
+		| grep -q '/bottlerocket-update-operator'
 
 # Clean the build artifacts on disk.
 clean:
@@ -123,8 +123,8 @@ deploy-dev:
 # Rollout updates resources and bounces them to effectively "restart" the
 # collective service.
 rollout: deploy-dev
-	kubectl -n bottlerocket rollout restart deployment/dogswatch-controller
-	kubectl -n bottlerocket rollout restart daemonset/dogswatch-agent
+	kubectl -n bottlerocket rollout restart deployment/update-operator-controller
+	kubectl -n bottlerocket rollout restart daemonset/update-operator-agent
 
 # Load the docker image into cluster's container image storage ("kind"
 # development cluster specific).

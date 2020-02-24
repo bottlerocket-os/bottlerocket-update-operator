@@ -1,8 +1,8 @@
 package intents
 
 import (
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/intent"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/marker"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/intent"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/marker"
 )
 
 const (

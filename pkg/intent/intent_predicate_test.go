@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/intent"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/intent/internal/callcheck"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/internal/intents"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/internal/testoutput"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/logging"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/marker"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/intent"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/intent/internal/callcheck"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/internal/intents"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/internal/testoutput"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/logging"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/marker"
 
 	"gotest.tools/assert"
 )

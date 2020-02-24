@@ -3,22 +3,21 @@ package controller
 import (
 	"context"
 
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/logging"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/nodestream"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/workgroup"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/logging"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/nodestream"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/workgroup"
 	"k8s.io/client-go/kubernetes"
 )
 
-// Controller is the Dogswatch component that runs coordination for the Bottlerocket
-// upgrade processes across many hosts, running the Dogswatch Agent, in a
-// cluster.
+// Controller coordinates updates within a Cluster run by the Update Operator
+// Agent on Bottlerocket Nodes.
 type Controller struct {
 	log     logging.Logger
 	kube    kubernetes.Interface
 	manager *actionManager
 }
 
-// New creates a Dogswatch Controller instance.
+// New creates a Controller instance.
 func New(log logging.Logger, kube kubernetes.Interface, nodeName string) (*Controller, error) {
 	return &Controller{
 		log:     log,

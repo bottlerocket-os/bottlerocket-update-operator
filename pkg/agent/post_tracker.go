@@ -4,7 +4,7 @@ import (
 	"container/list"
 	"sync"
 
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/intent"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/intent"
 )
 
 // postTracker records posted Intents to compare to inbound Intents.

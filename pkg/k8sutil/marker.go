@@ -1,8 +1,8 @@
 package k8sutil
 
 import (
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/logging"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/marker"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/logging"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/marker"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"

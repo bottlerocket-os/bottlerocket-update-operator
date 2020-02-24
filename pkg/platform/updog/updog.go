@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/logging"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/bottlerocket"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/bottlerocket"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/logging"
 	"github.com/pkg/errors"
 )
 
@@ -72,8 +72,8 @@ func (e *executable) runOk(cmd *exec.Cmd) (bool, error) {
 	}
 	// Boolean currently only used by ListUpdate. Returns true if the
 	// command yielded output, which indicates an update is available.
-	// TODO: Update this when an interface is defined between updog
-	// and dogswatch.
+	//
+	// TODO: Use richer interface data once provided by host integration.
 	updateEmitted := len(buf.String()) > 0
 	return updateEmitted, err
 }

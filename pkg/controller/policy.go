@@ -3,10 +3,10 @@ package controller
 import (
 	"fmt"
 
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/intent"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/internal/logfields"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/logging"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/marker"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/intent"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/internal/logfields"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/logging"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/marker"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"

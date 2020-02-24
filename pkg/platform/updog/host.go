@@ -1,6 +1,6 @@
 package updog
 
-import "github.com/amazonlinux/bottlerocket/dogswatch/pkg/platform"
+import "github.com/bottlerocket-os/bottlerocket-update-operator/pkg/platform"
 
 // Host is the integration for this platform and the host - this is a very light
 // mapping between the platform requirements and the implementation backing the
