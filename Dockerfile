@@ -10,7 +10,7 @@ RUN go mod download
 COPY . /go/src/github.com/bottlerocket-os/bottlerocket-update-operator/
 RUN make -e build GOBIN=/ CGO_ENABLED=0
 
-# Build minimal container with a static build of dogswatch.
+# Build minimal container with a static build of the update operator executable.
 FROM scratch as update-operator
 COPY --from=build /bottlerocket-update-operator /etc/ssl /
 ENTRYPOINT ["/bottlerocket-update-operator"]

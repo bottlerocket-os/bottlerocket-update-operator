@@ -1,6 +1,6 @@
-# Makefile - utility for dogswatch builds and development
+# Makefile - Bottlerocket Update Operator targets for build and development
 #
-# ecr_uri=$(aws ecr describe-repositories --repository dogswatch --query 'repositories[].repositoryUri' --output text)
+# ecr_uri=$(aws ecr describe-repositories --repository bottlerocket-os/bottlerocket-update-operator --query 'repositories[].repositoryUri' --output text)
 #
 # make container IMAGE_REPO_NAME="$ecr_uri"
 #
@@ -11,7 +11,7 @@ IMAGE_NAME = $(IMAGE_REPO_NAME)$(IMAGE_ARCH_SUFFIX):$(IMAGE_VERSION)$(addprefix 
 # could be an ECR Repository name or a Docker Hub name such as
 # `example-org/example-image`. If the repository includes the architecture name,
 # IMAGE_ARCH_SUFFIX must be overridden as needed.
-IMAGE_REPO_NAME = bottlerocket-os/$(notdir $(shell pwd -P))
+IMAGE_REPO_NAME = $(notdir $(shell pwd -P))
 # IMAGE_VERSION is the semver version that's tagged on the image.
 IMAGE_VERSION = $(shell cat VERSION)
 # SHORT_SHA is the revision that the container image was built with.
