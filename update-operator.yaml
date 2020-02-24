@@ -6,7 +6,7 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: bottlerocket-dogswatch-controller
+  name: bottlerocket-update-operator-controller
 rules:
   - apiGroups: [""]
     resources: ["nodes"]
@@ -19,20 +19,20 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: bottlerocket-dogswatch-controller
+  name: bottlerocket-update-operator-controller
 subjects:
   - kind: ServiceAccount
-    name: dogswatch-controller
+    name: update-operator-controller
     namespace: bottlerocket
 roleRef:
   kind: ClusterRole
-  name: bottlerocket-dogswatch-controller
+  name: bottlerocket-update-operator-controller
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: bottlerocket-dogswatch-agent
+  name: bottlerocket-update-operator-agent
 rules:
   - apiGroups: [""]
     resources: ["nodes"]
@@ -41,40 +41,39 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: bottlerocket-dogswatch-agent
+  name: bottlerocket-update-operator-agent
 subjects:
   - kind: ServiceAccount
-    name: dogswatch-agent
+    name: update-operator-agent
     namespace: bottlerocket
 roleRef:
   kind: ClusterRole
-  name: bottlerocket-dogswatch-agent
+  name: bottlerocket-update-operator-agent
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: dogswatch-controller
+  name: update-operator-controller
   namespace: bottlerocket
   annotations:
-    kubernetes.io/service-account.name: dogswatch-controller
+    kubernetes.io/service-account.name: update-operator-controller
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: dogswatch-agent
+  name: update-operator-agent
   namespace: bottlerocket
   annotations:
-    kubernetes.io/service-account.name: dogswatch-controller
+    kubernetes.io/service-account.name: update-operator-agent
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dogswatch-controller
+  name: update-operator-controller
   namespace: bottlerocket
   labels:
-    name: dogswatch-controller
-    app: dogswatch-controller
+    update-operator: controller
 spec:
   replicas: 1
   strategy:
@@ -82,21 +81,20 @@ spec:
       maxUnavailable: 100%
   selector:
     matchLabels:
-      app: dogswatch-controller
+      update-operator: controller
   template:
     metadata:
       namespace: bottlerocket
       labels:
-        name: dogswatch-controller
-        app: dogswatch-controller
+        update-operator: controller
     spec:
-      serviceAccountName: dogswatch-controller
+      serviceAccountName: update-operator-controller
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: bottlerocket.amazonaws.com/platform-version
+                  - key: bottlerocket.aws/platform-version
                     operator: Exists
                   - key: "kubernetes.io/os"
                     operator: In
@@ -106,19 +104,20 @@ spec:
                     operator: In
                     values:
                       - amd64
+        # Avoid update-operator's Agent Pods if possible.
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
             - weight: 10
               podAffinityTerm:
-                topologyKey: bottlerocket.amazonaws.com/platform-version
+                topologyKey: bottlerocket.aws/platform-version
                 labelSelector:
                   matchExpressions:
-                    - key: app
+                    - key: update-operator
                       operator: In
-                      values: ["dogswatch-agent"]
+                      values: ["agent"]
       containers:
-      - name: dogswatch
-        image: "328549459982.dkr.ecr.us-west-2.amazonaws.com/dogswatch:v0.1.1"
+      - name: controller
+        image: "328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-os/bottlerocket-update-operator:v0.1.1"
         imagePullPolicy: Always
         args:
           - -controller
@@ -134,27 +133,26 @@ spec:
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: dogswatch-agent
+  name: update-operator-agent
   namespace: bottlerocket
   labels:
-    dogswatch: agent
+    update-operator: agent
 spec:
   selector:
     matchLabels:
-      name: dogswatch-agent
+      update-operator: agent
   template:
     metadata:
       labels:
-        name: dogswatch-agent
-        app: dogswatch-agent
+        update-operator: agent
     spec:
-      serviceAccountName: dogswatch-agent
+      serviceAccountName: update-operator-agent
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: bottlerocket.amazonaws.com/platform-version
+                  - key: bottlerocket.aws/platform-version
                     operator: Exists
                   - key: "kubernetes.io/os"
                     operator: In
@@ -166,10 +164,10 @@ spec:
                       - amd64
       hostPID: true
       containers:
-        - name: dogswatch
-          image: "328549459982.dkr.ecr.us-west-2.amazonaws.com/dogswatch:v0.1.1"
+        - name: agent
+          image: "328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-os/bottlerocket-update-operator:v0.1.1"
           imagePullPolicy: Always
-          # XXX: tty required to exec binaries that use `simplelog` until #576 is resolved.
+          # XXX: tty required to exec binaries that use `simplelog` until https://github.com/bottlerocket-os/bottlerocket/issues/576 is resolved.
           tty: true
           args:
             - -agent
@@ -203,27 +201,26 @@ spec:
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: dogswatch-agent-arm64
+  name: update-operator-agent-arm64
   namespace: bottlerocket
   labels:
-    dogswatch: agent
+    update-operator: agent
 spec:
   selector:
     matchLabels:
-      name: dogswatch-agent
+      update-operator: agent
   template:
     metadata:
       labels:
-        name: dogswatch-agent
-        app: dogswatch-agent
+        update-operator: agent
     spec:
-      serviceAccountName: dogswatch-agent
+      serviceAccountName: update-operator-agent
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: bottlerocket.amazonaws.com/platform-version
+                  - key: bottlerocket.aws/platform-version
                     operator: Exists
                   - key: "kubernetes.io/os"
                     operator: In
@@ -235,10 +232,10 @@ spec:
                       - arm64
       hostPID: true
       containers:
-        - name: dogswatch
-          image: "328549459982.dkr.ecr.us-west-2.amazonaws.com/dogswatch-arm64:v0.1.1"
+        - name: agent
+          image: "328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-os/bottlerocket-update-operator-arm64:v0.1.1"
           imagePullPolicy: Always
-          # XXX: tty required to exec binaries that use `simplelog` until #576 is resolved.
+          # XXX: tty required to exec binaries that use `simplelog` until https://github.com/bottlerocket-os/bottlerocket/issues/576 is resolved.
           tty: true
           args:
             - -agent
