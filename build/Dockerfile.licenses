@@ -25,7 +25,11 @@ ARG SDK_IMAGE
 ARG GOLANG_IMAGE=golang:1.13
 
 # Fetch dependencies into a vendor/ directory.
+#
+# The first several steps should match that of the build's Dockerfile to share
+# the go module package cache.
 FROM $GOLANG_IMAGE as src
+USER root
 ENV GOPROXY=direct
 WORKDIR /src
 COPY go.mod go.sum /src/

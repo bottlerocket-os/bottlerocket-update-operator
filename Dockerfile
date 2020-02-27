@@ -4,6 +4,11 @@
 # and its dependencies. When building with `make container`, the licenses
 # container image is built and provided as LICENSE_IMAGE.
 ARG LICENSES_IMAGE=scratch
+
+# GOLANG_IMAGE is the go toolchain container image used to build the update
+# operator.
+ARG GOLANG_IMAGE=golang:1.13
+
 FROM $LICENSES_IMAGE as licenses
 # Set WORKDIR to create /licenses/ if the directory is missing.
 #
@@ -13,15 +18,15 @@ FROM $LICENSES_IMAGE as licenses
 # LICENSES_IMAGE.
 WORKDIR /licenses/
 
-ARG GOLANG_IMAGE_NAME=golang:1.13
-FROM $GOLANG_IMAGE_NAME as build
+FROM $GOLANG_IMAGE as build
+USER root
+ENV GOPROXY=direct
+WORKDIR /src
+COPY go.mod go.sum /src/
+RUN go mod download
 ARG GO_LDFLAGS=
 ARG GOARCH=
 ARG SHORT_SHA=
-ENV GOPROXY=direct
-COPY go.mod go.sum /src/
-WORKDIR /src/
-RUN go mod download
 COPY ./ /src/
 RUN make -e build GOBIN=/ CGO_ENABLED=0
 
