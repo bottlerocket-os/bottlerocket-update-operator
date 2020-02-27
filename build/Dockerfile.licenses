@@ -19,8 +19,13 @@
 #
 ARG SDK_IMAGE
 
+# GOLANG_IMAGE is the image to be used for collecting modules. This should be
+# the same image used in the build. The idea is to have the same toolchain to
+# avoid running into any differences between versions.
+ARG GOLANG_IMAGE=golang:1.13
+
 # Fetch dependencies into a vendor/ directory.
-FROM golang:1.13 as src
+FROM $GOLANG_IMAGE as src
 ENV GOPROXY=direct
 WORKDIR /src
 COPY go.mod go.sum /src/

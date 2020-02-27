@@ -73,25 +73,27 @@ test:
 container: licenses
 	docker build \
 		--network=host \
-		--build-arg GO_LDFLAGS \
-		--build-arg GOARCH \
-		--build-arg SHORT_SHA='$(SHORT_SHA)' \
-		--build-arg LICENSES_IMAGE=$(LICENSES_IMAGE) \
-		--target="update-operator" \
-		--tag $(IMAGE_NAME) \
+		--build-arg 'GO_LDFLAGS=$(GO_LDFLAGS)' \
+		--build-arg 'GOARCH=$(GOARCH)' \
+		--build-arg 'SHORT_SHA=$(SHORT_SHA)' \
+		--build-arg 'LICENSES_IMAGE=$(LICENSES_IMAGE)' \
+		--build-arg 'GOLANG_IMAGE=$(BUILDSYS_SDK_IMAGE)' \
+		--target='update-operator' \
+		--tag '$(IMAGE_NAME)' \
 		.
 
 # Build and test in a container.
 container-test: sdk-image licenses
 	docker build \
 		--network=host \
-		--build-arg GO_LDFLAGS='$(GO_LDFLAGS)' \
-		--build-arg GOARCH='$(GOARCH)' \
-		--build-arg SHORT_SHA='$(SHORT_SHA)' \
-		--build-arg NOCACHE='$(shell date +"%s")' \
-		--build-arg LICENSES_IMAGE=$(LICENSES_IMAGE) \
-		--target="test" \
-		--tag $(IMAGE_NAME)-test \
+		--build-arg 'GO_LDFLAGS=$(GO_LDFLAGS)' \
+		--build-arg 'GOARCH=$(GOARCH)' \
+		--build-arg 'SHORT_SHA=$(SHORT_SHA)' \
+		--build-arg 'NOCACHE=$(shell date +'%s')' \
+		--build-arg 'LICENSES_IMAGE=$(LICENSES_IMAGE)' \
+		--build-arg 'GOLANG_IMAGE=$(BUILDSYS_SDK_IMAGE)' \
+		--target='test' \
+		--tag '$(IMAGE_NAME)-test' \
 		.
 
 # Build container image with debug-configured daemon.
@@ -205,5 +207,6 @@ licenses: sdk-image go.mod go.sum
 	docker build \
 		--network=host \
 		--build-arg SDK_IMAGE=$(BUILDSYS_SDK_IMAGE) \
+		--build-arg GOLANG_IMAGE=$(BUILDSYS_SDK_IMAGE) \
 		-t $(LICENSES_IMAGE) \
 		-f build/Dockerfile.licenses .
