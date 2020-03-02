@@ -4,16 +4,16 @@ ARG GO_LDFLAGS=
 ARG GOARCH=
 ARG SHORT_SHA=
 ENV GOPROXY=direct
-COPY go.mod go.sum /go/src/github.com/amazonlinux/bottlerocket/dogswatch/
-WORKDIR /go/src/github.com/amazonlinux/bottlerocket/dogswatch
+COPY go.mod go.sum /go/src/github.com/bottlerocket-os/bottlerocket-update-operator/
+WORKDIR /go/src/github.com/bottlerocket-os/bottlerocket-update-operator
 RUN go mod download
-COPY . /go/src/github.com/amazonlinux/bottlerocket/dogswatch/
+COPY . /go/src/github.com/bottlerocket-os/bottlerocket-update-operator/
 RUN make -e build GOBIN=/ CGO_ENABLED=0
 
-# Build minimal container with a static build of dogswatch.
-FROM scratch as dogswatch
-COPY --from=build /dogswatch /etc/ssl /
-ENTRYPOINT ["/dogswatch"]
+# Build minimal container with a static build of the update operator executable.
+FROM scratch as update-operator
+COPY --from=build /bottlerocket-update-operator /etc/ssl /
+ENTRYPOINT ["/bottlerocket-update-operator"]
 CMD ["-help"]
 
 FROM build as test
@@ -22,4 +22,4 @@ ARG NOCACHE=
 RUN make -e test
 
 # Make container the output of a plain 'docker build'.
-FROM dogswatch
+FROM update-operator

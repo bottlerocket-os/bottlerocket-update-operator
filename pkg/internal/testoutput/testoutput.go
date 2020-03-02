@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/logging"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/logging"
 	"github.com/sirupsen/logrus"
 )
 

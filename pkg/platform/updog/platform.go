@@ -1,8 +1,8 @@
 package updog
 
 import (
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/logging"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/platform"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/logging"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/platform"
 	"github.com/pkg/errors"
 )
 

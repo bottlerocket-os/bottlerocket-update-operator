@@ -1,108 +1,113 @@
-# Dogswatch: Update Operator
+# Bottlerocket Update Operator
 
-Dogswatch is a [Kubernetes operator](https://Kubernetes.io/docs/concepts/extend-Kubernetes/operator/) that coordinates update activities on Bottlerocket hosts in a Kubernetes cluster.
+The Bottlerocket update operator is a [Kubernetes operator](https://Kubernetes.io/docs/concepts/extend-Kubernetes/operator/) that coordinates Bottlerocket updates on hosts in a cluster.
 
 ## How to Run on Kubernetes
 
+To run the update operator in a Kubernetes cluster, the following are required resources and configuration ([suggested deployment is defined in `update-operator.yaml`](./update-operator.yaml)):
 
-To run the Dogswatch Operator in a Kubernetes cluster, the following are required resources and configuration ([suggested deployment is defined in `dogswatch.yaml`](./dogswatch.yaml)):
-
-- **Operator's Container Image**
+- **Update operator's container image**
 
   Holding the Operator's binaries and supporting environment (CA certificates).
 
-- **Controller Deployment**
+- **Controller deployment**
 
-  Scheduling a stop-restart-tolerant Controller process on available Nodes.
+  Schedules a stop-restart-tolerant controller process on available nodes.
 
-- **Agent DaemonSet**
+- **Agent daemon set**
 
-  Scheduling Agent on Bottlerocket hosts
+  Schedules agent on Bottlerocket hosts
 
-- **Bottlerocket Namespace**
+- **Bottlerocket namespace**
 
-  Grouping Bottlerocket related resources and roles.
+  Groups Bottlerocket related resources and roles.
 
-- **Service Account for the Agent**
+- **Service account for the agent**
 
-  Configured for authenticating the Agent process on Kubernetes APIs.
+  Used for authenticating the agent process on Kubernetes APIs.
 
-- **Cluster privileged credentials with read-write access to Nodes for Agent**
+- **Cluster privileged credentials with read-write access to nodes for the agent**
 
-  Applied to Agent Service Account to update annotations on the Node resource that the Agent is running under.
+  Grants the agent's service account permissions to update annotations for its node.
 
-- **Service Account for the Controller**
+- **Service account for the controller**
 
-  Configured for authenticating the Controller process on Kubernetes APIs.
+  Used for authenticating the controller process on Kubernetes APIs.
 
-- **Cluster privileged credentials with access to Pods and Nodes for Controller**
+- **Cluster privileged credentials with access to pods and nodes for controller**
 
-  Applied to the Controller Service Account for manipulating annotations on Node resources as well as cordon & uncordoning for updates.
-  The Controller also must be able to un-schedule (`delete`) Pods running on Nodes that will be updated.
+  Grants the controller's service account permissions to update annotations and manage pods that are scheduled on nodes (to cordon & drain) before and after updating.
 
-Cluster administrators can deploy dogswatch with [suggested configuration defined here](./dogswatch.yaml) - this includes the above resources and Bottlerocket published container images.
-The dogswatch deployment can be applied to a cluster by calling `kubectl apply -f ./dogswatch.yaml` with an appropriately configured `kubectl` client for the target cluster.
+Cluster administrators can deploy the update operator with [suggested configuration defined here](./update-operator.yaml) - this includes the above resources and Bottlerocket published container images.
+With `kubectl` configured for the desired cluster, the suggested deployment can made with:
+  
+``` sh
+kubectl apply -f ./update-operator.yaml`
+```
 
-Once resources are in place one last step is required to let the Kubernetes schedule place the required Pods.
-The deployments control scheduling of the dogswatch pods by limiting Pods to appropriate Bottlerocket hosts using labels.
-For now, these labels are not applied automatically at boot and will need to be set on each Node resource using a tool like `kubectl`.
+Once the deployment's resources are in place, there is one more step needed to schedule and place the required pods on Bottlerocket nodes.
+By default - in the suggested deployment, each Workload resource constrains scheduling of the update operator by limiting pods to Bottlerocket nodes based on their labels.
+These labels are not applied on nodes automatically and will need to be set on each using `kubectl`.
+Deployments match on `bottlerocket.aws/platform-version` (a host compatibility label) to determine which pod to schedule.
 
-Each Node that is running Bottlerocket must be labeled with the Node's `platform-version` (a host compatibility indicator) in order to have `dogswatch` Pods scheduled on them, the label `bottlerocket.amazonaws.com/platform-version` is used for this:
+For the `1.0.0` `platform-version`, this label looks like:
 
 ``` text
-bottlerocket.amazonaws.com/platform-version=1.0.0
+bottlerocket.aws/platform-version=1.0.0
 ```
 
-`kubectl` may be used to set this label on a Node:
+`kubectl` can be used to set this label on a node in the cluster:
 
 ``` sh
-: kubectl label node $NODE_NAME bottlerocket.amazonaws.com/platform-version=1.0.0
+kubectl label node $NODE_NAME bottlerocket.aws/platform-version=1.0.0
 ```
 
-If all Nodes in the cluster are running Bottlerocket, they can all be labeled at the same time with a single command:
+If all nodes in the cluster are running Bottlerocket and have the same `platform-version`, all can be labeled at the same time:
 
 ``` sh
-: kubectl label node $(kubectl get nodes -o jsonpath='{.items[*].metadata.name}') bottlerocket.amazonaws.com/platform-version=1.0.0
+kubectl label node $(kubectl get nodes -o jsonpath='{.items[*].metadata.name}') bottlerocket.aws/platform-version=1.0.0
 ```
 
-In the [development example deployment](./dev/deployment.yaml) the resources specify conditions that the Kubernetes Schedulers uses to place Pods in the Cluster.
-These conditions, among others, include a constraint on each Node being labeled as having support for the Operator to function on it: the `bottlerocket.amazonaws.com/platform-version` label.
-With this label present and the workloads scheduled, the Agent and Controller process will coordinate an update as soon as the Agent annotates its Node (by default only one update will happen at a time).
+Each workload resource may have additional constraints or scheduling affinities based on each node's labels in addition to the `bottlerocket.aws/platform-version` label scheduling constraint.
 
-To use the [suggested deployment](./dogswatch.yaml) or [development deployment](./dev/deployment.yaml) as a base, any customized resources must be updated to use a customized container image to run.
-Then with the configured deployment, use `kubelet apply -f $UPDATED_DEPLOYMENT.yaml` to prepare the above resources and schedule the Dogswatch Pods in a Cluster.
+Customized deployments may use the [suggested deployment](./update-operator.yaml) or the [example development deployment](./dev/deployment.yaml) as a starting point, with customized container images specified if needed.
 
-## What Makes Up Dogswatch
+## Scheduled Components
 
-Dogswatch is made up of two distinct processes, one of which runs on each host.
+The update operator system is deployed as set of a replica set (for the controller) and a daemon set (for the agent). 
+Each runs their respective process configured as either a `-controller` or an `-agent`:
 
-- `dogswatch -controller`
+- `bottlerocket-update-operator -controller`
 
   The coordinating process responsible for the handling update of Bottlerocket nodes
   cooperatively with the cluster's workloads.
 
-- `dogswatch -agent`
+- `bottlerocket-update-operator -agent`
 
   The on-host process responsible for publishing update metadata and executing
   update activities.
 
-## How It Coordinates
+## Coordination
 
-The Dogswatch processes communicate by applying updates to the Kubernetes Node resources' Annotations.
-The Annotations are used to communicate the Agent activity (called an `intent`) as determined by the Controller process, the current Agent activity in response to the intent, and the Host's update status
-as known by the Agent process.
+The update operator controller and agent processes communicate by updating the node's annotations as the node steps through an update.
+The node's annotations are used to communicate an `intent` which acts as a goal or target that is set by the controller.
+The controller uses internal policy checks to manage which `intent` should be communicated to an agent.
+This allows the controller to fully own and coordinate each step taken by agents throughout its cluster.
+No agent process will otherwise take any disruptive or intrusive action without being directed by the controller to do so (in fact the agent is limited to periodic metadata updates *only*).
 
-The Agent and Controller processes listen to an event stream from the Kubernetes cluster in order to quickly and reliably handle communicated `intent` in addition to updated metadata pertinent to updates and the Operator itself.
+To handle and respond to `intent`s, the agent and controller processes subscribe to Kubernetes' node resource update events.
+These events are emitted whenever update is made on the subscribed to resource, including: heartbeats, other node status changes (pods, container image listing), and metadata changes (labels and annotations).
 
-### Observing Progress and State
 
-The Update Operator can be closely monitored through the labels and annotations assigned to Node resources.
+### Observing State
+
+The update operator's state can be closely monitored through the labels and annotations on node resources.
 The state and pending activity are updated as progress is being made.
 The following command requires `kubectl` to be configured for the development cluster to be monitored and `jq` to be available on `$PATH`.
 
 ``` sh
 kubectl get nodes -o json \
-  | jq -C -S '.items | map(.metadata|{(.name): (.annotations*.labels|to_entries|map(select(.key|startswith("bottlerocket")))|from_entries)}) | add'
+  | jq -C -S '.items | map(.metadata|{(.name): (.annotations*.labels|to_entries|map(select(.key|startswith("bottlerocket.aws")))|from_entries)}) | add'
 ```
 
 There is a `get-nodes-status` `Makefile` target provided for monitoring nodes during development.
@@ -118,43 +123,44 @@ watch -- make get-nodes-status
 
 ### Current Limitations
 
-- Pod replication & healthy count is not taken into consideration (https://github.com/bottlerocket-os/bottlerocket/issues/502)
-- Nodes update without pause between each Node (https://github.com/bottlerocket-os/bottlerocket/issues/503)
-- Single Node cluster degrades into unscheduleable on update (https://github.com/bottlerocket-os/bottlerocket/issues/501)
-- Node labels are not automatically applied to allow scheduling (https://github.com/bottlerocket-os/bottlerocket/issues/504)
+- pod replication & healthy count is not taken into consideration (https://github.com/bottlerocket-os/bottlerocket/issues/502)
+- nodes update without pause between each node (https://github.com/bottlerocket-os/bottlerocket/issues/503)
+- single node cluster degrades into unscheduleable on update (https://github.com/bottlerocket-os/bottlerocket/issues/501)
+- node labels are not automatically applied to allow scheduling (https://github.com/bottlerocket-os/bottlerocket/issues/504)
 
-## How to Contribute and Develop Changes for Dogswatch
+## How to Contribute and Develop Changes
 
-Working on Dogswatch requires a fully configured, working Kubernetes cluster.
-For the sake of development workflow, we suggest using a cluster that is containerized or virtualized - tools to manage these are available: [`kind`](https://github.com/Kubernetes-sigs/kind) (containerized) and [`minikube`](https://github.com/Kubernetes/minikube) (virtualized).
+Working on the update operator requires a fully configured & working Kubernetes cluster.
+For the sake of development workflow, we suggest using a cluster that is containerized or virtualized.
+There are helpful tools available to manage these: [`kind`](https://github.com/Kubernetes-sigs/kind) for containerized clusters and [`minikube`](https://github.com/Kubernetes/minikube) for locally virtualized clusters.
 The `dev/` directory contains several resources that may be used for development and debugging purposes:
 
-- `dashboard.yaml` - A **development environment** set of Kubernetes resources (these use insecure settings and *are not suitable for use in Production*!)
-- `deployment.yaml` - A _template_ for Kubernetes resources for Dogswatch that schedule a controller and setup a DaemonSet
-- `kind-cluster.yml` - A `kind` Cluster definition that may be used to stand up a local development cluster
+- `dashboard.yaml` - **development** dashboard deployment (**using insecure settings, not a suitable production deployment**)
+- `deployment.yaml` - _template_ for Kubernetes resources that schedule a controller's `ReplicaSet` and agent's `DaemonSet`
+- `kind-cluster.yml` - `kind` cluster definition that may be used to stand up a local development cluster
 
-Much of the development workflow can be accommodated by the `Makefile` provided alongside the code.
-Each of these targets utilize tools and environments they're configured to access - for example: `kubectl`, as configured on a host, will be used.
-If `kubectl` is configured to configured with access to production, please ensure take steps to reconfigure `kubectl` to affect only a development cluster.
+Much of the development workflow can be driven by the `Makefile` in the root of the repository.
+Each of the `Makefile`'s' targets use tools and environments that they're configured to access - for example: `kubectl`, as configured on a host, will be used.
+If `kubectl` is configured to configured with access to production, please take steps to configure `kubectl` to target a development cluster.
 
 **Build targets**
 
 - `build` - build executable using go toolchain in `$PATH`
-- `test` - run `go test` for the Operator using go toolchain in `$PATH`
+- `test` - run `go test` for the operator using go toolchain in `$PATH`
 - `container` - build a container image for use in Kubernetes resources
-- `container-test` - run Operator's unit tests in a container
+- `container-test` - run update operator's unit tests in a container
 - `check` - run checks for container image
-- `dist` - create a distributable archive of the container image
+- `dist` - create a distribution archive of the container image
 - `clean` - remove cached build artifacts from workspace
 
 **Development targets**
 
-- `dashboard` - create or update Kubernetes-dashboard (*not suitable for use in Production*)
-- `deploy-dev` - create or update the Operator's Kubernetes resources
-- `rollout` - reload and restart the Operator's Pods
+- `dashboard` - create or update Kubernetes-dashboard (**not suitable for use in production**)
+- `deploy-dev` - create or update the operator's Kubernetes resources
+- `rollout` - reload and restart the operator's pods
 
 **`kind` development targets**
 
 - `kind-cluster` - create a local [`kind`](https://github.com/Kubernetes-sigs/kind) cluster
 - `kind-load` - build and load container image for use in a `kind` cluster
-- `kind-rollout` - reload container image & config, then restart Pods
+- `kind-rollout` - reload container image & config, then restart pods

@@ -3,7 +3,7 @@ package nodestream
 import (
 	"context"
 
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/logging"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/logging"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"

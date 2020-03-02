@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/intent"
-	intentcache "github.com/amazonlinux/bottlerocket/dogswatch/pkg/intent/cache"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/internal/logfields"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/logging"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/marker"
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/nodestream"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/intent"
+	intentcache "github.com/bottlerocket-os/bottlerocket-update-operator/pkg/intent/cache"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/internal/logfields"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/logging"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/marker"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/nodestream"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"

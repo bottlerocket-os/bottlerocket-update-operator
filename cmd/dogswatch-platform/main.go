@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/marker"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/marker"
 )
 
 func main() {

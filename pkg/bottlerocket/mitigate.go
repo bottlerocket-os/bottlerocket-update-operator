@@ -1,7 +1,7 @@
 package bottlerocket
 
 import (
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/logging"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/logging"
 	"github.com/pkg/errors"
 )
 
@@ -9,7 +9,7 @@ var mitigations = []mitigation{
 	&containerdDropIn{},
 }
 
-// mitigation applies a change, if needed, to permit dogswatch operation.
+// mitigation applies a change, if needed, to permit updates.
 type mitigation interface {
 	Name() string
 	Check(logging.SubLogger) (bool, error)

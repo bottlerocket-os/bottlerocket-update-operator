@@ -1,7 +1,7 @@
 package logfields
 
 import (
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/intent"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/intent"
 
 	"github.com/sirupsen/logrus"
 )

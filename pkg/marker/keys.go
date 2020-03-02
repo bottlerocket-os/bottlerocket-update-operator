@@ -4,7 +4,7 @@ type Key = string
 
 const (
 	// Prefix is the common base for Bottlerocket's related annotations.
-	Prefix = "bottlerocket.amazonaws.com"
+	Prefix = "bottlerocket.aws"
 
 	// NodeSelectorLabel is used to identify controlled nodes in Kubernetes
 	// selectors.

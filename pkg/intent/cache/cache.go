@@ -3,7 +3,7 @@ package cache
 import (
 	"time"
 
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/intent"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/intent"
 
 	"github.com/karlseguin/ccache"
 )

@@ -1,4 +1,4 @@
-module github.com/amazonlinux/bottlerocket/dogswatch
+module github.com/bottlerocket-os/bottlerocket-update-operator
 
 go 1.12
 

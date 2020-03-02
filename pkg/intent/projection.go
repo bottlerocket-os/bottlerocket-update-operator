@@ -1,7 +1,7 @@
 package intent
 
 import (
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/marker"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/marker"
 	"github.com/pkg/errors"
 )
 

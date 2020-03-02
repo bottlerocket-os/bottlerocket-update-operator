@@ -3,7 +3,7 @@ package nodestream
 import (
 	"time"
 
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/marker"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/marker"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

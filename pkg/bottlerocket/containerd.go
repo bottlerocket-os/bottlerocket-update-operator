@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/amazonlinux/bottlerocket/dogswatch/pkg/logging"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/logging"
 	systemd "github.com/coreos/go-systemd/v22/dbus"
 	"github.com/coreos/go-systemd/v22/unit"
 	dbus "github.com/godbus/dbus/v5"
