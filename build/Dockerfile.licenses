@@ -1,0 +1,45 @@
+# This Dockerfile produces an image that has only the licenses of dependencies
+# used in the update operator. These are collected by bottlerocket-license-scan
+# and organized into a project-wide conventional directory structure rooted at
+# /licenses in the resulting image.
+
+# SDK_IMAGE is the Bottlerocket SDK container image that provides
+# `bottlerocket-license-scan`.
+#
+# Generally, this will track the value of BUILDSYS_SDK_IMAGE provided in
+# Bottlerocket's Makefile.toml:
+#
+# https://github.com/bottlerocket-os/bottlerocket/blob/develop/Makefile.toml
+#
+# For example, see this line in Makefile.toml:
+#
+# https://github.com/bottlerocket-os/bottlerocket/blob/a1d098dcd9908e3db1dc290ed9dad53e6f8fe44c/Makefile.toml#L31
+#
+ARG SDK_IMAGE
+
+# Fetch dependencies into a vendor/ directory.
+FROM golang:1.13 as src
+ENV GOPROXY=direct
+WORKDIR /src
+COPY go.mod go.sum /src/
+RUN go mod download
+# Unpack go modules into a vendor/ directory to run scanner on.
+COPY ./ /src/
+RUN go mod vendor
+
+# Run the license scanner and dump its processed & collected license data to be
+# used in distributed container image.
+FROM $SDK_IMAGE as license-scan
+COPY --from=src /src/vendor /src/vendor
+COPY --from=src /src/clarify.toml /src/clarify.toml
+USER root
+RUN bottlerocket-license-scan \
+    --spdx-data /usr/libexec/tools/spdx-data \
+    --out-dir /out/licenses \
+    --clarify /src/clarify.toml \
+    go-vendor /src/vendor
+
+# Final container image has LICENSE files and accompanying attributions
+# collected and produced by the license scanner.
+FROM scratch as licenses
+COPY --from=license-scan /out/licenses /licenses
