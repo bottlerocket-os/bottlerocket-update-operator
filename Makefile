@@ -195,11 +195,12 @@ sdk-image:
 	docker inspect $(BUILDSYS_SDK_IMAGE) 2>&1 >/dev/null \
 		|| curl -# -qL $(BUILDSYS_SDK_IMAGE_URL) | docker load -i /dev/stdin
 
-# licenses builds a container image with the LICENSE & legal files from source
-# and its dependencies.
+# licenses builds a container image with the LICENSE & legal files from the
+# source's dependencies. This image is consumed during build (see `container`)
+# to COPY the result into the distributed container image.
 #
-# These files are collected using the Go toolchain and license scanner in the
-# bottlerocket SDK image.
+# Dependencies are walked using the Go toolchain and then processed with the
+# project's license scanner, which is built into the bottlerocket SDK image.
 licenses: sdk-image go.mod go.sum
 	docker build \
 		--network=host \

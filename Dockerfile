@@ -24,9 +24,13 @@ RUN go mod download
 COPY ./ /src/
 RUN make -e build GOBIN=/ CGO_ENABLED=0
 
+# This stage provides certificates (to be copied) from Amazon Linux 2.
+FROM amazonlinux:2 as al2
+
 # Build minimal container with a static build of the update operator executable.
 FROM scratch as update-operator
-COPY --from=build /etc/ssl /etc/ssl
+COPY --from=al2 /etc/ssl /etc/ssl
+COPY --from=al2 /etc/pki /etc/pki
 COPY --from=build /src/COPYRIGHT /src/LICENSE-* /usr/share/licenses/bottlerocket-update-operator/
 COPY --from=licenses /licenses/ /usr/share/licenses/bottlerocket-update-operator/vendor/
 COPY --from=build /bottlerocket-update-operator /

@@ -1,10 +1,12 @@
 # This Dockerfile produces an image that has only the licenses of dependencies
-# used in the update operator. These are collected by bottlerocket-license-scan
-# and organized into a project-wide conventional directory structure rooted at
+# used in the update operator.
+#
+# LICENSE, and other legal notices, are collected by bottlerocket-license-scan
+# to be organized into a project-wide conventional directory structure rooted at
 # /licenses in the resulting image.
 
 # SDK_IMAGE is the Bottlerocket SDK container image that provides
-# `bottlerocket-license-scan`.
+# `bottlerocket-license-scan` in it.
 #
 # Generally, this will track the value of BUILDSYS_SDK_IMAGE provided in
 # Bottlerocket's Makefile.toml:
