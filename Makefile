@@ -159,4 +159,4 @@ unsafe-dashboard:
 
 # Print the Node operational management status.
 get-nodes-status:
-	kubectl get nodes -o json | jq -C -S '.items | map(.metadata|{(.name): (.annotations*.labels|to_entries|map(select(.key|startswith("bottlerocket")))|from_entries)}) | add'
+	kubectl get nodes -o json | jq -C -S '.items | map(.metadata|{(.name): (.annotations|to_entries|map(select(.key|startswith("bottlerocket")))|from_entries)}) | add'
