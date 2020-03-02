@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/agent"
-	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/bottlerocket"
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/controller"
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/k8sutil"
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/logging"
@@ -19,11 +18,10 @@ import (
 )
 
 var (
-	flagAgent          = flag.Bool("agent", false, "Run agent component")
-	flagController     = flag.Bool("controller", false, "Run controller component")
-	flagSkipMitigation = flag.Bool("skip-mitigation", false, "Skip applying mitigations")
-	flagLogDebug       = flag.Bool("debug", false, "")
-	flagNodeName       = flag.String("nodeName", "", "nodeName of the Node that this process is running on")
+	flagAgent      = flag.Bool("agent", false, "Run agent component")
+	flagController = flag.Bool("controller", false, "Run controller component")
+	flagLogDebug   = flag.Bool("debug", false, "")
+	flagNodeName   = flag.String("nodeName", "", "nodeName of the Node that this process is running on")
 )
 
 func main() {
@@ -72,13 +70,6 @@ func main() {
 			log.WithError(err).Fatalf("controller stopped")
 		}
 	case *flagAgent:
-		if !*flagSkipMitigation {
-			log.Info("checking for necessary mitigations")
-			err := bottlerocket.ApplyMitigations()
-			if err != nil {
-				log.WithError(err).Fatalf("unable to perform mitigations")
-			}
-		}
 		err = runAgent(ctx, kube, *flagNodeName)
 		if err != nil {
 			log.WithError(err).Fatalf("agent stopped")
