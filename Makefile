@@ -42,7 +42,7 @@ export DOCKER_BUILDKIT = 1
 
 # Go compliation specific to selected build and target system architecture.
 GOPKG = github.com/bottlerocket-os/bottlerocket-update-operator
-GOPKGS = $(GOPKG) $(GOPKG)/pkg/... $(GOPKG)/cmd/...
+GOPKGS = $(GOPKG) $(GOPKG)/pkg/...
 export GOBIN = $(shell pwd -P)/bin
 export GOARCH = $(ARCH)
 
@@ -53,7 +53,7 @@ all: build test container check
 
 # Build the daemon and tools into GOBIN
 build:
-	go install -v $(GOPKG) $(GOPKG)/cmd/...
+	go install -v $(GOPKG)
 
 # Run Go tests for daemon and tools.
 #
