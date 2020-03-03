@@ -42,7 +42,7 @@ Cluster administrators can deploy the update operator with [suggested configurat
 With `kubectl` configured for the desired cluster, the suggested deployment can made with:
   
 ``` sh
-kubectl apply -f ./update-operator.yaml`
+kubectl apply -f ./update-operator.yaml
 ```
 
 Once the deployment's resources are in place, there is one more step needed to schedule and place the required pods on Bottlerocket nodes.
