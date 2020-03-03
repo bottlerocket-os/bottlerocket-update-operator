@@ -117,7 +117,7 @@ spec:
                       values: ["agent"]
       containers:
       - name: controller
-        image: "328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-os/bottlerocket-update-operator:v0.1.1"
+        image: "328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-update-operator:v0.1.2"
         imagePullPolicy: Always
         args:
           - -controller
@@ -165,7 +165,7 @@ spec:
       hostPID: true
       containers:
         - name: agent
-          image: "328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-os/bottlerocket-update-operator:v0.1.1"
+          image: "328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-update-operator:v0.1.2"
           imagePullPolicy: Always
           # XXX: tty required to exec binaries that use `simplelog` until https://github.com/bottlerocket-os/bottlerocket/issues/576 is resolved.
           tty: true
@@ -196,72 +196,3 @@ spec:
           hostPath:
             path: /
             type: Directory
-
----
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: update-operator-agent-arm64
-  namespace: bottlerocket
-  labels:
-    update-operator: agent
-spec:
-  selector:
-    matchLabels:
-      update-operator: agent
-  template:
-    metadata:
-      labels:
-        update-operator: agent
-    spec:
-      serviceAccountName: update-operator-agent
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: bottlerocket.aws/platform-version
-                    operator: Exists
-                  - key: "kubernetes.io/os"
-                    operator: In
-                    values:
-                      - linux
-                  - key: "kubernetes.io/arch"
-                    operator: In
-                    values:
-                      - arm64
-      hostPID: true
-      containers:
-        - name: agent
-          image: "328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-os/bottlerocket-update-operator-arm64:v0.1.1"
-          imagePullPolicy: Always
-          # XXX: tty required to exec binaries that use `simplelog` until https://github.com/bottlerocket-os/bottlerocket/issues/576 is resolved.
-          tty: true
-          args:
-            - -agent
-            - -debug
-            - -nodeName
-            - $(NODE_NAME)
-          env:
-            - name: NODE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
-          securityContext:
-            # Required for executing OS update operations.
-            privileged: true
-          resources:
-            limits:
-              memory: 600Mi
-            requests:
-              cpu: 100m
-              memory: 600Mi
-          volumeMounts:
-            - name: rootfs
-              mountPath: /.bottlerocket/rootfs
-      volumes:
-        - name: rootfs
-          hostPath:
-            path: /
-            type: Directory
-
