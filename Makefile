@@ -1,9 +1,11 @@
-# Makefile - Bottlerocket Update Operator targets for build and development
+# Makefile - Bottlerocket update operator build and development targets
 #
 # ecr_uri=$(aws ecr describe-repositories --repository bottlerocket-os/bottlerocket-update-operator --query 'repositories[].repositoryUri' --output text)
 #
 # make container IMAGE_REPO_NAME="$ecr_uri"
-#
+
+# SHELL is set as bash to use some bashisms.
+SHELL = bash
 # IMAGE_NAME is the full name of the container image being built. This may be
 # specified to fully control the name of the container image's tag.
 IMAGE_NAME = $(IMAGE_REPO_NAME)$(IMAGE_ARCH_SUFFIX):$(IMAGE_VERSION)$(addprefix -,$(SHORT_SHA))
@@ -19,6 +21,11 @@ SHORT_SHA = $(shell git describe --abbrev=8 --always --dirty='-dev' --exclude '*
 # IMAGE_ARCH_SUFFIX is the runtime architecture designator for the container
 # image, it is appended to the IMAGE_NAME unless the name is specified.
 IMAGE_ARCH_SUFFIX = $(addprefix -,$(ARCH))
+# BUILDSYS_SDK_IMAGE is the Bottlerocket SDK image used for license scanning.
+BUILDSYS_SDK_IMAGE ?= bottlerocket/sdk-x86_64:v0.8
+# LICENSES_IMAGE_NAME is the name of the container image that has LICENSE files
+# for distribution.
+LICENSES_IMAGE = $(IMAGE_NAME)-licenses
 # DESTDIR is where the release artifacts will be written.
 DESTDIR = .
 # DISTFILE is the path to the dist target's output file - the container image
@@ -35,8 +42,6 @@ ARCH = $(lastword $(subst :, ,$(filter $(UNAME_ARCH):%,x86_64:amd64 aarch64:arm6
 # DOCKER_ARCH is the docker specific architecture specifier used for building on
 # multiarch container images.
 DOCKER_ARCH = $(lastword $(subst :, ,$(filter $(ARCH):%,amd64:amd64 arm64:arm64v8)))
-# Build container images using BuildKit strategy.
-export DOCKER_BUILDKIT = 1
 
 .PHONY: all build check
 
@@ -65,24 +70,26 @@ test:
 	go test -race -ldflags '$(GO_LDFLAGS)' $(GOPKGS)
 
 # Build a container image for daemon and tools.
-container:
+container: licenses
 	docker build \
 		--network=host \
 		--build-arg GO_LDFLAGS \
 		--build-arg GOARCH \
 		--build-arg SHORT_SHA='$(SHORT_SHA)' \
+		--build-arg LICENSES_IMAGE=$(LICENSES_IMAGE) \
 		--target="update-operator" \
 		--tag $(IMAGE_NAME) \
 		.
 
 # Build and test in a container.
-container-test:
+container-test: sdk-image licenses
 	docker build \
 		--network=host \
 		--build-arg GO_LDFLAGS='$(GO_LDFLAGS)' \
 		--build-arg GOARCH='$(GOARCH)' \
 		--build-arg SHORT_SHA='$(SHORT_SHA)' \
 		--build-arg NOCACHE='$(shell date +"%s")' \
+		--build-arg LICENSES_IMAGE=$(LICENSES_IMAGE) \
 		--target="test" \
 		--tag $(IMAGE_NAME)-test \
 		.
@@ -98,13 +105,33 @@ dist: container check
 	docker save $(IMAGE_NAME) | gzip > '$(DISTFILE)'
 
 # Run checks on the container image.
-check: check-executable
+check: check-executable check-licenses
 
 # Check that the container's executable works.
 check-executable:
 	@echo "Running check: $@"
+	@echo "Checking if the container image's ENTRYPOINT is executable..."
 	docker run --rm $(IMAGE_NAME) -help 2>&1 \
 		| grep -q '/bottlerocket-update-operator'
+
+# Check that the container has LICENSE files included for its dependencies.
+check-licenses: CONTAINER_HASH=$(shell echo "$(LICENSES_IMAGE_NAME)$$(pwd -P)" | sha256sum - | awk '{print $$1}' | head -c 16)
+check-licenses: CHECK_CONTAINER_NAME=check-licenses-$(CONTAINER_HASH)
+check-licenses:
+	@echo "Running check: $@"
+	@-if docker inspect $(CHECK_CONTAINER_NAME) &>/dev/null; then\
+		docker rm $(CHECK_CONTAINER_NAME) &>/dev/null; \
+	fi
+	@docker create --name $(CHECK_CONTAINER_NAME) $(IMAGE_NAME) >/dev/null
+	@echo "Checking if container image included dependencies' LICENSE files..."
+	@docker export $(CHECK_CONTAINER_NAME) | tar -tf - \
+		| grep usr/share/licenses/bottlerocket-update-operator/vendor \
+		| grep -q LICENSE || { \
+			echo "Container image is missing required LICENSE files (checked $(IMAGE_NAME))"; \
+			docker rm $(CHECK_CONTAINER_NAME) &>/dev/null; \
+			exit 1; \
+		}
+	@-docker rm $(CHECK_CONTAINER_NAME) &>/dev/null
 
 # Clean the build artifacts on disk.
 clean:
@@ -160,3 +187,23 @@ unsafe-dashboard:
 # Print the Node operational management status.
 get-nodes-status:
 	kubectl get nodes -o json | jq -C -S '.items | map(.metadata|{(.name): (.annotations|to_entries|map(select(.key|startswith("bottlerocket")))|from_entries)}) | add'
+
+# sdk-image fetches and loads the bottlerocket SDK container image for build and
+# license collection.
+sdk-image: BUILDSYS_SDK_IMAGE_URL=https://cache.bottlerocket.aws/$(BUILDSYS_SDK_IMAGE).tar.gz
+sdk-image:
+	docker inspect $(BUILDSYS_SDK_IMAGE) 2>&1 >/dev/null \
+		|| curl -# -qL $(BUILDSYS_SDK_IMAGE_URL) | docker load -i /dev/stdin
+
+# licenses builds a container image with the LICENSE & legal files from the
+# source's dependencies. This image is consumed during build (see `container`)
+# to COPY the result into the distributed container image.
+#
+# Dependencies are walked using the Go toolchain and then processed with the
+# project's license scanner, which is built into the bottlerocket SDK image.
+licenses: sdk-image go.mod go.sum
+	docker build \
+		--network=host \
+		--build-arg SDK_IMAGE=$(BUILDSYS_SDK_IMAGE) \
+		-t $(LICENSES_IMAGE) \
+		-f build/Dockerfile.licenses .
