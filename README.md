@@ -118,7 +118,7 @@ Note: the same dependencies and assumptions for the above command apply here.
 make get-nodes-status
 
 # or periodically (handy for watching closely):
-watch -- make get-nodes-status
+watch -c -- make get-nodes-status
 ```
 
 ### Current Limitations
