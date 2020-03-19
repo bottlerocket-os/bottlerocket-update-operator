@@ -94,7 +94,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: bottlerocket.aws/platform-version
+                  - key: bottlerocket.aws/updater-interface-version
                     operator: Exists
                   - key: "kubernetes.io/os"
                     operator: In
@@ -109,7 +109,7 @@ spec:
           preferredDuringSchedulingIgnoredDuringExecution:
             - weight: 10
               podAffinityTerm:
-                topologyKey: bottlerocket.aws/platform-version
+                topologyKey: bottlerocket.aws/updater-interface-version
                 labelSelector:
                   matchExpressions:
                     - key: update-operator
@@ -152,7 +152,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: bottlerocket.aws/platform-version
+                  - key: bottlerocket.aws/updater-interface-version
                     operator: Exists
                   - key: "kubernetes.io/os"
                     operator: In

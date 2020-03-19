@@ -8,18 +8,18 @@ const (
 
 	// NodeSelectorLabel is used to identify controlled nodes in Kubernetes
 	// selectors.
-	NodeSelectorLabel = PlatformVersionKey
+	NodeSelectorLabel = UpdaterInterfaceVersionKey
 	// PodSelectorLabel is used to identify Pods participating with the
 	// operator.
-	PodSelectorLabel = PlatformVersionKey
+	PodSelectorLabel = UpdaterInterfaceVersionKey
 
 	// UpdateAvailableKey is used to identify a Node as having an update
 	// available. The value itself is not checked at this time but may be used
 	// to communicate a version at a later time.
 	UpdateAvailableKey Key = Prefix + "/update-available"
-	// PlatformVersionKey is where the compatibility version is posted for the
+	// UpdaterInterfaceVersionKey is where the compatibility version is posted for the
 	// given Node.
-	PlatformVersionKey Key = Prefix + "/platform-version"
+	UpdaterInterfaceVersionKey Key = Prefix + "/updater-interface-version"
 	// OperatorVersionKey is where the compatibility version is posted for the
 	// given Node. This version describes the understood "protocol" between
 	// Operating Controller and the managed Nodes.
