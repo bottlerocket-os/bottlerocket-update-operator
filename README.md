@@ -48,27 +48,29 @@ kubectl apply -f ./update-operator.yaml
 Once the deployment's resources are in place, there is one more step needed to schedule and place the required pods on Bottlerocket nodes.
 By default - in the suggested deployment, each Workload resource constrains scheduling of the update operator by limiting pods to Bottlerocket nodes based on their labels.
 These labels are not applied on nodes automatically and will need to be set on each using `kubectl`.
-Deployments match on `bottlerocket.aws/platform-version` (a host compatibility label) to determine which pod to schedule.
+The agent relies on each node's updater components and schedules its pods based on their interface supported.
+The node indicates its updater interface version in a label called `bottlerocket.aws/updater-interface-version`.
+Agent deployments, respective to the interface version, are scheduled using this label and target only a single version in each.
 
-For the `1.0.0` `platform-version`, this label looks like:
+For the `1.0.0` `updater-interface-version`, this label looks like:
 
 ``` text
-bottlerocket.aws/platform-version=1.0.0
+bottlerocket.aws/updater-interface-version=1.0.0
 ```
 
 `kubectl` can be used to set this label on a node in the cluster:
 
 ``` sh
-kubectl label node $NODE_NAME bottlerocket.aws/platform-version=1.0.0
+kubectl label node $NODE_NAME bottlerocket.aws/updater-interface-version=1.0.0
 ```
 
-If all nodes in the cluster are running Bottlerocket and have the same `platform-version`, all can be labeled at the same time:
+If all nodes in the cluster are running Bottlerocket and have the same `updater-interface-version`, all can be labeled at the same time:
 
 ``` sh
-kubectl label node $(kubectl get nodes -o jsonpath='{.items[*].metadata.name}') bottlerocket.aws/platform-version=1.0.0
+kubectl label node $(kubectl get nodes -o jsonpath='{.items[*].metadata.name}') bottlerocket.aws/updater-interface-version=1.0.0
 ```
 
-Each workload resource may have additional constraints or scheduling affinities based on each node's labels in addition to the `bottlerocket.aws/platform-version` label scheduling constraint.
+Each workload resource may have additional constraints or scheduling affinities based on each node's labels in addition to the `bottlerocket.aws/updater-interface-version` label scheduling constraint.
 
 Customized deployments may use the [suggested deployment](./update-operator.yaml) or the [example development deployment](./dev/deployment.yaml) as a starting point, with customized container images specified if needed.
 
