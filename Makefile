@@ -22,7 +22,7 @@ SHORT_SHA = $(shell git describe --abbrev=8 --always --dirty='-dev' --exclude '*
 # image, it is appended to the IMAGE_NAME unless the name is specified.
 IMAGE_ARCH_SUFFIX = $(addprefix -,$(ARCH))
 # BUILDSYS_SDK_IMAGE is the Bottlerocket SDK image used for license scanning.
-BUILDSYS_SDK_IMAGE ?= bottlerocket/sdk-x86_64:v0.8
+BUILDSYS_SDK_IMAGE ?= bottlerocket/sdk-x86_64:v0.10.1
 # LICENSES_IMAGE_NAME is the name of the container image that has LICENSE files
 # for distribution.
 LICENSES_IMAGE = $(IMAGE_NAME)-licenses
@@ -73,25 +73,27 @@ test:
 container: licenses
 	docker build \
 		--network=host \
-		--build-arg GO_LDFLAGS \
-		--build-arg GOARCH \
-		--build-arg SHORT_SHA='$(SHORT_SHA)' \
-		--build-arg LICENSES_IMAGE=$(LICENSES_IMAGE) \
-		--target="update-operator" \
-		--tag $(IMAGE_NAME) \
+		--build-arg 'GO_LDFLAGS=$(GO_LDFLAGS)' \
+		--build-arg 'GOARCH=$(GOARCH)' \
+		--build-arg 'SHORT_SHA=$(SHORT_SHA)' \
+		--build-arg 'LICENSES_IMAGE=$(LICENSES_IMAGE)' \
+		--build-arg 'GOLANG_IMAGE=$(BUILDSYS_SDK_IMAGE)' \
+		--target='update-operator' \
+		--tag '$(IMAGE_NAME)' \
 		.
 
 # Build and test in a container.
 container-test: sdk-image licenses
 	docker build \
 		--network=host \
-		--build-arg GO_LDFLAGS='$(GO_LDFLAGS)' \
-		--build-arg GOARCH='$(GOARCH)' \
-		--build-arg SHORT_SHA='$(SHORT_SHA)' \
-		--build-arg NOCACHE='$(shell date +"%s")' \
-		--build-arg LICENSES_IMAGE=$(LICENSES_IMAGE) \
-		--target="test" \
-		--tag $(IMAGE_NAME)-test \
+		--build-arg 'GO_LDFLAGS=$(GO_LDFLAGS)' \
+		--build-arg 'GOARCH=$(GOARCH)' \
+		--build-arg 'SHORT_SHA=$(SHORT_SHA)' \
+		--build-arg 'NOCACHE=$(shell date +'%s')' \
+		--build-arg 'LICENSES_IMAGE=$(LICENSES_IMAGE)' \
+		--build-arg 'GOLANG_IMAGE=$(BUILDSYS_SDK_IMAGE)' \
+		--target='test' \
+		--tag '$(IMAGE_NAME)-test' \
 		.
 
 # Build container image with debug-configured daemon.
@@ -192,7 +194,7 @@ get-nodes-status:
 # license collection.
 sdk-image: BUILDSYS_SDK_IMAGE_URL=https://cache.bottlerocket.aws/$(BUILDSYS_SDK_IMAGE).tar.gz
 sdk-image:
-	docker inspect $(BUILDSYS_SDK_IMAGE) 2>&1 >/dev/null \
+	docker inspect $(BUILDSYS_SDK_IMAGE) &>/dev/null \
 		|| curl -# -qL $(BUILDSYS_SDK_IMAGE_URL) | docker load -i /dev/stdin
 
 # licenses builds a container image with the LICENSE & legal files from the
@@ -205,5 +207,6 @@ licenses: sdk-image go.mod go.sum
 	docker build \
 		--network=host \
 		--build-arg SDK_IMAGE=$(BUILDSYS_SDK_IMAGE) \
+		--build-arg GOLANG_IMAGE=$(BUILDSYS_SDK_IMAGE) \
 		-t $(LICENSES_IMAGE) \
 		-f build/Dockerfile.licenses .
