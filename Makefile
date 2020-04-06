@@ -194,7 +194,7 @@ get-nodes-status:
 # license collection.
 sdk-image: BUILDSYS_SDK_IMAGE_URL=https://cache.bottlerocket.aws/$(BUILDSYS_SDK_IMAGE).tar.gz
 sdk-image:
-	docker inspect $(BUILDSYS_SDK_IMAGE) 2>&1 >/dev/null \
+	docker inspect $(BUILDSYS_SDK_IMAGE) &>/dev/null \
 		|| curl -# -qL $(BUILDSYS_SDK_IMAGE_URL) | docker load -i /dev/stdin
 
 # licenses builds a container image with the LICENSE & legal files from the
