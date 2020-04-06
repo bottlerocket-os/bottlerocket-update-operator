@@ -22,7 +22,7 @@ SHORT_SHA = $(shell git describe --abbrev=8 --always --dirty='-dev' --exclude '*
 # image, it is appended to the IMAGE_NAME unless the name is specified.
 IMAGE_ARCH_SUFFIX = $(addprefix -,$(ARCH))
 # BUILDSYS_SDK_IMAGE is the Bottlerocket SDK image used for license scanning.
-BUILDSYS_SDK_IMAGE ?= bottlerocket/sdk-x86_64:v0.8
+BUILDSYS_SDK_IMAGE ?= bottlerocket/sdk-x86_64:v0.10.1
 # LICENSES_IMAGE_NAME is the name of the container image that has LICENSE files
 # for distribution.
 LICENSES_IMAGE = $(IMAGE_NAME)-licenses
