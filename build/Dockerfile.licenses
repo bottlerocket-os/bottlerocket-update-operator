@@ -22,7 +22,7 @@ ARG SDK_IMAGE
 # GOLANG_IMAGE is the image to be used for collecting modules. This should be
 # the same image used in the build. The idea is to have the same toolchain to
 # avoid running into any differences between versions.
-ARG GOLANG_IMAGE=golang:1.13
+ARG GOLANG_IMAGE=golang:1.14.1
 
 # Fetch dependencies into a vendor/ directory.
 #

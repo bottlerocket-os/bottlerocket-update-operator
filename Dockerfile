@@ -7,7 +7,7 @@ ARG LICENSES_IMAGE=scratch
 
 # GOLANG_IMAGE is the go toolchain container image used to build the update
 # operator.
-ARG GOLANG_IMAGE=golang:1.13
+ARG GOLANG_IMAGE=golang:1.14.1
 
 FROM $LICENSES_IMAGE as licenses
 # Set WORKDIR to create /licenses/ if the directory is missing.
