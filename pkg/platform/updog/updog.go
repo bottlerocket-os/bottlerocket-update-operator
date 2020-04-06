@@ -41,6 +41,8 @@ type executable struct {
 	log logging.SubLogger
 }
 
+// Boolean currently only used by CheckUpdate (and consequently ListUpdate). Returns true if the
+// command yielded output, which indicates an update is available.
 func (e *executable) runOk(cmd *exec.Cmd) (bool, error) {
 	cmd.SysProcAttr = bottlerocket.ProcessAttrs()
 
@@ -60,6 +62,11 @@ func (e *executable) runOk(cmd *exec.Cmd) (bool, error) {
 	}
 	err := cmd.Wait()
 	if err != nil {
+		// Updog returns an non zero exit code if there are no available updates.
+		// Don't treat it as an error, instead indicate that there's no available update.
+		if len(cmd.Args) > 1 && cmd.Args[1] == "check-update" && buf.String() == "No update available\n" {
+			return false, nil
+		}
 		log.WithError(err).Error("error during command run")
 		if logging.Debuggable {
 			log.WithField("output", buf.String()).Debug("command output")
@@ -70,9 +77,6 @@ func (e *executable) runOk(cmd *exec.Cmd) (bool, error) {
 	if logging.Debuggable {
 		log.WithField("output", buf.String()).Debug("command output")
 	}
-	// Boolean currently only used by ListUpdate. Returns true if the
-	// command yielded output, which indicates an update is available.
-	//
 	// TODO: Use richer interface data once provided by host integration.
 	updateEmitted := len(buf.String()) > 0
 	return updateEmitted, err

@@ -159,6 +159,8 @@ func (a *Agent) checkUpdate(log logging.Logger) (bool, error) {
 	log = log.WithField("update-available", hasUpdate)
 	if hasUpdate {
 		log.Info("an update is available")
+	} else {
+		log.Info("no update available")
 	}
 	return hasUpdate, nil
 }
