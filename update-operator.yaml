@@ -117,7 +117,7 @@ spec:
                       values: ["agent"]
       containers:
       - name: controller
-        image: "328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-update-operator:v0.1.2"
+        image: "328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-update-operator:v0.1.3"
         imagePullPolicy: Always
         args:
           - -controller
@@ -165,7 +165,7 @@ spec:
       hostPID: true
       containers:
         - name: agent
-          image: "328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-update-operator:v0.1.2"
+          image: "328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-update-operator:v0.1.3"
           imagePullPolicy: Always
           # XXX: tty required to exec binaries that use `simplelog` until https://github.com/bottlerocket-os/bottlerocket/issues/576 is resolved.
           tty: true
