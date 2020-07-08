@@ -117,6 +117,7 @@ spec:
                       values: ["agent"]
       containers:
       - name: controller
+        # TODO Update this field to the new version that supports update API once that's released
         image: "328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-update-operator:v0.1.3"
         imagePullPolicy: Always
         args:
@@ -129,11 +130,12 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
+# This DaemonSet is for Bottlerocket hosts that support updates through the Bottlerocket API
 ---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: update-operator-agent
+  name: update-operator-agent-update-api
   namespace: bottlerocket
   labels:
     update-operator: agent
@@ -152,8 +154,76 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: bottlerocket.aws/updater-interface-version
-                    operator: Exists
+                  - key: "bottlerocket.aws/updater-interface-version"
+                    operator: In
+                    values:
+                      - 2.0.0
+                  - key: "kubernetes.io/os"
+                    operator: In
+                    values:
+                      - linux
+                  - key: "kubernetes.io/arch"
+                    operator: In
+                    values:
+                      - amd64
+      hostPID: true
+      containers:
+        - name: agent
+          # TODO Update this field to the new version that supports update API once that's released
+          image: "328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-update-operator:v0.1.3"
+          imagePullPolicy: Always
+          args:
+            - -agent
+            - -debug
+            - -nodeName
+            - $(NODE_NAME)
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          resources:
+            limits:
+              memory: 600Mi
+            requests:
+              cpu: 100m
+              memory: 600Mi
+          volumeMounts:
+            - name: bottlerocket-api-socket
+              mountPath: /run/api.sock
+      volumes:
+        - name: bottlerocket-api-socket
+          hostPath:
+            path: /run/api.sock
+            type: Socket
+# This DaemonSet is for Bottlerocket hosts that can only support updates through updog
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: update-operator-agent-updog
+  namespace: bottlerocket
+  labels:
+    update-operator: agent
+spec:
+  selector:
+    matchLabels:
+      update-operator: agent
+  template:
+    metadata:
+      labels:
+        update-operator: agent
+    spec:
+      serviceAccountName: update-operator-agent
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: "bottlerocket.aws/updater-interface-version"
+                    operator: In
+                    values:
+                      - 1.0.0
                   - key: "kubernetes.io/os"
                     operator: In
                     values:

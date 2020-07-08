@@ -11,7 +11,6 @@ import (
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/controller"
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/k8sutil"
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/logging"
-	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/platform/updog"
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/sigcontext"
 	"github.com/pkg/errors"
 	"k8s.io/client-go/kubernetes"
@@ -89,11 +88,7 @@ func runController(ctx context.Context, kube kubernetes.Interface, nodeName stri
 
 func runAgent(ctx context.Context, kube kubernetes.Interface, nodeName string) error {
 	log := logging.New("agent")
-	platform, err := updog.New()
-	if err != nil {
-		return errors.WithMessage(err, "could not setup platform for agent")
-	}
-	a, err := agent.New(log, kube, platform, nodeName)
+	a, err := agent.New(log, kube, nodeName)
 	if err != nil {
 		return err
 	}

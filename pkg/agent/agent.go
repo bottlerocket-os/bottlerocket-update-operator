@@ -13,6 +13,8 @@ import (
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/marker"
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/nodestream"
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/platform"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/platform/api"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/platform/updog"
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/workgroup"
 
 	"github.com/pkg/errors"
@@ -67,18 +69,42 @@ type proc interface {
 	KillProcess() error
 }
 
-func New(log logging.Logger, kube kubernetes.Interface, plat platform.Platform, nodeName string) (*Agent, error) {
+func New(log logging.Logger, kube kubernetes.Interface, nodeName string) (*Agent, error) {
 	if nodeName == "" {
 		return nil, errors.New("nodeName must be provided for Agent to manage")
 	}
-	var nodeclient corev1.NodeInterface
-	if kube != nil {
-		nodeclient = kube.CoreV1().Nodes()
+
+	nodeclient := kube.CoreV1().Nodes()
+	// Determine which platform to use depending on the updater interface version
+	node, err := nodeclient.Get(nodeName, v1meta.GetOptions{})
+	if err != nil {
+		return nil, errors.New("failed to retrieve node information")
 	}
+	// Get the updater interface version from the node label
+	var platform platform.Platform
+	platformVersion := node.Labels[marker.UpdaterInterfaceVersionKey]
+	switch platformVersion {
+	default:
+		// If the updater interface version is not specified, default to
+		// using Updog as the platform
+		log.Warn("unknown platform version specified, defaulting to using updog")
+		fallthrough
+	case "1.0.0":
+		platform, err = updog.New()
+		if err != nil {
+			return nil, errors.WithMessage(err, "could not setup Updog platform for agent")
+		}
+	case "2.0.0":
+		platform, err = api.New()
+		if err != nil {
+			return nil, errors.WithMessage(err, "could not setup Update API platform for agent")
+		}
+	}
+
 	return &Agent{
 		log:       log,
 		kube:      kube,
-		platform:  plat,
+		platform:  platform,
 		poster:    &k8sPoster{log, nodeclient},
 		proc:      &osProc{},
 		nodeName:  nodeName,
@@ -314,7 +340,7 @@ func (a *Agent) realize(in *intent.Intent) error {
 
 	case marker.NodeActionUnknown, marker.NodeActionStabilize:
 		log.Debug("sitrep")
-		_, err = a.platform.Status()
+		err = platform.Ping(a.platform)
 		if err != nil {
 			break
 		}
