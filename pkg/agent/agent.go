@@ -363,7 +363,7 @@ func (a *Agent) realize(in *intent.Intent) error {
 
 func (a *Agent) postIntent(in *intent.Intent) error {
 	err := a.poster.Post(in)
-	if err != nil {
+	if err == nil {
 		a.tracker.recordPost(in)
 	}
 	return err
