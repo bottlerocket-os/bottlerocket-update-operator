@@ -50,7 +50,7 @@ type Update interface {
 func Ping(p Platform) error {
 	status, err := p.Status()
 	if err != nil {
-		return errors.WithMessage(err, "could not retrieve platform status")
+		return errors.Wrap(err, "could not retrieve platform status")
 	}
 	if !status.OK() {
 		return errors.New("platform did not report OK status")

@@ -3,8 +3,7 @@ module github.com/bottlerocket-os/bottlerocket-update-operator
 go 1.12
 
 require (
-	github.com/coreos/go-systemd/v22 v22.0.0
-	github.com/godbus/dbus/v5 v5.0.3
+	github.com/Masterminds/semver v1.5.0
 	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.7 // indirect
@@ -12,6 +11,7 @@ require (
 	github.com/karlseguin/expect v1.0.1 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/sirupsen/logrus v1.4.2
+	github.com/stretchr/testify v1.3.0
 	github.com/wsxiaoys/terminal v0.0.0-20160513160801-0940f3fc43a0 // indirect
 	golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472 // indirect
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297 // indirect

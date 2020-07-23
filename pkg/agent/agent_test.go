@@ -5,11 +5,13 @@ import (
 	"testing"
 
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/intent"
+	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/intent/cache"
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/internal/intents"
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/internal/testoutput"
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/logging"
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/marker"
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/platform"
+
 	"gotest.tools/assert"
 )
 
@@ -82,12 +84,17 @@ func testAgent(t *testing.T) (*Agent, *testHooks) {
 		Platform: &testPlatform{},
 		Proc:     &testProc{},
 	}
-	a, err := New(testoutput.Logger(t, logging.New("agent")), nil, hooks.Platform, intents.NodeName)
-	if err != nil {
-		panic(err)
+	log := testoutput.Logger(t, logging.New("agent"))
+	a := &Agent{
+		log:       log,
+		kube:      nil,
+		platform:  hooks.Platform,
+		poster:    hooks.Poster,
+		proc:      hooks.Proc,
+		nodeName:  intents.NodeName,
+		lastCache: cache.NewLastCache(),
+		tracker:   newPostTracker(),
 	}
-	a.poster = hooks.Poster
-	a.proc = hooks.Proc
 	return a, hooks
 }
 
