@@ -22,7 +22,7 @@ SHORT_SHA = $(shell git describe --abbrev=8 --always --dirty='-dev' --exclude '*
 # image, it is appended to the IMAGE_NAME unless the name is specified.
 IMAGE_ARCH_SUFFIX = $(addprefix -,$(ARCH))
 # BUILDSYS_SDK_IMAGE is the Bottlerocket SDK image used for license scanning.
-BUILDSYS_SDK_IMAGE ?= bottlerocket/sdk-x86_64:v0.10.1
+BUILDSYS_SDK_IMAGE ?= bottlerocket/sdk-$(UNAME_ARCH):v0.10.1
 # LICENSES_IMAGE_NAME is the name of the container image that has LICENSE files
 # for distribution.
 LICENSES_IMAGE = $(IMAGE_NAME)-licenses
@@ -30,7 +30,7 @@ LICENSES_IMAGE = $(IMAGE_NAME)-licenses
 DESTDIR = .
 # DISTFILE is the path to the dist target's output file - the container image
 # tarball.
-DISTFILE = $(DESTDIR:/=)/$(subst /,_,$(IMAGE_NAME)).tar.gz
+DISTFILE ?= $(patsubst %/,%,$(DESTDIR))/$(subst /,_,$(IMAGE_NAME)).tar.gz
 
 # These values derive ARCH and DOCKER_ARCH which are needed by dependencies in
 # image build defaulting to system's architecture when not specified.
@@ -58,16 +58,20 @@ all: build test container check
 
 # Build the daemon and tools into GOBIN
 build:
-	go install -v $(GOPKG)
+	go build -v -o $(GOBIN)/bottlerocket-update-operator .
 
 # Run Go tests for daemon and tools.
 #
 # Tests run only with the native GOARCH of the system.
 test: GOARCH=
+test: GO_TEST_FLAGS += -v -x
 # Use debuggable build to capture more logging for diagnosing failing tests.
 test: GO_LDFLAGS +=-X $(GOPKG)/pkg/logging.DebugEnable=true
 test:
-	go test -race -ldflags '$(GO_LDFLAGS)' $(GOPKGS)
+	go test $(GO_TEST_FLAGS) -ldflags '$(GO_LDFLAGS)' $(GOPKGS)
+
+test-race: GO_TEST_FLAGS += -race
+test-race: test
 
 # Build a container image for daemon and tools.
 container: licenses

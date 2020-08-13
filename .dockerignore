@@ -6,3 +6,4 @@ dev/
 *.tar*
 bin/
 vendor/
+bottlerocket-update-operator
