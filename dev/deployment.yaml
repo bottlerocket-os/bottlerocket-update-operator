@@ -104,6 +104,7 @@ spec:
                     operator: In
                     values:
                       - amd64
+                      - arm64
         # Avoid update-operator's Agent Pods if possible.
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -162,6 +163,7 @@ spec:
                     operator: In
                     values:
                       - amd64
+                      - arm64
       hostPID: true
       containers:
         - name: agent
