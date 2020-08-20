@@ -191,6 +191,12 @@ spec:
           volumeMounts:
             - name: bottlerocket-api-socket
               mountPath: /run/api.sock
+          securityContext:
+            seLinuxOptions:
+              user: system_u
+              role: system_r
+              type: super_t
+              level: s0
       volumes:
         - name: bottlerocket-api-socket
           hostPath:
