@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -212,15 +213,24 @@ func (a *Agent) postUpdateAvailable(available bool) error {
 	// TODO: handle brief race condition internally - this needs to be improved,
 	// though the kubernetes control plane will reject out of order updates by
 	// way of resource versioning C-A-S operations.
+
 	if a.kube == nil {
 		return errors.New("kubernetes client is required to fetch node resource")
 	}
+
 	node, err := a.kube.CoreV1().Nodes().Get(a.nodeName, v1meta.GetOptions{})
 	if err != nil {
 		return errors.WithMessage(err, "unable to get node")
 	}
 	in := intent.Given(node).SetUpdateAvailable(available)
-	return a.postIntent(in)
+
+	// Use poster to skip recording posted intent.
+	err = a.poster.Post(in)
+	if err != nil {
+		return fmt.Errorf("failed to post: %w", err)
+	}
+
+	return nil
 }
 
 // handler is the entrypoint for the Kubernetes Informer to schedule handling of
