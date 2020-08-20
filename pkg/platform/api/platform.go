@@ -53,6 +53,10 @@ type listAvailableResponse struct {
 }
 
 func (lar *listAvailableResponse) Updates() []platform.Update {
+	if lar.chosenUpdate == nil {
+		return nil
+	}
+
 	return []platform.Update{lar.chosenUpdate}
 }
 
