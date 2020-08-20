@@ -168,42 +168,39 @@ func (a *Agent) periodicUpdateChecker(ctx context.Context) error {
 			log.Info("checking for update")
 			err := a.checkPostUpdate(a.log)
 			if err != nil {
-				log.WithError(err).Error("periodic check error")
+				log.WithError(err).Error("update check failed")
 			}
 		}
 		timer.Reset(updatePollInterval)
 	}
 }
 
-// checkUpdate queries for an available update from the host.
-func (a *Agent) checkUpdate(log logging.Logger) (bool, error) {
+// checkUpdate queries for available updates.
+func (a *Agent) checkUpdate() (bool, error) {
 	available, err := a.platform.ListAvailable()
 	if err != nil {
-		log.WithError(err).Error("unable to query available updates")
 		return false, err
 	}
-	hasUpdate := len(available.Updates()) > 0
-	log = log.WithField("update-available", hasUpdate)
-	if hasUpdate {
-		log.Info("an update is available")
+
+	if len(available.Updates()) > 0 {
+		return true, nil
 	}
-	return hasUpdate, nil
+
+	return false, nil
 }
 
 // checkPostUpdate checks for and posts the status of an available update.
 func (a *Agent) checkPostUpdate(log logging.Logger) error {
-	hasUpdate, err := a.checkUpdate(log)
+	hasUpdate, err := a.checkUpdate()
 	if err != nil {
 		return err
 	}
-	log = log.WithField("update-available", hasUpdate)
-	log.Debug("posting update status")
-	err = a.postUpdateAvailable(hasUpdate)
-	if err != nil {
-		log.WithError(err).Error("could not post update status")
+
+	if err = a.postUpdateAvailable(hasUpdate); err != nil {
+		log.WithError(err).Error("post failed")
 		return err
 	}
-	log.Debug("posted update status")
+
 	return nil
 }
 
@@ -354,9 +351,9 @@ func (a *Agent) realize(in *intent.Intent) error {
 		if err != nil {
 			break
 		}
-		hasUpdate, err := a.checkUpdate(log)
+		hasUpdate, err := a.checkUpdate()
 		if err != nil {
-			log.WithError(err).Error("sitrep update check errored")
+			log.WithError(err).Error("update check failed")
 		}
 		in.SetUpdateAvailable(hasUpdate)
 
