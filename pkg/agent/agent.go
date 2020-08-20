@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -123,8 +124,6 @@ func (a *Agent) checkProviders() error {
 	return nil
 }
 
-// TODO: add regular update checks
-
 func (a *Agent) Run(ctx context.Context) error {
 	if err := a.checkProviders(); err != nil {
 		return errors.WithMessage(err, "misconfigured")
@@ -167,42 +166,40 @@ func (a *Agent) periodicUpdateChecker(ctx context.Context) error {
 			log.Info("checking for update")
 			err := a.checkPostUpdate(a.log)
 			if err != nil {
-				log.WithError(err).Error("periodic check error")
+				log.WithError(err).Error("update check failed")
 			}
 		}
+
 		timer.Reset(updatePollInterval)
 	}
 }
 
-// checkUpdate queries for an available update from the host.
-func (a *Agent) checkUpdate(log logging.Logger) (bool, error) {
+// checkUpdate queries for available updates.
+func (a *Agent) checkUpdate() (bool, error) {
 	available, err := a.platform.ListAvailable()
 	if err != nil {
-		log.WithError(err).Error("unable to query available updates")
 		return false, err
 	}
-	hasUpdate := len(available.Updates()) > 0
-	log = log.WithField("update-available", hasUpdate)
-	if hasUpdate {
-		log.Info("an update is available")
+
+	if len(available.Updates()) > 0 {
+		return true, nil
 	}
-	return hasUpdate, nil
+
+	return false, nil
 }
 
 // checkPostUpdate checks for and posts the status of an available update.
 func (a *Agent) checkPostUpdate(log logging.Logger) error {
-	hasUpdate, err := a.checkUpdate(log)
+	hasUpdate, err := a.checkUpdate()
 	if err != nil {
 		return err
 	}
-	log = log.WithField("update-available", hasUpdate)
-	log.Debug("posting update status")
-	err = a.postUpdateAvailable(hasUpdate)
-	if err != nil {
-		log.WithError(err).Error("could not post update status")
+
+	if err = a.postUpdateAvailable(hasUpdate); err != nil {
+		log.WithError(err).Error("post failed")
 		return err
 	}
-	log.Debug("posted update status")
+
 	return nil
 }
 
@@ -212,15 +209,24 @@ func (a *Agent) postUpdateAvailable(available bool) error {
 	// TODO: handle brief race condition internally - this needs to be improved,
 	// though the kubernetes control plane will reject out of order updates by
 	// way of resource versioning C-A-S operations.
+
 	if a.kube == nil {
 		return errors.New("kubernetes client is required to fetch node resource")
 	}
+
 	node, err := a.kube.CoreV1().Nodes().Get(a.nodeName, v1meta.GetOptions{})
 	if err != nil {
 		return errors.WithMessage(err, "unable to get node")
 	}
 	in := intent.Given(node).SetUpdateAvailable(available)
-	return a.postIntent(in)
+
+	// Use poster to skip recording posted intent.
+	err = a.poster.Post(in)
+	if err != nil {
+		return fmt.Errorf("failed to post: %w", err)
+	}
+
+	return nil
 }
 
 // handler is the entrypoint for the Kubernetes Informer to schedule handling of
@@ -344,9 +350,9 @@ func (a *Agent) realize(in *intent.Intent) error {
 		if err != nil {
 			break
 		}
-		hasUpdate, err := a.checkUpdate(log)
+		hasUpdate, err := a.checkUpdate()
 		if err != nil {
-			log.WithError(err).Error("sitrep update check errored")
+			log.WithError(err).Error("update check failed")
 		}
 		in.SetUpdateAvailable(hasUpdate)
 
@@ -389,10 +395,12 @@ func (a *Agent) realize(in *intent.Intent) error {
 
 func (a *Agent) postIntent(in *intent.Intent) error {
 	err := a.poster.Post(in)
-	if err == nil {
-		a.tracker.recordPost(in)
+	if err != nil {
+		return err
 	}
-	return err
+	a.tracker.recordPost(in)
+
+	return nil
 }
 
 // checkNodePreflight runs checks against the current Node resource and prepares
@@ -402,6 +410,8 @@ func (a *Agent) checkNodePreflight() error {
 
 	// TODO: Inform controller for taint removal
 
+	a.log.Debug("preflight check")
+
 	n, err := a.kube.CoreV1().Nodes().Get(a.nodeName, v1meta.GetOptions{})
 	if err != nil {
 		return errors.WithMessage(err, "unable to retrieve Node for preflight check")
@@ -410,25 +420,35 @@ func (a *Agent) checkNodePreflight() error {
 	// Update our state to be "ready" for action, this shouldn't actually do so
 	// unless its really done.
 	in := intent.Given(n)
+
+	log := a.log.WithField("init-intent", in.DisplayString())
+
 	// TODO: check that we're properly reseting, for now its not needed to mark
 	// our work "done"
 	switch {
 	case in.Terminal(): // we're at a terminating point where there's no progress to make.
 		in.State = marker.NodeStateReady
+		log.Debug("in terminal state: ready")
 	case in.Waiting():
 		// already in a holding pattern, no need to re-prime ourselves in
 		// preflight.
-	case in.Wanted == "" || in.Active == "":
+		log.Debug("in waiting state")
+	case in.Wanted == "", in.Active == "":
 		in = in.Reset()
+		log.Debug("in inconsistent state; resetting")
 	default:
 		// there's not a good way to re-prime ourselves in the prior state.
 		in = in.Reset()
+		log.Debug("repriming state")
 	}
 
-	postErr := a.postIntent(in)
-	if postErr != nil {
-		a.log.WithError(postErr).Error("could not update intent status")
-		return postErr
+	log.WithField("preflight-intent", in.DisplayString()).
+		Debug("preflight complete")
+
+	err = a.poster.Post(in)
+	if err != nil {
+		log.WithError(err).Error("could not update intent status")
+		return err
 	}
 
 	return nil
