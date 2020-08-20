@@ -124,8 +124,6 @@ func (a *Agent) checkProviders() error {
 	return nil
 }
 
-// TODO: add regular update checks
-
 func (a *Agent) Run(ctx context.Context) error {
 	if err := a.checkProviders(); err != nil {
 		return errors.WithMessage(err, "misconfigured")
@@ -171,6 +169,7 @@ func (a *Agent) periodicUpdateChecker(ctx context.Context) error {
 				log.WithError(err).Error("update check failed")
 			}
 		}
+
 		timer.Reset(updatePollInterval)
 	}
 }
@@ -396,10 +395,12 @@ func (a *Agent) realize(in *intent.Intent) error {
 
 func (a *Agent) postIntent(in *intent.Intent) error {
 	err := a.poster.Post(in)
-	if err == nil {
-		a.tracker.recordPost(in)
+	if err != nil {
+		return err
 	}
-	return err
+	a.tracker.recordPost(in)
+
+	return nil
 }
 
 // checkNodePreflight runs checks against the current Node resource and prepares
@@ -409,6 +410,8 @@ func (a *Agent) checkNodePreflight() error {
 
 	// TODO: Inform controller for taint removal
 
+	a.log.Debug("preflight check")
+
 	n, err := a.kube.CoreV1().Nodes().Get(a.nodeName, v1meta.GetOptions{})
 	if err != nil {
 		return errors.WithMessage(err, "unable to retrieve Node for preflight check")
@@ -417,25 +420,35 @@ func (a *Agent) checkNodePreflight() error {
 	// Update our state to be "ready" for action, this shouldn't actually do so
 	// unless its really done.
 	in := intent.Given(n)
+
+	log := a.log.WithField("init-intent", in.DisplayString())
+
 	// TODO: check that we're properly reseting, for now its not needed to mark
 	// our work "done"
 	switch {
 	case in.Terminal(): // we're at a terminating point where there's no progress to make.
 		in.State = marker.NodeStateReady
+		log.Debug("in terminal state: ready")
 	case in.Waiting():
 		// already in a holding pattern, no need to re-prime ourselves in
 		// preflight.
-	case in.Wanted == "" || in.Active == "":
+		log.Debug("in waiting state")
+	case in.Wanted == "", in.Active == "":
 		in = in.Reset()
+		log.Debug("in inconsistent state; resetting")
 	default:
 		// there's not a good way to re-prime ourselves in the prior state.
 		in = in.Reset()
+		log.Debug("repriming state")
 	}
 
-	postErr := a.postIntent(in)
-	if postErr != nil {
-		a.log.WithError(postErr).Error("could not update intent status")
-		return postErr
+	log.WithField("preflight-intent", in.DisplayString()).
+		Debug("preflight complete")
+
+	err = a.poster.Post(in)
+	if err != nil {
+		log.WithError(err).Error("could not update intent status")
+		return err
 	}
 
 	return nil
