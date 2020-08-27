@@ -123,6 +123,33 @@ make get-nodes-status
 watch -c -- make get-nodes-status
 ```
 
+### Image Region
+
+`update-operator.yaml` pulls operator images from the `us-west-2` region.
+To pull from a different region, replace the image endpoint to point at one of the following endpoints.
+This is not required, but pulling the image from the same region as your cluster will improve the download speed.
+
+  - 917644944286.dkr.ecr.af-south-1.amazonaws.com
+  - 375569722642.dkr.ecr.ap-east-1.amazonaws.com
+  - 328549459982.dkr.ecr.ap-northeast-1.amazonaws.com
+  - 328549459982.dkr.ecr.ap-northeast-2.amazonaws.com
+  - 328549459982.dkr.ecr.ap-south-1.amazonaws.com
+  - 328549459982.dkr.ecr.ap-southeast-1.amazonaws.com
+  - 328549459982.dkr.ecr.ap-southeast-2.amazonaws.com
+  - 328549459982.dkr.ecr.ca-central-1.amazonaws.com
+  - 328549459982.dkr.ecr.eu-central-1.amazonaws.com
+  - 328549459982.dkr.ecr.eu-north-1.amazonaws.com
+  - 586180183710.dkr.ecr.eu-south-1.amazonaws.com
+  - 328549459982.dkr.ecr.eu-west-1.amazonaws.com
+  - 328549459982.dkr.ecr.eu-west-2.amazonaws.com
+  - 328549459982.dkr.ecr.eu-west-3.amazonaws.com
+  - 509306038620.dkr.ecr.me-south-1.amazonaws.com
+  - 328549459982.dkr.ecr.sa-east-1.amazonaws.com
+  - 328549459982.dkr.ecr.us-east-1.amazonaws.com
+  - 328549459982.dkr.ecr.us-east-2.amazonaws.com
+  - 328549459982.dkr.ecr.us-west-1.amazonaws.com
+  - 328549459982.dkr.ecr.us-west-2.amazonaws.com
+
 ### Current Limitations
 
 - pod replication & healthy count is not taken into consideration (https://github.com/bottlerocket-os/bottlerocket/issues/502)
