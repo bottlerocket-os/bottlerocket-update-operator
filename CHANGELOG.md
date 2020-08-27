@@ -1,3 +1,32 @@
+# 0.1.4
+
+* Use bottlerocket update API to drive updates [#35] [#39]
+
+To use the update API, nodes must be labeled with the `2.0.0` interface version:
+
+```
+bottlerocket.aws/updater-interface-version=2.0.0
+```
+
+To configure the use of the update API on all nodes in a cluster:
+
+1. Ensure desired nodes are on bottlerocket `v0.4.1` or later
+
+2. Set the `updater-interface-version` to `2.0.0` on nodes:
+
+```bash
+kubectl label node --overwrite=true $(kubectl get nodes -o jsonpath='{.items[*].metadata.name}') bottlerocket.aws/updater-interface-version=2.0.0
+```
+
+* Add SELinux process label allowing API accesses by agent [#40]
+
+* Fix deduplication filter in cases that could deadlock agent [#41]
+
+[#35]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/35
+[#39]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/39
+[#40]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/40
+[#41]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/41
+
 # 0.1.3
 
 * Add missing backtick in README instructions ([#25])
