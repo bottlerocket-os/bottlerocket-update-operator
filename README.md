@@ -1,5 +1,7 @@
 # Bottlerocket Update Operator
 
+[![ci](https://github.com/bottlerocket-os/bottlerocket-update-operator/workflows/ci/badge.svg)](https://github.com/bottlerocket-os/bottlerocket-update-operator/actions?query=workflow%3Aci)
+
 The Bottlerocket update operator is a [Kubernetes operator](https://Kubernetes.io/docs/concepts/extend-Kubernetes/operator/) that coordinates Bottlerocket updates on hosts in a cluster.
 
 ## How to Run on Kubernetes
