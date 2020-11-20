@@ -14,7 +14,7 @@ jobs:
       - name: Setup Go version ${{ matrix.go }}
         uses: actions/setup-go@v1
         with:
-          go-version: 1.14.1
+          go-version: 1.15.5
       - name: Checkout
         uses: actions/checkout@v2
       - name: Build native
