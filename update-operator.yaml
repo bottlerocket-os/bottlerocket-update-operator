@@ -184,10 +184,10 @@ spec:
                   fieldPath: spec.nodeName
           resources:
             limits:
-              memory: 600Mi
+              memory: 50Mi
             requests:
-              cpu: 100m
-              memory: 600Mi
+              cpu: 10m
+              memory: 50Mi
           volumeMounts:
             - name: bottlerocket-api-socket
               mountPath: /run/api.sock
