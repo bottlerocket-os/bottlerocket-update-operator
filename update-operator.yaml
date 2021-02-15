@@ -131,7 +131,7 @@ spec:
               fieldRef:
                 fieldPath: spec.nodeName
 ---
-# This DaemonSet is for Bottlerocket hosts that support updates through the Bottlerocket API
+# This DaemonSet is for Bottlerocket hosts that support updates through the Bottlerocket API (Bottlerocket OS versions >= v0.4.1)
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -203,7 +203,7 @@ spec:
             path: /run/api.sock
             type: Socket
 ---
-# This DaemonSet is for Bottlerocket hosts that can only support updates through updog
+# This DaemonSet is for Bottlerocket hosts that can only support updates through updog (Bottlerocket OS versions < v0.4.1)
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
