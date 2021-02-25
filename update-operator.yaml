@@ -131,7 +131,7 @@ spec:
               fieldRef:
                 fieldPath: spec.nodeName
 ---
-# This DaemonSet is for Bottlerocket hosts that support updates through the Bottlerocket API
+# This DaemonSet is for Bottlerocket hosts that support updates through the Bottlerocket API (Bottlerocket OS versions >= v0.4.1)
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -184,10 +184,10 @@ spec:
                   fieldPath: spec.nodeName
           resources:
             limits:
-              memory: 600Mi
+              memory: 50Mi
             requests:
-              cpu: 100m
-              memory: 600Mi
+              cpu: 10m
+              memory: 50Mi
           volumeMounts:
             - name: bottlerocket-api-socket
               mountPath: /run/api.sock
@@ -203,7 +203,7 @@ spec:
             path: /run/api.sock
             type: Socket
 ---
-# This DaemonSet is for Bottlerocket hosts that can only support updates through updog
+# This DaemonSet is for Bottlerocket hosts that can only support updates through updog (Bottlerocket OS versions < v0.4.1)
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
