@@ -153,14 +153,13 @@ func (s *testStatus) OK() bool {
 // for use. The list MUST be ordered in preference as well as recency.
 func (p *testPlatform) ListAvailable() (platform.Available, error) {
 	if p.ListAvailableFn != nil {
-		return p.ListAvailable()
+		return p.ListAvailableFn()
 	}
 
 	return &testListAvailable{}, nil
 }
 
 type testListAvailable struct {
-	updates []platform.Update
 }
 
 func (l *testListAvailable) Updates() []platform.Update {

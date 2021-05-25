@@ -41,7 +41,6 @@ type actionManager struct {
 	inputs    chan *intent.Intent
 	storer    storer
 	poster    poster
-	nodeName  string
 	nodem     nodeManager
 	lastCache intentcache.LastCache
 }

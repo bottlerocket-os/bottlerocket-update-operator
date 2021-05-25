@@ -290,7 +290,7 @@ func (i *Intent) SetUpdateAvailable(available bool) *Intent {
 
 func (i *Intent) DisplayString() string {
 	if i == nil {
-		return fmt.Sprintf(",, update:")
+		return ",, update:"
 	}
 	return fmt.Sprintf("%s,%s,%s update:%s", i.Wanted, i.Active, i.State, i.UpdateAvailable)
 }

@@ -16,7 +16,6 @@ func (p *progression) GetTarget() platform.Update {
 
 func (p *progression) Reset() {
 	p.target = nil
-	return
 }
 
 func (p *progression) Valid() bool {

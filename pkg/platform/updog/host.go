@@ -13,11 +13,6 @@ type Host interface {
 	BootUpdate(id UpdateID, rebootNow bool) (*bootUpdateResponse, error)
 }
 
-type hostOption struct {
-	Wait bool     `json:"wait"`
-	ID   UpdateID `json:"id"`
-}
-
 // UpdateID is the type of the opaque Identifier used for this platform.
 type UpdateID = string
 
