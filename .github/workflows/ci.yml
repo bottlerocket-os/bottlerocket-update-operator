@@ -1,12 +1,20 @@
 name: ci
 
 on:
-  push:
-    branches:
-      - develop
-  pull_request:
+  - push
+  - pull_request
 
 jobs:
+  golangci:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v2
+      with:
+        version: v1.29
+        working-directory: ./pkg
   build:
     runs-on: ubuntu-latest
     name: Build
