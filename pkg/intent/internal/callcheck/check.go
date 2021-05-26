@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Predicate calls a method `methodName` on the Reciever `recv`.
+// Predicate calls a method `methodName` on the Receiver `recv`.
 func Predicate(recv interface{}, methodName string) (bool, error) {
 	val := reflect.ValueOf(recv)
 	typ := reflect.TypeOf(recv)

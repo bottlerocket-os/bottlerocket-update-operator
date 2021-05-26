@@ -47,10 +47,9 @@ type stagedImage struct {
 type updateCommand string
 
 const (
-	commandRefresh    updateCommand = "refresh"
-	commandPrepare    updateCommand = "prepare"
-	commandActivate   updateCommand = "activate"
-	commandDeactivate updateCommand = "deactivate"
+	commandRefresh  updateCommand = "refresh"
+	commandPrepare  updateCommand = "prepare"
+	commandActivate updateCommand = "activate"
 )
 
 type commandStatus string
