@@ -1,10 +1,12 @@
 # Bottlerocket Update Operator
 
 The Bottlerocket update operator is a [Kubernetes operator](https://Kubernetes.io/docs/concepts/extend-Kubernetes/operator/) that coordinates Bottlerocket updates on hosts in a cluster.
+When installed, the Bottlerocket update operator starts a controller deployment on one node and agent daemon set on every Bottleorocket node, which takes care of periodically querying updates, draining the node, and performing an update when asked by controller.
+Updates to Bottlerocket are rolled out in [waves](https://github.com/bottlerocket-os/bottlerocket/tree/develop/sources/updater/waves) to reduce the impact of issues; the nodes in your cluster may not all see updates at the same time.
 
-## How to Run on Kubernetes
+## Installation
 
-To run the update operator in a Kubernetes cluster, the following are required resources and configuration ([suggested deployment is defined in `update-operator.yaml`](./update-operator.yaml)):
+To install the Bottlerocket update operator in a Kubernetes cluster, the following are required resources and configuration ([suggested deployment is defined in `update-operator.yaml`](./update-operator.yaml)):
 
 - **Update operator's container image**
 
@@ -38,13 +40,6 @@ To run the update operator in a Kubernetes cluster, the following are required r
 
   Grants the controller's service account permissions to update annotations and manage pods that are scheduled on nodes (to cordon & drain) before and after updating.
 
-Cluster administrators can deploy the update operator with [suggested configuration defined here](./update-operator.yaml) - this includes the above resources and Bottlerocket published container images.
-With `kubectl` configured for the desired cluster, the suggested deployment can made with:
-  
-``` sh
-kubectl apply -f ./update-operator.yaml
-```
-
 Once the deployment's resources are in place, there is one more step needed to schedule and place the required pods on Bottlerocket nodes.
 By default - in the suggested deployment, each Workload resource constrains scheduling of the update operator by limiting pods to Bottlerocket nodes based on their labels.
 These labels are not applied on nodes automatically and will need to be set on each using `kubectl`.
@@ -54,24 +49,12 @@ Agent deployments, respective to the interface version, are scheduled using this
 
 - For Bottlerocket OS versions >= v0.4.1, we recommend using `update-interface-version` 2.0.0 to leverage Bottlerocket's API to dispatch updates.
 - Bottlerocket OS versions < v0.4.1 are only compatible with `update-interface-version` 1.0.0.
-  - With this version, the agent needs to run in a priviledged container with access to the root filesystem.
+  - With this version, the agent needs to run in a privileged container with access to the root filesystem.
 
 For the `2.0.0` `updater-interface-version`, this label looks like:
 
 ``` text
 bottlerocket.aws/updater-interface-version=2.0.0
-```
-
-`kubectl` can be used to set this label on a node in the cluster:
-
-``` sh
-kubectl label node $NODE_NAME bottlerocket.aws/updater-interface-version=2.0.0
-```
-
-If all nodes in the cluster are running Bottlerocket and have the same `updater-interface-version`, all can be labeled at the same time:
-
-``` sh
-kubectl label node $(kubectl get nodes -o jsonpath='{.items[*].metadata.name}') bottlerocket.aws/updater-interface-version=2.0.0
 ```
 
 Each workload resource may have additional constraints or scheduling affinities based on each node's labels in addition to the `bottlerocket.aws/updater-interface-version` label scheduling constraint.
@@ -92,6 +75,41 @@ Each runs their respective process configured as either a `-controller` or an `-
 
   The on-host process responsible for publishing update metadata and executing
   update activities.
+
+## Getting Started
+
+### Label nodes
+
+To start Bottlerocket updater operator agent on your nodes, you will need to add the `bottlerocket.aws/updater-interface-version` label.
+We recommend using `update-interface-version` 2.0.0 for Bottlerocket OS version >=v0.4.1 which uses Bottlerocket's [update API](https://github.com/bottlerocket-os/bottlerocket/blob/develop/sources/updater/README.md#update-api) to dispatch updates.
+
+With [kubectl](https://kubernetes.io/docs/reference/kubectl/overview/) configured for the desired cluster, you can use the below command to get all nodes:
+
+```sh
+kubectl get nodes
+```
+Make a note of all the node names that you would like the Bottlerocket update operator to manage.
+
+Next, add the `updater-interface-version` label to the nodes. 
+For each node, use this command to add `updater-interface-version` label. 
+Make sure to change `NODE_NAME` with the name collected from the previous command:
+
+```sh
+kubectl label node NODE_NAME bottlerocket.aws/updater-interface-version=2.0.0
+```
+
+If all nodes in the cluster are running Bottlerocket and require the same `updater-interface-version`, you can label all at the same time by running this:
+```sh
+kubectl label node $(kubectl get nodes -o jsonpath='{.items[*].metadata.name}') bottlerocket.aws/updater-interface-version=2.0.0
+```
+
+### Install
+
+Now we can install the Bottlerocket update operator using the recommended configuration defined [here](./update-operator.yaml):
+
+```sh
+kubectl apply -f ./update-operator.yaml
+```
 
 ## Coordination
 
@@ -161,6 +179,28 @@ This is not required, but pulling the image from the same region as your cluster
 - single node cluster degrades into unscheduleable on update (https://github.com/bottlerocket-os/bottlerocket/issues/501)
 - node labels are not automatically applied to allow scheduling (https://github.com/bottlerocket-os/bottlerocket/issues/504)
 
+## Troubleshooting
+
+When installed with the [suggested deployment](./update-operator.yaml), the logs can be fetched through Kubernetes deployment logs.
+To get logs run this with [kubectl](https://kubernetes.io/docs/reference/kubectl/overview/) configured to the desired cluster namespace:
+
+```sh
+kubectl logs deployment/update-operator-controller
+```
+
+Checking the logs is a good first step in understanding why something happened or didn't happen.
+
+### Why do only some of my Bottlerocket instances have an update available?
+
+Updates to Bottlerocket are rolled out in [waves](https://github.com/bottlerocket-os/bottlerocket/tree/develop/sources/updater/waves) to reduce the impact of issues; the container instances in your cluster may not all see updates at the same time.
+You can check whether an update is available on your instance by running the `apiclient update check` command from within the [control](https://github.com/bottlerocket-os/bottlerocket#control-container) or [admin](https://github.com/bottlerocket-os/bottlerocket#admin-container) container.
+
+### Why do new container instances launch with older Bottlerocket versions?
+
+The Bottlerocket update operator performs in-place updates for instances in your Kubernetes cluster.
+The operator does not influence how those instances are launched.
+If you use an [auto-scaling group](https://docs.aws.amazon.com/autoscaling/ec2/userguide/AutoScalingGroup.html) to launch your instances, you can update the AMI ID in your [launch configuration](https://docs.aws.amazon.com/autoscaling/ec2/userguide/LaunchConfiguration.html) or [launch template](https://docs.aws.amazon.com/autoscaling/ec2/userguide/LaunchTemplates.html) to use a newer version of Bottlerocket.
+
 ## How to Contribute and Develop Changes
 
 Working on the update operator requires a fully configured & working Kubernetes cluster.
@@ -197,3 +237,11 @@ If `kubectl` is configured to configured with access to production, please take 
 - `kind-cluster` - create a local [`kind`](https://github.com/Kubernetes-sigs/kind) cluster
 - `kind-load` - build and load container image for use in a `kind` cluster
 - `kind-rollout` - reload container image & config, then restart pods
+
+## Security
+
+See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
+
+## License
+
+This project is dual licensed under either the Apache-2.0 License or the MIT license, your choice.
