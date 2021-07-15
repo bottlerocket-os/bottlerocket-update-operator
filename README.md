@@ -129,9 +129,8 @@ watch -c -- make get-nodes-status
 
 ### Image Region
 
-`update-operator.yaml` pulls operator images from the `us-west-2` region.
-To pull from a different region, replace the image endpoint to point at one of the following endpoints.
-This is not required, but pulling the image from the same region as your cluster will improve the download speed.
+`update-operator.yaml` pulls operator images from Amazon ECR Public.
+You may also choose to pull from regional Amazon ECR repositories such as the following.
 
   - 917644944286.dkr.ecr.af-south-1.amazonaws.com
   - 375569722642.dkr.ecr.ap-east-1.amazonaws.com
