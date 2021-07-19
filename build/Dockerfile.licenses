@@ -22,13 +22,13 @@ ARG SDK_IMAGE
 # GOLANG_IMAGE is the image to be used for collecting modules. This should be
 # the same image used in the build. The idea is to have the same toolchain to
 # avoid running into any differences between versions.
-ARG GOLANG_IMAGE=golang:1.14.1
+ARG GOLANG_IMAGE=golang:1.16.5
 
 # Fetch dependencies into a vendor/ directory.
 #
 # The first several steps should match that of the build's Dockerfile to share
 # the go module package cache.
-FROM $GOLANG_IMAGE as src
+FROM --platform=$BUILDPLATFORM $GOLANG_IMAGE as src
 USER root
 ENV GOPROXY=direct
 WORKDIR /src
@@ -40,7 +40,7 @@ RUN go mod vendor
 
 # Run the license scanner and dump its processed & collected license data to be
 # used in distributed container image.
-FROM $SDK_IMAGE as license-scan
+FROM --platform=$BUILDPLATFORM $SDK_IMAGE as license-scan
 COPY --from=src /src/vendor /src/vendor
 COPY --from=src /src/clarify.toml /src/clarify.toml
 USER root
@@ -52,5 +52,5 @@ RUN bottlerocket-license-scan \
 
 # Final container image has LICENSE files and accompanying attributions
 # collected and produced by the license scanner.
-FROM scratch as licenses
+FROM --platform=$BUILDPLATFORM scratch as licenses
 COPY --from=license-scan /out/licenses /licenses

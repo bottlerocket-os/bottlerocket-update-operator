@@ -22,7 +22,8 @@ SHORT_SHA = $(shell git describe --abbrev=8 --always --dirty='-dev' --exclude '*
 # image, it is appended to the IMAGE_NAME unless the name is specified.
 IMAGE_ARCH_SUFFIX = $(addprefix -,$(ARCH))
 # BUILDSYS_SDK_IMAGE is the Bottlerocket SDK image used for license scanning.
-BUILDSYS_SDK_IMAGE ?= bottlerocket/sdk-$(UNAME_ARCH):v0.10.1
+BUILDSYS_SDK_VERSION=v0.22.0
+BUILDSYS_SDK_IMAGE = public.ecr.aws/bottlerocket/bottlerocket-sdk-${BUILDSYS_ARCH}:${BUILDSYS_SDK_VERSION}
 # LICENSES_IMAGE_NAME is the name of the container image that has LICENSE files
 # for distribution.
 LICENSES_IMAGE = $(IMAGE_NAME)-licenses
@@ -35,10 +36,10 @@ DISTFILE ?= $(patsubst %/,%,$(DESTDIR))/$(subst /,_,$(IMAGE_NAME)).tar.gz
 # These values derive ARCH and DOCKER_ARCH which are needed by dependencies in
 # image build defaulting to system's architecture when not specified.
 #
-# UNAME_ARCH is the runtime architecture of the building host.
-UNAME_ARCH = $(shell uname -m)
+# BUILDSYS_ARCH is the runtime architecture of the building host.
+BUILDSYS_ARCH = $(shell uname -m)
 # ARCH is the target architecture which is being built for.
-ARCH = $(lastword $(subst :, ,$(filter $(UNAME_ARCH):%,x86_64:amd64 aarch64:arm64)))
+ARCH = $(lastword $(subst :, ,$(filter $(BUILDSYS_ARCH):%,x86_64:amd64 aarch64:arm64)))
 # DOCKER_ARCH is the docker specific architecture specifier used for building on
 # multiarch container images.
 DOCKER_ARCH = $(lastword $(subst :, ,$(filter $(ARCH):%,amd64:amd64 arm64:arm64v8)))
@@ -75,7 +76,8 @@ test-race: test
 
 # Build a container image for daemon and tools.
 container: licenses
-	docker build \
+	docker buildx build \
+		--platform=linux/$(GOARCH) \
 		--network=host \
 		--build-arg 'GO_LDFLAGS=$(GO_LDFLAGS)' \
 		--build-arg 'GOARCH=$(GOARCH)' \
@@ -88,7 +90,8 @@ container: licenses
 
 # Build and test in a container.
 container-test: sdk-image licenses
-	docker build \
+	docker buildx build \
+		--platform=linux/$(GOARCH) \
 		--network=host \
 		--build-arg 'GO_LDFLAGS=$(GO_LDFLAGS)' \
 		--build-arg 'GOARCH=$(GOARCH)' \
@@ -195,11 +198,9 @@ get-nodes-status:
 	kubectl get nodes -o json | jq -C -S '.items | map(.metadata|{(.name): (.annotations|to_entries|map(select(.key|startswith("bottlerocket")))|from_entries)}) | add'
 
 # sdk-image fetches and loads the bottlerocket SDK container image for build and
-# license collection.
-sdk-image: BUILDSYS_SDK_IMAGE_URL=https://cache.bottlerocket.aws/$(BUILDSYS_SDK_IMAGE).tar.gz
 sdk-image:
-	docker inspect $(BUILDSYS_SDK_IMAGE) &>/dev/null \
-		|| curl -# -qL $(BUILDSYS_SDK_IMAGE_URL) | docker load -i /dev/stdin
+	docker image inspect $(BUILDSYS_SDK_IMAGE) &>/dev/null \
+		|| docker pull "${BUILDSYS_SDK_IMAGE}"
 
 # licenses builds a container image with the LICENSE & legal files from the
 # source's dependencies. This image is consumed during build (see `container`)
@@ -208,7 +209,8 @@ sdk-image:
 # Dependencies are walked using the Go toolchain and then processed with the
 # project's license scanner, which is built into the bottlerocket SDK image.
 licenses: sdk-image go.mod go.sum
-	docker build \
+	docker buildx build \
+		--platform=linux/$(GOARCH) \
 		--network=host \
 		--build-arg SDK_IMAGE=$(BUILDSYS_SDK_IMAGE) \
 		--build-arg GOLANG_IMAGE=$(BUILDSYS_SDK_IMAGE) \
