@@ -1,6 +1,8 @@
 package k8sutil
 
 import (
+	"context"
+
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/logging"
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/marker"
 
@@ -11,7 +13,7 @@ import (
 )
 
 func PostMetadata(nc v1.NodeInterface, nodeName string, cont marker.Container) error {
-	node, err := nc.Get(nodeName, v1meta.GetOptions{})
+	node, err := nc.Get(context.TODO(), nodeName, v1meta.GetOptions{})
 	if err != nil {
 		return errors.WithMessage(err, "unable to get node")
 	}
@@ -24,7 +26,7 @@ func PostMetadata(nc v1.NodeInterface, nodeName string, cont marker.Container) e
 			"labels":      node.GetLabels(),
 		}).Debug("merged in new metadata")
 	}
-	_, err = nc.Update(node)
+	_, err = nc.Update(context.TODO(), node, v1meta.UpdateOptions{})
 	if err != nil {
 		return errors.WithMessage(err, "unable to update node")
 	}

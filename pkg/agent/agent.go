@@ -77,7 +77,7 @@ func New(log logging.Logger, kube kubernetes.Interface, nodeName string) (*Agent
 
 	nodeclient := kube.CoreV1().Nodes()
 	// Determine which platform to use depending on the updater interface version
-	node, err := nodeclient.Get(nodeName, v1meta.GetOptions{})
+	node, err := nodeclient.Get(context.TODO(), nodeName, v1meta.GetOptions{})
 	if err != nil {
 		return nil, errors.New("failed to retrieve node information")
 	}
@@ -214,7 +214,7 @@ func (a *Agent) postUpdateAvailable(available bool) error {
 		return errors.New("kubernetes client is required to fetch node resource")
 	}
 
-	node, err := a.kube.CoreV1().Nodes().Get(a.nodeName, v1meta.GetOptions{})
+	node, err := a.kube.CoreV1().Nodes().Get(context.TODO(), a.nodeName, v1meta.GetOptions{})
 	if err != nil {
 		return errors.WithMessage(err, "unable to get node")
 	}
@@ -412,7 +412,7 @@ func (a *Agent) checkNodePreflight() error {
 
 	a.log.Debug("preflight check")
 
-	n, err := a.kube.CoreV1().Nodes().Get(a.nodeName, v1meta.GetOptions{})
+	n, err := a.kube.CoreV1().Nodes().Get(context.TODO(), a.nodeName, v1meta.GetOptions{})
 	if err != nil {
 		return errors.WithMessage(err, "unable to retrieve Node for preflight check")
 	}
