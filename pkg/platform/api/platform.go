@@ -85,6 +85,10 @@ func (p apiPlatform) Prepare(target platform.Update) error {
 	if err != nil {
 		return err
 	}
+	if updateStatus.UpdateState == stateReady {
+		// update preformed previously
+		return nil
+	}
 	if updateStatus.UpdateState != stateAvailable && updateStatus.UpdateState != stateStaged {
 		return errors.Errorf("unexpected update state: %s, expecting state to be 'Available' or 'Staged'. update action performed out of band?", updateStatus.UpdateState)
 	}
@@ -109,6 +113,10 @@ func (p apiPlatform) Update(target platform.Update) error {
 	updateStatus, err := p.apiClient.GetUpdateStatus()
 	if err != nil {
 		return err
+	}
+	if updateStatus.UpdateState == stateReady {
+		// update preformed previously
+		return nil
 	}
 	if updateStatus.UpdateState != stateStaged {
 		return errors.Errorf("unexpected update state: %s, expecting state to be 'Staged'. update action performed out of band?", updateStatus.UpdateState)

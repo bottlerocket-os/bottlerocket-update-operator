@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"time"
 
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/intent"
 	intentcache "github.com/bottlerocket-os/bottlerocket-update-operator/pkg/intent/cache"
@@ -75,7 +76,7 @@ func newManager(log logging.Logger, kube kubernetes.Interface, nodeName string) 
 		policy:    &defaultPolicy{log: log.WithField(logging.SubComponentField, "policy-check")},
 		inputs:    make(chan *intent.Intent, maxQueuedInputs),
 		poster:    &k8sPoster{log, nodeclient},
-		nodem:     &k8sNodeManager{kube},
+		nodem:     &k8sNodeManager{log, kube},
 		lastCache: intentcache.NewLastCache(),
 	}
 }
@@ -187,16 +188,31 @@ func (am *actionManager) takeAction(pin *intent.Intent) error {
 	}
 
 	if pin.Intrusive() && !successCheckRun {
+		log.Info("starting cordon")
 		err := am.nodem.Cordon(pin.NodeName)
 		if err != nil {
 			log.WithError(err).Error("could not cordon")
 			return err
 		}
+		log.Info("cordon successful")
+
+		log.Info("starting drain")
 		err = am.nodem.Drain(pin.NodeName)
 		if err != nil {
 			log.WithError(err).Error("could not drain")
-			// TODO: make workload check/ignore configurable
-			log.Warn("proceeding anyway")
+			log.Info("attempting to uncordon after drain fail")
+			// allow scheduling on node
+			err = am.nodem.Uncordon(pin.NodeName)
+			if err != nil {
+				log.WithError(err).Error("could not uncordon after drain fail")
+				log.Warn("workload will not return")
+				return err
+			}
+			// Reset the state, so other nodes can be considered for update.
+			pin = pin.Reset()
+			log.WithFields(logfields.Intent(pin)).Info("resetting the node labels after drain fail")
+		} else {
+			log.Info("drain successful")
 		}
 	}
 
@@ -204,21 +220,26 @@ func (am *actionManager) takeAction(pin *intent.Intent) error {
 	if successCheckRun {
 		// Reset the state to begin its stabilization.
 		pin = pin.Reset()
-
-		err := am.checkNode(pin.NodeName)
-		if err != nil {
-			log.WithError(err).Error("unable to perform success-check")
-			// TODO: make success checks configurable
-			log.Warn("proceeding anyway")
-		}
-		err = am.nodem.Uncordon(pin.NodeName)
+		log.Info("starting uncordon")
+		err := am.nodem.Uncordon(pin.NodeName)
 		if err != nil {
 			log.WithError(err).Error("could not uncordon")
-			// TODO: make policy consider failed success handle scenarios,
-			// otherwise we could make a starved cluster.
 			log.Warn("workload will not return")
 			return err
 		}
+		log.Info("uncordon successful")
+
+		log.Info("performing health check after update")
+		err = am.checkNode(pin.NodeName)
+		if err != nil {
+			log.WithError(err).Error("unable to perform node health check after update, node will be updated in next run")
+		}
+
+		log.Info("waiting for workload to be scheduled on node")
+		// 1 minute is just a reasonable estimate
+		time.Sleep(1 * time.Minute)
+
+		log.Info("Update successful")
 	}
 
 	err := am.poster.Post(pin)

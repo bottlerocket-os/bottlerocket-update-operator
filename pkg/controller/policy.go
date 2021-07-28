@@ -32,9 +32,11 @@ type PolicyCheck struct {
 func newPolicyCheck(in *intent.Intent, resources cache.Store) (*PolicyCheck, error) {
 	// TODO: use a workqueue (or other facility) to pull a stable consistent
 	// view at each intent.
+	log := logging.New("policy-check")
 	ress := resources.List()
 	clusterCount := len(ress)
 	clusterActive := 0
+	log.Info("checking every nodes labels to get nodes with active update process")
 	for _, res := range ress {
 		node, ok := res.(*v1.Node)
 		if !ok {
@@ -42,18 +44,19 @@ func newPolicyCheck(in *intent.Intent, resources cache.Store) (*PolicyCheck, err
 			continue
 		}
 		cin := intent.Given(node)
+		logNode := log.WithFields(logfields.Intent(cin)).WithField("node", node.Name)
 		if isClusterActive(cin) {
+			logNode.Debug("update is currently running")
 			clusterActive++
 			if logging.Debuggable {
-				logging.New("policy-check").WithFields(logfields.Intent(cin)).
-					WithField("cluster-active", fmt.Sprintf("%d", clusterActive)).
+				logNode.WithField("cluster-active", fmt.Sprintf("%d", clusterActive)).
 					Debug("cluster node's intent considered active")
 			}
 		}
 	}
 
 	if logging.Debuggable {
-		logging.New("policy-check").WithFields(logfields.Intent(in)).WithFields(logrus.Fields{
+		log.WithFields(logfields.Intent(in)).WithFields(logrus.Fields{
 			"cluster-count":  fmt.Sprintf("%d", clusterCount),
 			"cluster-active": fmt.Sprintf("%d", clusterActive),
 			"resource-count": fmt.Sprintf("%d", len(ress)),
@@ -63,7 +66,7 @@ func newPolicyCheck(in *intent.Intent, resources cache.Store) (*PolicyCheck, err
 	if clusterCount <= 0 {
 		return nil, errors.Errorf("%d resources listed of inappropriate type", len(ress))
 	}
-
+	log.Infof("total nodes count: %d, total nodes running updates: %d", clusterCount, clusterActive)
 	return &PolicyCheck{
 		Intent:        in,
 		ClusterActive: clusterActive,
@@ -108,7 +111,7 @@ func (p *defaultPolicy) Check(ck *PolicyCheck) (bool, error) {
 			return true, nil
 		}
 	}
-
+	log.Info("checking allowed concurrent updates policy")
 	// If there are no other active nodes in the cluster, then go ahead with the
 	// intended action.
 	if ck.ClusterActive < maxClusterActive {

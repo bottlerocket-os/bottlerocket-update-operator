@@ -15,6 +15,14 @@ rules:
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "delete"]
+  # Needed to determine Pod owners
+  - apiGroups: [ "apps" ]
+    resources: [ "daemonsets" ]
+    verbs: [ "get", "list" ]
+  # Needed to evict pods
+  - apiGroups: [ "" ]
+    resources: [ "pods/eviction" ]
+    verbs: [ "create" ]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
