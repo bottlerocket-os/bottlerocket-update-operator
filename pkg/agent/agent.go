@@ -482,6 +482,6 @@ func (k *k8sPoster) Post(i *intent.Intent) error {
 	if err != nil {
 		return err
 	}
-	log.Debugf("posted intent")
+	log.Info("posted intent")
 	return nil
 }

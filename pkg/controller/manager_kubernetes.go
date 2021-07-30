@@ -74,6 +74,6 @@ func (k *k8sPoster) Post(i *intent.Intent) error {
 	k.log.WithFields(logrus.Fields{
 		"node":   nodeName,
 		"intent": i.DisplayString(),
-	}).Debugf("posted intent")
+	}).Info("posted intent")
 	return nil
 }
