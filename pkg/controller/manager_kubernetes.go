@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"context"
+
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/intent"
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/k8sutil"
 	"github.com/bottlerocket-os/bottlerocket-update-operator/pkg/logging"
@@ -19,11 +21,14 @@ type k8sNodeManager struct {
 
 func (k *k8sNodeManager) forNode(nodeName string) (*v1.Node, *drain.Helper, error) {
 	var drainer *drain.Helper
-	node, err := k.kube.CoreV1().Nodes().Get(nodeName, v1meta.GetOptions{})
+	node, err := k.kube.CoreV1().Nodes().Get(context.TODO(), nodeName, v1meta.GetOptions{})
 	if err != nil {
 		return nil, nil, errors.WithMessage(err, "unable to retrieve node from api")
 	}
-	drainer = &drain.Helper{Client: k.kube}
+	drainer = &drain.Helper{
+		Ctx:    context.TODO(),
+		Client: k.kube,
+	}
 	return node, drainer, err
 }
 
@@ -69,6 +74,6 @@ func (k *k8sPoster) Post(i *intent.Intent) error {
 	k.log.WithFields(logrus.Fields{
 		"node":   nodeName,
 		"intent": i.DisplayString(),
-	}).Debugf("posted intent")
+	}).Info("posted intent")
 	return nil
 }
