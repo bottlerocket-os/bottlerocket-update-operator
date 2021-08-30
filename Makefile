@@ -22,7 +22,8 @@ SHORT_SHA = $(shell git describe --abbrev=8 --always --dirty='-dev' --exclude '*
 # image, it is appended to the IMAGE_NAME unless the name is specified.
 IMAGE_ARCH_SUFFIX = $(addprefix -,$(ARCH))
 # BUILDSYS_SDK_IMAGE is the Bottlerocket SDK image used for license scanning.
-BUILDSYS_SDK_IMAGE ?= bottlerocket/sdk-$(UNAME_ARCH):v0.10.1
+BUILDSYS_SDK_VERSION=v0.22.0
+BUILDSYS_SDK_IMAGE = public.ecr.aws/bottlerocket/bottlerocket-sdk-${UNAME_ARCH}:${BUILDSYS_SDK_VERSION}
 # LICENSES_IMAGE_NAME is the name of the container image that has LICENSE files
 # for distribution.
 LICENSES_IMAGE = $(IMAGE_NAME)-licenses
@@ -195,11 +196,9 @@ get-nodes-status:
 	kubectl get nodes -o json | jq -C -S '.items | map(.metadata|{(.name): (.annotations|to_entries|map(select(.key|startswith("bottlerocket")))|from_entries)}) | add'
 
 # sdk-image fetches and loads the bottlerocket SDK container image for build and
-# license collection.
-sdk-image: BUILDSYS_SDK_IMAGE_URL=https://cache.bottlerocket.aws/$(BUILDSYS_SDK_IMAGE).tar.gz
 sdk-image:
-	docker inspect $(BUILDSYS_SDK_IMAGE) &>/dev/null \
-		|| curl -# -qL $(BUILDSYS_SDK_IMAGE_URL) | docker load -i /dev/stdin
+	docker image inspect $(BUILDSYS_SDK_IMAGE) &>/dev/null \
+		|| docker pull "${BUILDSYS_SDK_IMAGE}"
 
 # licenses builds a container image with the LICENSE & legal files from the
 # source's dependencies. This image is consumed during build (see `container`)
