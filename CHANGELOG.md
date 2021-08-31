@@ -1,3 +1,15 @@
+# 0.1.5
+
+* Use ECR Public image instead of region-specific image ([#65])
+* Reduced memory and CPU limits for Agent pod. ([#55])
+* Updated kubernetes client version ([#70])
+* Updated Bottlerocket SDK version ([#63])
+
+[#65]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/65
+[#55]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/55
+[#70]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/70
+[#63]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/63
+
 # 0.1.4
 
 * Use bottlerocket update API to drive updates [#35] [#39]
