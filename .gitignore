@@ -2,3 +2,4 @@
 vendor/
 *.tar.*
 *.tar
+target/
