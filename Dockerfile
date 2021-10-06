@@ -6,7 +6,6 @@ ARG OPENSSL_SHA256SUM=892a0875b9872acd04a9fde79b1f943075d5ea162415de3047c327df33
 USER root
 
 # Build openssl using musl toolchain for openssl-sys crate
-RUN dnf install -y perl
 RUN mkdir /musl && \
     echo "/musl/lib" >> /etc/ld-musl-${ARCH}.path && \
     ln -s /usr/include/${ARCH}-linux-gnu/asm /${ARCH}-bottlerocket-linux-musl/sys-root/usr/include/asm && \
@@ -21,7 +20,7 @@ RUN curl -O -sSL https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.g
     ./Configure no-shared no-async ${CONFIGURE_ARGS} -fPIC --prefix=/musl --openssldir=/musl/ssl linux-${ARCH} && \
     env C_INCLUDE_PATH=/musl/include/ make depend 2> /dev/null && \
     make -j && \
-    make install && \
+    make install_sw && \
     cd .. && rm -rf openssl-${OPENSSL_VERSION}
 
 # We need these environment variables set for building the `openssl-sys` crate
