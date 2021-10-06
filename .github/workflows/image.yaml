@@ -11,4 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+<<<<<<< HEAD
       - run: make brupop-image
+=======
+      - run: make brupop-image
+>>>>>>> b2a55c5 (Add github build workflows)
