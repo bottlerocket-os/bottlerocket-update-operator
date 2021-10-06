@@ -1,0 +1,73 @@
+# This file is generated. Do not edit.
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: bottlerocketnodes.brupop.bottlerocket.aws
+spec:
+  group: brupop.bottlerocket.aws
+  names:
+    categories: []
+    kind: BottlerocketNode
+    plural: bottlerocketnodes
+    shortNames:
+      - brn
+    singular: bottlerocketnode
+  scope: Namespaced
+  versions:
+    - additionalPrinterColumns: []
+      name: v1
+      schema:
+        openAPIV3Schema:
+          description: "Auto-generated derived type for BottlerocketNodeSpec via `CustomResource`"
+          properties:
+            spec:
+              description: "The `BottlerocketNodeSpec` can be used to drive a node through the update state machine. A node linearly drives towards the desired state. The brupop controller updates the spec to specify a node's desired state, and the host agent drives state changes forward and updates the `BottlerocketNodeStatus`."
+              properties:
+                state:
+                  description: "BottlerocketNodeState represents a node's state in the update state machine."
+                  enum:
+                    - WaitingForUpdate
+                    - PreparingToUpdate
+                    - PerformingUpdate
+                    - RebootingToUpdate
+                    - MonitoringUpdate
+                  type: string
+                version:
+                  nullable: true
+                  type: string
+              required:
+                - state
+              type: object
+            status:
+              description: "`BottlerocketNodeStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent, while the spec is updated by the brupop controller."
+              nullable: true
+              properties:
+                available_versions:
+                  items:
+                    type: string
+                  type: array
+                current_state:
+                  description: "BottlerocketNodeState represents a node's state in the update state machine."
+                  enum:
+                    - WaitingForUpdate
+                    - PreparingToUpdate
+                    - PerformingUpdate
+                    - RebootingToUpdate
+                    - MonitoringUpdate
+                  type: string
+                current_version:
+                  type: string
+              required:
+                - available_versions
+                - current_state
+                - current_version
+              type: object
+          required:
+            - spec
+          title: BottlerocketNode
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}

@@ -12,8 +12,4 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: rustup update stable
-<<<<<<< HEAD
       - run: make build
-=======
-      - run: make build
->>>>>>> b2a55c5 (Add github build workflows)

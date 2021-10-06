@@ -1,0 +1,12 @@
+[package]
+name = "yamlgen"
+version = "0.1.0"
+edition = "2018"
+publish = false
+license = "Apache-2.0 OR MIT"
+
+[build-dependencies]
+models = { path = "../models" }
+dotenv = "0.15"
+kube = { version = "0.59.0", default-features = true, features = ["derive"] }
+serde_yaml = "0.8"
