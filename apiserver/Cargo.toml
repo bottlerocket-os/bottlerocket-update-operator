@@ -28,6 +28,3 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 [dev-dependencies]
 mockall = "0.10"
 models = { path = "../models", features = [ "mockall" ] }
-
-# This matches the version of actix-http used by actix-web
-actix-http = { version = "3.0.0-beta.10", default-features = false }
