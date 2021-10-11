@@ -1,0 +1,15 @@
+name: Rust
+on:
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'COPYRIGHT'
+      - 'LICENSE**'
+      - 'design/**'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: rustup update stable
+      - run: make build
