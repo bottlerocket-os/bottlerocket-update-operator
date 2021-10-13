@@ -1,14 +1,18 @@
 use crate::constants;
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::OwnerReference;
 use kube::api::{Api, ObjectMeta, Patch, PatchParams, PostParams};
-use kube::CustomResource;
+use kube::{CustomResource, ResourceExt};
 use schemars::JsonSchema;
+pub use semver::Version;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
+use tokio::time::Duration;
 use tracing::{event, span, Instrument, Level};
 
+use std::str::FromStr;
 use std::sync::Arc;
 
 #[cfg(feature = "mockall")]
@@ -39,23 +43,72 @@ pub enum BottlerocketNodeError {
         selector: BottlerocketNodeSelector,
     },
 
+    #[snafu(display(
+        "Unable to update BottlerocketNode spec ({}, {}): '{}'",
+        selector.node_name,
+        selector.node_uid,
+        source
+    ))]
+    UpdateBottlerocketNodeSpec {
+        source: Box<dyn std::error::Error>,
+        selector: BottlerocketNodeSelector,
+    },
+
     #[snafu(display("Unable to create patch to send to Kubernetes API: '{}'", source))]
     CreateK8SPatch { source: serde_json::error::Error },
+
+    #[snafu(display("Attempted to progress node state machine without achieving current desired state. Current state: '{:?}'. Desired state: '{:?}'", current_state, desired_state))]
+    NodeSpecNotAchieved {
+        current_state: BottlerocketNodeState,
+        desired_state: BottlerocketNodeState,
+    },
+
+    #[snafu(display("BottlerocketNode object ('{}') is missing a reference to the owning Node.", brn.name()))]
+    MissingOwnerReference { brn: BottlerocketNode },
 }
 
 /// BottlerocketNodeState represents a node's state in the update state machine.
-#[derive(Clone, Serialize, Deserialize, Debug, Eq, PartialEq, JsonSchema)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug, Eq, PartialEq, JsonSchema)]
 pub enum BottlerocketNodeState {
+    /// Nodes in this state are waiting for new updates to become available. This is both the starting and terminal state
+    /// in the update process.
     WaitingForUpdate,
-    PreparingToUpdate,
-    PerformingUpdate,
-    RebootingToUpdate,
+    /// Nodes in this state have staged a new update image and used the kubernetes cordon and drain APIs to remove
+    /// running pods.
+    PreparedToUpdate,
+    /// Nodes in this state have installed the new image and updated the partition table to mark it as the new active
+    /// image.
+    PerformedUpdate,
+    /// Nodes in this state have rebooted after performing an update.
+    RebootedToUpdate,
+    /// Nodes in this state have un-cordoned the node to allow work to be scheduled, and are monitoring to ensure that
+    /// the node seems healthy before marking the udpate as complete.
     MonitoringUpdate,
 }
 
 impl Default for BottlerocketNodeState {
     fn default() -> Self {
         BottlerocketNodeState::WaitingForUpdate
+    }
+}
+
+// These constants define the maximum amount of time to allow a machine to transition *into* this state.
+const PREPARED_TO_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(600));
+const PERFORMED_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(120));
+const REBOOTED_TO_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(600));
+const MONITORING_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(300));
+const WAITING_FOR_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(120));
+
+impl BottlerocketNodeState {
+    /// Returns the total time that a node can spend transitioning *from* the given state to the next state in the process.
+    pub fn timeout_time(&self) -> Option<Duration> {
+        match self {
+            &Self::WaitingForUpdate => PREPARED_TO_UPDATE_TIMEOUT,
+            &Self::PreparedToUpdate => PERFORMED_UPDATE_TIMEOUT,
+            &Self::PerformedUpdate => REBOOTED_TO_UPDATE_TIMEOUT,
+            &Self::RebootedToUpdate => MONITORING_UPDATE_TIMEOUT,
+            &Self::MonitoringUpdate => WAITING_FOR_UPDATE_TIMEOUT,
+        }
     }
 }
 
@@ -88,17 +141,162 @@ pub const K8S_NODE_SHORTNAME: &str = "brn";
     printcolumn = r#"{"name":"Target Version", "type":"string", "jsonPath":".spec.version"}"#
 )]
 pub struct BottlerocketNodeSpec {
+    /// Records the desired state of the `BottlerocketNode`
     pub state: BottlerocketNodeState,
-    pub version: Option<String>,
+    /// The time at which the most recent state was set as the desired state.
+    state_transition_timestamp: Option<String>,
+    /// The desired update version, if any.
+    version: Option<String>,
+}
+
+impl BottlerocketNode {
+    /// Creates a `BottlerocketNodeSelector` from this `BottlerocketNode`.
+    pub fn selector(&self) -> Result<BottlerocketNodeSelector, BottlerocketNodeError> {
+        BottlerocketNodeSelector::from_bottlerocket_node(&self)
+    }
+
+    /// Constructs a `BottlerocketNodeSpec` to assign to a `BottlerocketNode` resource, assuming the current
+    /// spec has been successfully achieved.
+    pub fn determine_next_spec(&self) -> Result<BottlerocketNodeSpec, BottlerocketNodeError> {
+        if let Some(node_status) = self.status.as_ref() {
+            if node_status.current_state != self.spec.state {
+                Err(BottlerocketNodeError::NodeSpecNotAchieved {
+                    current_state: node_status.current_state,
+                    desired_state: self.spec.state,
+                })
+            } else {
+                match self.spec.state {
+                    BottlerocketNodeState::WaitingForUpdate => {
+                        // If there's a newer version available, then begin updating to that version.
+                        let mut available_versions = node_status.available_versions();
+                        available_versions.sort();
+
+                        if let Some(latest_available) = available_versions.last() {
+                            event!(
+                                Level::TRACE,
+                                ?latest_available,
+                                "Found newest available version."
+                            );
+                            if latest_available > &node_status.current_version() {
+                                event!(
+                                    Level::TRACE,
+                                    ?latest_available,
+                                    "Latest version is newer than current version."
+                                );
+                                Ok(BottlerocketNodeSpec::new_starting_now(
+                                    BottlerocketNodeState::PreparedToUpdate,
+                                    Some(latest_available.clone()),
+                                ))
+                            } else {
+                                Ok(BottlerocketNodeSpec::default())
+                            }
+                        } else {
+                            Ok(BottlerocketNodeSpec::default())
+                        }
+                    }
+                    BottlerocketNodeState::PreparedToUpdate => {
+                        // Desired version stays the same, just push to the new state.
+                        Ok(BottlerocketNodeSpec::new_starting_now(
+                            BottlerocketNodeState::PerformedUpdate,
+                            self.spec.version(),
+                        ))
+                    }
+                    BottlerocketNodeState::PerformedUpdate => {
+                        // Desired version stays the same, just push to the new state.
+                        Ok(BottlerocketNodeSpec::new_starting_now(
+                            BottlerocketNodeState::RebootedToUpdate,
+                            self.spec.version(),
+                        ))
+                    }
+                    BottlerocketNodeState::RebootedToUpdate => {
+                        // Desired version stays the same, just push to the new state.
+                        Ok(BottlerocketNodeSpec::new_starting_now(
+                            BottlerocketNodeState::MonitoringUpdate,
+                            self.spec.version(),
+                        ))
+                    }
+                    BottlerocketNodeState::MonitoringUpdate => {
+                        // We're ready to wait for a new update.
+                        Ok(BottlerocketNodeSpec::default())
+                    }
+                }
+            }
+        } else {
+            // If there is no status set, then we have no instructions for the node.
+            Ok(BottlerocketNodeSpec::default())
+        }
+    }
+}
+
+impl BottlerocketNodeSpec {
+    pub fn new(
+        state: BottlerocketNodeState,
+        state_transition_timestamp: Option<DateTime<Utc>>,
+        version: Option<Version>,
+    ) -> Self {
+        let state_transition_timestamp = state_transition_timestamp.map(|ts| ts.to_rfc3339());
+        let version = version.map(|v| v.to_string());
+        BottlerocketNodeSpec {
+            state,
+            state_transition_timestamp,
+            version,
+        }
+    }
+
+    pub fn new_starting_now(state: BottlerocketNodeState, version: Option<Version>) -> Self {
+        Self::new(state, Some(Utc::now()), version)
+    }
+
+    /// JsonSchema cannot appropriately handle DateTime objects. This accessor returns the transition timestamp
+    /// as a DateTime.
+    pub fn state_timestamp(&self) -> Option<DateTime<Utc>> {
+        self.state_transition_timestamp.as_ref().map(|ts_str| {
+            DateTime::parse_from_rfc3339(ts_str)
+                .expect("state_transition_timestamp must be rfc3339 string.")
+                .into()
+        })
+    }
+
+    pub fn version(&self) -> Option<Version> {
+        // TODO(seankell) If a user creates their own BRN object with an invalid version, this will panic.
+        self.version.as_ref().map(|v| Version::from_str(v).unwrap())
+    }
 }
 
 /// `BottlerocketNodeStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent,
 /// while the spec is updated by the brupop controller.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, PartialEq, JsonSchema)]
 pub struct BottlerocketNodeStatus {
-    pub current_version: String,
-    pub available_versions: Vec<String>,
+    current_version: String,
+    available_versions: Vec<String>,
     pub current_state: BottlerocketNodeState,
+}
+
+impl BottlerocketNodeStatus {
+    pub fn new(
+        current_version: Version,
+        available_versions: Vec<Version>,
+        current_state: BottlerocketNodeState,
+    ) -> Self {
+        BottlerocketNodeStatus {
+            current_version: current_version.to_string(),
+            available_versions: available_versions.iter().map(|v| v.to_string()).collect(),
+            current_state,
+        }
+    }
+
+    pub fn current_version(&self) -> Version {
+        // TODO(seankell) If a user creates their own BRN object with an invalid version, this will panic.
+        Version::from_str(&self.current_version).unwrap()
+    }
+
+    pub fn available_versions(&self) -> Vec<Version> {
+        // TODO(seankell) If a user creates their own BRN object with an invalid version, this will panic.
+        self.available_versions
+            .iter()
+            .map(|v| Version::from_str(v).unwrap())
+            .collect()
+    }
 }
 
 /// Indicates the specific k8s node that BottlerocketNode object is associated with.
@@ -106,6 +304,27 @@ pub struct BottlerocketNodeStatus {
 pub struct BottlerocketNodeSelector {
     pub node_name: String,
     pub node_uid: String,
+}
+
+impl BottlerocketNodeSelector {
+    pub fn from_bottlerocket_node(brn: &BottlerocketNode) -> Result<Self, BottlerocketNodeError> {
+        let node_owner = brn
+            .metadata
+            .owner_references
+            .as_ref()
+            .ok_or(BottlerocketNodeError::MissingOwnerReference { brn: brn.clone() })?
+            .first()
+            .ok_or(BottlerocketNodeError::MissingOwnerReference { brn: brn.clone() })?;
+
+        Ok(BottlerocketNodeSelector {
+            node_name: node_owner.name.clone(),
+            node_uid: node_owner.uid.clone(),
+        })
+    }
+
+    pub fn brn_resource_name(&self) -> String {
+        format!("brn-{}", self.node_name)
+    }
 }
 
 pub fn node_resource_name(node_selector: &BottlerocketNodeSelector) -> String {
@@ -139,19 +358,38 @@ pub trait BottlerocketNodeClient: Clone + Sized + Send + Sync {
 
 #[derive(Debug, Serialize, Deserialize)]
 /// A helper struct used to serialize and send patches to the k8s API to modify the status of a BottlerocketNode.
-struct BottlerocketNodePatch {
+struct BottlerocketNodeStatusPatch {
     #[serde(rename = "apiVersion")]
     api_version: String,
     kind: String,
     status: BottlerocketNodeStatus,
 }
 
-impl Default for BottlerocketNodePatch {
+impl Default for BottlerocketNodeStatusPatch {
     fn default() -> Self {
-        BottlerocketNodePatch {
+        BottlerocketNodeStatusPatch {
             api_version: constants::API_VERSION.to_string(),
             kind: K8S_NODE_KIND.to_string(),
             status: BottlerocketNodeStatus::default(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+/// A helper struct used to serialize and send patches to the k8s API to modify the spec of a BottlerocketNode.
+struct BottlerocketNodeSpecPatch {
+    #[serde(rename = "apiVersion")]
+    api_version: String,
+    kind: String,
+    spec: BottlerocketNodeSpec,
+}
+
+impl Default for BottlerocketNodeSpecPatch {
+    fn default() -> Self {
+        BottlerocketNodeSpecPatch {
+            api_version: constants::API_VERSION.to_string(),
+            kind: K8S_NODE_KIND.to_string(),
+            spec: BottlerocketNodeSpec::default(),
         }
     }
 }
@@ -244,7 +482,7 @@ impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
                     name: Some(node_resource_name(&selector)),
                     owner_references: Some(vec![OwnerReference {
                         api_version: "v1".to_string(),
-                        kind: "BottlerocketNode".to_string(),
+                        kind: "Node".to_string(),
                         name: selector.node_name.clone(),
                         uid: selector.node_uid.clone(),
                         ..Default::default()
@@ -282,7 +520,7 @@ impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
         selector: &BottlerocketNodeSelector,
         status: &BottlerocketNodeStatus,
     ) -> Result<(), BottlerocketNodeError> {
-        let br_node_patch = BottlerocketNodePatch {
+        let br_node_status_patch = BottlerocketNodeStatusPatch {
             status: status.clone(),
             ..Default::default()
         };
@@ -295,7 +533,8 @@ impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
 
         // Use an asynchronous closure to avoid tracing across an await bound.
         async move {
-            let br_node_patch = serde_json::to_value(br_node_patch).context(CreateK8SPatch)?;
+            let br_node_status_patch =
+                serde_json::to_value(br_node_status_patch).context(CreateK8SPatch)?;
 
             let api: Api<BottlerocketNode> =
                 Api::namespaced(self.k8s_client.clone(), constants::NAMESPACE);
@@ -305,9 +544,9 @@ impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
                 "Sending BottlerocketNode patch request to kubernetes cluster.",
             );
             api.patch_status(
-                &node_resource_name(&selector),
+                &selector.brn_resource_name(),
                 &PatchParams::default(),
-                &Patch::Merge(&br_node_patch),
+                &Patch::Merge(&br_node_status_patch),
             )
             .await
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
@@ -327,9 +566,29 @@ impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
 
     async fn update_node_spec(
         &self,
-        _selector: &BottlerocketNodeSelector,
-        _spec: &BottlerocketNodeSpec,
+        selector: &BottlerocketNodeSelector,
+        spec: &BottlerocketNodeSpec,
     ) -> Result<(), BottlerocketNodeError> {
-        unimplemented!()
+        let br_node_spec_patch = BottlerocketNodeSpecPatch {
+            spec: spec.clone(),
+            ..Default::default()
+        };
+        let br_node_spec_patch =
+            serde_json::to_value(br_node_spec_patch).context(CreateK8SPatch)?;
+
+        let api: Api<BottlerocketNode> =
+            Api::namespaced(self.k8s_client.clone(), constants::NAMESPACE);
+
+        api.patch(
+            &selector.brn_resource_name(),
+            &PatchParams::default(),
+            &Patch::Merge(&br_node_spec_patch),
+        )
+        .await
+        .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+        .context(UpdateBottlerocketNodeSpec {
+            selector: selector.clone(),
+        })?;
+        Ok(())
     }
 }

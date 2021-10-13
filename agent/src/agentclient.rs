@@ -108,11 +108,11 @@ impl BrupopAgent {
             .await
             .context(error::BottlerocketNodeStatusAvailableVersions)?;
 
-        Ok(BottlerocketNodeStatus {
-            current_version: current_version.version_id.clone(),
-            available_versions: update_versions,
-            current_state: state,
-        })
+        Ok(BottlerocketNodeStatus::new(
+            current_version.version_id.clone(),
+            update_versions,
+            state,
+        ))
     }
 
     /// create the custom resource associated with this node
@@ -217,7 +217,7 @@ impl BrupopAgent {
                     BottlerocketNodeState::WaitingForUpdate => {
                         log::info!("Ready to finish monitoring and start update process")
                     }
-                    BottlerocketNodeState::PreparingToUpdate => {
+                    BottlerocketNodeState::PreparedToUpdate => {
                         log::info!("Preparing update");
                         prepare().await.context(error::UpdateActions {
                             action: "Prepare".to_string(),
@@ -227,13 +227,13 @@ impl BrupopAgent {
                         // and then we need to wait until the host is successfully drained before transitioning
                         // to the next state.
                     }
-                    BottlerocketNodeState::PerformingUpdate => {
+                    BottlerocketNodeState::PerformedUpdate => {
                         log::info!("Performing update");
                         update().await.context(error::UpdateActions {
                             action: "Perform".to_string(),
                         })?;
                     }
-                    BottlerocketNodeState::RebootingToUpdate => {
+                    BottlerocketNodeState::RebootedToUpdate => {
                         log::info!("Rebooting node to complete update");
 
                         if ensure_reboot_happened(&bottlerocket_node_status)? {
@@ -299,7 +299,7 @@ fn ensure_reboot_happened(status: &BottlerocketNodeStatus) -> Result<bool> {
     let now = chrono::offset::Utc::now().naive_local();
     let duration_since_reboot = now.signed_duration_since(reboot_time).num_hours();
 
-    Ok(duration_since_reboot <= 1 && status.available_versions[0] == status.current_version)
+    Ok(duration_since_reboot <= 1 && status.available_versions()[0] == status.current_version())
 }
 
 fn get_server_domain() -> String {

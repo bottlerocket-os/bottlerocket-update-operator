@@ -131,6 +131,7 @@ mod tests {
     use models::constants::APISERVER_INTERNAL_PORT;
     use models::node::{
         BottlerocketNode, BottlerocketNodeSpec, BottlerocketNodeState, MockBottlerocketNodeClient,
+        Version,
     };
 
     use actix_web::body::AnyBody;
@@ -211,11 +212,11 @@ mod tests {
             node_name: "test-node-name".to_string(),
             node_uid: "test-node-uid".to_string(),
         };
-        let node_status = BottlerocketNodeStatus {
-            current_version: "1.2.1".to_string(),
-            available_versions: vec!["1.3.0".to_string()],
-            current_state: BottlerocketNodeState::default(),
-        };
+        let node_status = BottlerocketNodeStatus::new(
+            Version::new(1, 2, 1),
+            vec![Version::new(1, 3, 0)],
+            BottlerocketNodeState::default(),
+        );
 
         let settings = test_settings(|node_client| {
             let my_selector = node_selector.clone();

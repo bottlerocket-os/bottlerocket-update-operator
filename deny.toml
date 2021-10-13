@@ -31,6 +31,8 @@ skip-tree = [
     # actix-http uses older and newer versions of crates like rustc_version and
     # semver, for build vs. runtime dependencies.
     { name = "actix-http", version = "3.0.0-beta.10" },
+    # chrono uses an older version of time, which clashes with the one used by actix-web.
+    { name = "chrono", version = "0.4.19" },
 ]
 
 [sources]

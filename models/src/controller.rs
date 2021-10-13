@@ -1,16 +1,14 @@
 use crate::constants::{
-    APISERVER, APISERVER_HEALTH_CHECK_ROUTE, APISERVER_INTERNAL_PORT, APISERVER_MAX_UNAVAILABLE,
-    APISERVER_SERVICE_NAME, APISERVER_SERVICE_PORT, APP_COMPONENT, APP_MANAGED_BY, APP_PART_OF,
-    BRUPOP, BRUPOP_DOMAIN_LIKE_NAME, LABEL_COMPONENT, NAMESPACE,
+    APP_COMPONENT, APP_MANAGED_BY, APP_PART_OF, BRUPOP, BRUPOP_DOMAIN_LIKE_NAME, CONTROLLER,
+    CONTROLLER_DEPLOYMENT_NAME, LABEL_COMPONENT, NAMESPACE,
 };
 use crate::node::{K8S_NODE_PLURAL, K8S_NODE_STATUS};
 use k8s_openapi::api::apps::v1::{
     Deployment, DeploymentSpec, DeploymentStrategy, RollingUpdateDeployment,
 };
 use k8s_openapi::api::core::v1::{
-    Affinity, Container, ContainerPort, HTTPGetAction, LocalObjectReference, NodeAffinity,
-    NodeSelector, NodeSelectorRequirement, NodeSelectorTerm, PodSpec, PodTemplateSpec, Probe,
-    Service, ServiceAccount, ServicePort, ServiceSpec,
+    Affinity, Container, LocalObjectReference, NodeAffinity, NodeSelector, NodeSelectorRequirement,
+    NodeSelectorTerm, PodSpec, PodTemplateSpec, ServiceAccount,
 };
 use k8s_openapi::api::rbac::v1::{ClusterRole, ClusterRoleBinding, PolicyRule, RoleRef, Subject};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
@@ -18,17 +16,17 @@ use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use kube::api::ObjectMeta;
 use maplit::btreemap;
 
-const BRUPOP_APISERVER_SERVICE_ACCOUNT: &str = "brupop-apiserver-service-account";
-const BRUPOP_APISERVER_CLUSTER_ROLE: &str = "brupop-apiserver-role";
+const BRUPOP_CONTROLLER_SERVICE_ACCOUNT: &str = "brupop-controller-service-account";
+const BRUPOP_CONTROLLER_CLUSTER_ROLE: &str = "brupop-controller-role";
 
-/// Defines the brupop-apiserver service account
-pub fn apiserver_service_account() -> ServiceAccount {
+/// Defines the brupop-controller service account
+pub fn controller_service_account() -> ServiceAccount {
     ServiceAccount {
         metadata: ObjectMeta {
-            name: Some(BRUPOP_APISERVER_SERVICE_ACCOUNT.to_string()),
+            name: Some(BRUPOP_CONTROLLER_SERVICE_ACCOUNT.to_string()),
             namespace: Some(NAMESPACE.to_string()),
             annotations: Some(btreemap! {
-                "kubernetes.io/service-account.name".to_string() => BRUPOP_APISERVER_SERVICE_ACCOUNT.to_string()
+                "kubernetes.io/service-account.name".to_string() => BRUPOP_CONTROLLER_SERVICE_ACCOUNT.to_string()
             }),
             ..Default::default()
         },
@@ -36,11 +34,11 @@ pub fn apiserver_service_account() -> ServiceAccount {
     }
 }
 
-/// Defines the brupop-apiserver cluster role
-pub fn apiserver_cluster_role() -> ClusterRole {
+/// Defines the brupop-controller cluster role
+pub fn controller_cluster_role() -> ClusterRole {
     ClusterRole {
         metadata: ObjectMeta {
-            name: Some(BRUPOP_APISERVER_CLUSTER_ROLE.to_string()),
+            name: Some(BRUPOP_CONTROLLER_CLUSTER_ROLE.to_string()),
             namespace: Some(NAMESPACE.to_string()),
             ..Default::default()
         },
@@ -51,7 +49,16 @@ pub fn apiserver_cluster_role() -> ClusterRole {
                     K8S_NODE_PLURAL.to_string(),
                     K8S_NODE_STATUS.to_string(),
                 ]),
-                verbs: vec!["create", "get", "list", "patch", "update", "watch"]
+                verbs: vec!["get", "list", "watch"]
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect(),
+                ..Default::default()
+            },
+            PolicyRule {
+                api_groups: Some(vec![BRUPOP_DOMAIN_LIKE_NAME.to_string()]),
+                resources: Some(vec![K8S_NODE_PLURAL.to_string()]),
+                verbs: vec!["create", "patch", "update"]
                     .iter()
                     .map(|s| s.to_string())
                     .collect(),
@@ -79,31 +86,31 @@ pub fn apiserver_cluster_role() -> ClusterRole {
     }
 }
 
-/// Defines the brupop-apiserver cluster role binding
-pub fn apiserver_cluster_role_binding() -> ClusterRoleBinding {
+/// Defines the brupop-controller cluster role binding
+pub fn controller_cluster_role_binding() -> ClusterRoleBinding {
     ClusterRoleBinding {
         metadata: ObjectMeta {
-            name: Some("brupop-apiserver-role-binding".to_string()),
+            name: Some("brupop-controller-role-binding".to_string()),
             namespace: Some(NAMESPACE.to_string()),
             ..Default::default()
         },
         role_ref: RoleRef {
             api_group: "rbac.authorization.k8s.io".to_string(),
             kind: "ClusterRole".to_string(),
-            name: BRUPOP_APISERVER_CLUSTER_ROLE.to_string(),
+            name: BRUPOP_CONTROLLER_CLUSTER_ROLE.to_string(),
         },
         subjects: Some(vec![Subject {
             kind: "ServiceAccount".to_string(),
-            name: BRUPOP_APISERVER_SERVICE_ACCOUNT.to_string(),
+            name: BRUPOP_CONTROLLER_SERVICE_ACCOUNT.to_string(),
             namespace: Some(NAMESPACE.to_string()),
             ..Default::default()
         }]),
     }
 }
 
-/// Defines the brupop-apiserver deployment
-pub fn apiserver_deployment(
-    apiserver_image: String,
+/// Defines the brupop-controller deployment
+pub fn controller_deployment(
+    brupop_image: String,
     image_pull_secret: Option<String>,
 ) -> Deployment {
     let image_pull_secrets =
@@ -113,32 +120,30 @@ pub fn apiserver_deployment(
         metadata: ObjectMeta {
             labels: Some(
                 btreemap! {
-                    APP_COMPONENT => APISERVER.to_string(),
+                    APP_COMPONENT => CONTROLLER.to_string(),
                     APP_MANAGED_BY => BRUPOP.to_string(),
                     APP_PART_OF => BRUPOP.to_string(),
-                    LABEL_COMPONENT => APISERVER.to_string(),
+                    LABEL_COMPONENT => CONTROLLER.to_string(),
                 }
                 .iter()
                 .map(|(k, v)| (k.to_string(), v.to_string()))
                 .collect(),
             ),
-            name: Some(APISERVER_SERVICE_NAME.to_string()),
+            name: Some(CONTROLLER_DEPLOYMENT_NAME.to_string()),
             namespace: Some(NAMESPACE.to_string()),
             ..Default::default()
         },
         spec: Some(DeploymentSpec {
-            replicas: Some(3),
+            replicas: Some(1),
             selector: LabelSelector {
                 match_labels: Some(
-                    btreemap! { LABEL_COMPONENT.to_string() => APISERVER.to_string()},
+                    btreemap! { LABEL_COMPONENT.to_string() => CONTROLLER.to_string()},
                 ),
                 ..Default::default()
             },
             strategy: Some(DeploymentStrategy {
                 rolling_update: Some(RollingUpdateDeployment {
-                    max_unavailable: Some(IntOrString::String(
-                        APISERVER_MAX_UNAVAILABLE.to_string(),
-                    )),
+                    max_unavailable: Some(IntOrString::Int(100)),
                     ..Default::default()
                 }),
                 ..Default::default()
@@ -146,7 +151,7 @@ pub fn apiserver_deployment(
             template: PodTemplateSpec {
                 metadata: Some(ObjectMeta {
                     labels: Some(btreemap! {
-                        LABEL_COMPONENT.to_string() => APISERVER.to_string(),
+                        LABEL_COMPONENT.to_string() => CONTROLLER.to_string(),
                     }),
                     namespace: Some(NAMESPACE.to_string()),
                     ..Default::default()
@@ -180,76 +185,21 @@ pub fn apiserver_deployment(
                             ),
                             ..Default::default()
                         }),
-                        // TODO: Potentially add pods we want to avoid here, e.g. update operator agent pod
                         pod_anti_affinity: None,
                         ..Default::default()
                     }),
                     containers: vec![Container {
-                        image: Some(apiserver_image),
+                        image: Some(brupop_image),
                         image_pull_policy: None,
                         name: BRUPOP.to_string(),
-                        command: Some(vec!["./apiserver".to_string()]),
-                        ports: Some(vec![ContainerPort {
-                            container_port: APISERVER_INTERNAL_PORT,
-                            ..Default::default()
-                        }]),
-                        liveness_probe: Some(Probe {
-                            http_get: Some(HTTPGetAction {
-                                path: Some(APISERVER_HEALTH_CHECK_ROUTE.to_string()),
-                                port: IntOrString::Int(APISERVER_INTERNAL_PORT),
-                                ..Default::default()
-                            }),
-                            initial_delay_seconds: Some(5),
-                            ..Default::default()
-                        }),
-                        readiness_probe: Some(Probe {
-                            http_get: Some(HTTPGetAction {
-                                path: Some(APISERVER_HEALTH_CHECK_ROUTE.to_string()),
-                                port: IntOrString::Int(APISERVER_INTERNAL_PORT),
-                                ..Default::default()
-                            }),
-                            initial_delay_seconds: Some(5),
-                            ..Default::default()
-                        }),
+                        command: Some(vec!["./controller".to_string()]),
                         ..Default::default()
                     }],
                     image_pull_secrets,
-                    service_account_name: Some(BRUPOP_APISERVER_SERVICE_ACCOUNT.to_string()),
+                    service_account_name: Some(BRUPOP_CONTROLLER_SERVICE_ACCOUNT.to_string()),
                     ..Default::default()
                 }),
             },
-            ..Default::default()
-        }),
-        ..Default::default()
-    }
-}
-
-pub fn apiserver_service() -> Service {
-    Service {
-        metadata: ObjectMeta {
-            labels: Some(
-                btreemap! {
-                    APP_COMPONENT => APISERVER.to_string(),
-                    APP_MANAGED_BY => BRUPOP.to_string(),
-                    APP_PART_OF => BRUPOP.to_string(),
-                    LABEL_COMPONENT => APISERVER.to_string(),
-                }
-                .iter()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
-                .collect(),
-            ),
-            name: Some(APISERVER_SERVICE_NAME.to_string()),
-            namespace: Some(NAMESPACE.to_string()),
-            ..Default::default()
-        },
-
-        spec: Some(ServiceSpec {
-            selector: Some(btreemap! { LABEL_COMPONENT.to_string() => APISERVER.to_string()}),
-            ports: Some(vec![ServicePort {
-                port: APISERVER_SERVICE_PORT,
-                target_port: Some(IntOrString::Int(APISERVER_INTERNAL_PORT)),
-                ..Default::default()
-            }]),
             ..Default::default()
         }),
         ..Default::default()
