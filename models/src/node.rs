@@ -8,6 +8,11 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 
+use std::sync::Arc;
+
+#[cfg(feature = "mockall")]
+use mockall::{mock, predicate::*};
+
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
 pub enum BottlerocketNodeError {
@@ -86,23 +91,9 @@ pub struct BottlerocketNodeSpec {
 /// while the spec is updated by the brupop controller.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, PartialEq, JsonSchema)]
 pub struct BottlerocketNodeStatus {
-    current_version: String,
-    available_versions: Vec<String>,
-    current_state: BottlerocketNodeState,
-}
-
-impl BottlerocketNodeStatus {
-    pub fn new(
-        current_version: String,
-        available_versions: Vec<String>,
-        current_state: BottlerocketNodeState,
-    ) -> Self {
-        BottlerocketNodeStatus {
-            current_version,
-            available_versions,
-            current_state,
-        }
-    }
+    pub current_version: String,
+    pub available_versions: Vec<String>,
+    pub current_state: BottlerocketNodeState,
 }
 
 /// Indicates the specific k8s node that BottlerocketNode object is associated with.
@@ -119,17 +110,21 @@ fn node_resource_name(node_selector: &BottlerocketNodeSelector) -> String {
 #[async_trait]
 /// A trait providing an interface to interact with BottlerocketNode objects. This is provided as a trait
 /// in order to allow mocks to be used for testing purposes.
-pub trait BottlerocketNodeClient: Clone + Sync + Send + Sized {
+pub trait BottlerocketNodeClient: Clone + Sized + Send + Sync {
     /// Create a BottlerocketNode object for the specified node.
     async fn create_node(
         &self,
         selector: &BottlerocketNodeSelector,
     ) -> Result<BottlerocketNode, BottlerocketNodeError>;
+    /// Update the `.status` of a BottlerocketNode object. Because the single daemon running on each node
+    /// uniquely owns its brn object, we allow wholesale overwrites rather than patching.
     async fn update_node_status(
         &self,
         selector: &BottlerocketNodeSelector,
         status: &BottlerocketNodeStatus,
     ) -> Result<(), BottlerocketNodeError>;
+    /// Update the `.spec` of a BottlerocketNode object.
+    // TODO: Does this need to provide helpers for Patching semantics?
     async fn update_node_spec(
         &self,
         selector: &BottlerocketNodeSelector,
@@ -153,6 +148,61 @@ impl Default for BottlerocketNodePatch {
             kind: K8S_NODE_KIND.to_string(),
             status: BottlerocketNodeStatus::default(),
         }
+    }
+}
+
+#[cfg(feature = "mockall")]
+mock! {
+    /// A Mock BottlerocketNodeClient for use in tests.
+    pub BottlerocketNodeClient {}
+    #[async_trait]
+    impl BottlerocketNodeClient for BottlerocketNodeClient {
+        async fn create_node(
+            &self,
+            selector: &BottlerocketNodeSelector,
+        ) -> Result<BottlerocketNode, BottlerocketNodeError>;
+        async fn update_node_status(
+            &self,
+            selector: &BottlerocketNodeSelector,
+            status: &BottlerocketNodeStatus,
+        ) -> Result<(), BottlerocketNodeError>;
+        async fn update_node_spec(
+            &self,
+            selector: &BottlerocketNodeSelector,
+            spec: &BottlerocketNodeSpec,
+        ) -> Result<(), BottlerocketNodeError>;
+    }
+
+    impl Clone for BottlerocketNodeClient {
+        fn clone(&self) -> Self;
+    }
+}
+
+#[async_trait]
+impl<T> BottlerocketNodeClient for Arc<T>
+where
+    T: BottlerocketNodeClient,
+{
+    async fn create_node(
+        &self,
+        selector: &BottlerocketNodeSelector,
+    ) -> Result<BottlerocketNode, BottlerocketNodeError> {
+        (**self).create_node(selector).await
+    }
+    async fn update_node_status(
+        &self,
+        selector: &BottlerocketNodeSelector,
+        status: &BottlerocketNodeStatus,
+    ) -> Result<(), BottlerocketNodeError> {
+        (**self).update_node_status(selector, status).await
+    }
+
+    async fn update_node_spec(
+        &self,
+        selector: &BottlerocketNodeSelector,
+        spec: &BottlerocketNodeSpec,
+    ) -> Result<(), BottlerocketNodeError> {
+        (**self).update_node_spec(selector, spec).await
     }
 }
 
