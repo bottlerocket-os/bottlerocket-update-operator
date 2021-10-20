@@ -9,6 +9,16 @@ license = "Apache-2.0 OR MIT"
 models = { path = "../models" }
 
 actix-web = { version = "4.0.0-beta.9", default-features = false }
+
+# tracing-actix-web version must align with actix-web version
+tracing-actix-web = "0.4.0-beta.14"
+tracing = "0.1"
+tracing-subscriber = { version = "0.2", features = ["registry", "env-filter"] }
+tracing-bunyan-formatter = "0.1"
+opentelemetry = { version = "0.16", features = ["rt-tokio-current-thread"]}
+tracing-opentelemetry = "0.15"
+
+
 env_logger = "0.9"
 futures = "0.3"
 

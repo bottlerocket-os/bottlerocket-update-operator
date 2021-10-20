@@ -7,6 +7,7 @@ use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
+use tracing::{event, span, Instrument, Level};
 
 use std::sync::Arc;
 
@@ -225,31 +226,51 @@ impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
         &self,
         selector: &BottlerocketNodeSelector,
     ) -> Result<BottlerocketNode, BottlerocketNodeError> {
-        let br_node = BottlerocketNode {
-            metadata: ObjectMeta {
-                name: Some(node_resource_name(&selector)),
-                owner_references: Some(vec![OwnerReference {
-                    api_version: "v1".to_string(),
-                    kind: "BottlerocketNode".to_string(),
-                    name: selector.node_name.clone(),
-                    uid: selector.node_uid.clone(),
+        let create_span = span!(
+            Level::INFO,
+            "create_node",
+            node_name = %selector.node_name,
+            node_uid = %selector.node_uid,
+        );
+
+        // Use an asynchronous closure to avoid tracing across an await bound.
+        async move {
+            let br_node = BottlerocketNode {
+                metadata: ObjectMeta {
+                    name: Some(node_resource_name(&selector)),
+                    owner_references: Some(vec![OwnerReference {
+                        api_version: "v1".to_string(),
+                        kind: "BottlerocketNode".to_string(),
+                        name: selector.node_name.clone(),
+                        uid: selector.node_uid.clone(),
+                        ..Default::default()
+                    }]),
                     ..Default::default()
-                }]),
+                },
+                spec: BottlerocketNodeSpec::default(),
                 ..Default::default()
-            },
-            spec: BottlerocketNodeSpec::default(),
-            ..Default::default()
-        };
+            };
 
-        Api::namespaced(self.k8s_client.clone(), constants::NAMESPACE)
-            .create(&PostParams::default(), &br_node)
-            .await
-            .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-            .context(CreateBottlerocketNode {
-                selector: selector.clone(),
-            })?;
+            event!(
+                Level::INFO,
+                "Sending BottlerocketNode create request to kubernetes cluster."
+            );
+            Api::namespaced(self.k8s_client.clone(), constants::NAMESPACE)
+                .create(&PostParams::default(), &br_node)
+                .await
+                .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+                .context(CreateBottlerocketNode {
+                    selector: selector.clone(),
+                })?;
+            event!(
+                Level::INFO,
+                "BottlerocketNode create request completed successfully."
+            );
 
-        Ok(br_node)
+            Ok(br_node)
+        }
+        .instrument(create_span)
+        .await
     }
 
     async fn update_node_status(
@@ -261,24 +282,43 @@ impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
             status: status.clone(),
             ..Default::default()
         };
+        let update_span = span!(
+            Level::INFO,
+            "update_node_status",
+            node_name = %selector.node_name,
+            node_uid = %selector.node_uid,
+        );
 
-        let br_node_patch = serde_json::to_value(br_node_patch).context(CreateK8SPatch)?;
+        // Use an asynchronous closure to avoid tracing across an await bound.
+        async move {
+            let br_node_patch = serde_json::to_value(br_node_patch).context(CreateK8SPatch)?;
 
-        let api: Api<BottlerocketNode> =
-            Api::namespaced(self.k8s_client.clone(), constants::NAMESPACE);
+            let api: Api<BottlerocketNode> =
+                Api::namespaced(self.k8s_client.clone(), constants::NAMESPACE);
 
-        api.patch_status(
-            &node_resource_name(&selector),
-            &PatchParams::default(),
-            &Patch::Merge(&br_node_patch),
-        )
+            event!(
+                Level::INFO,
+                "Sending BottlerocketNode patch request to kubernetes cluster.",
+            );
+            api.patch_status(
+                &node_resource_name(&selector),
+                &PatchParams::default(),
+                &Patch::Merge(&br_node_patch),
+            )
+            .await
+            .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+            .context(UpdateBottlerocketNodeStatus {
+                selector: selector.clone(),
+            })?;
+            event!(
+                Level::INFO,
+                "BottlerocketNode patch request completed successfully."
+            );
+
+            Ok(())
+        }
+        .instrument(update_span)
         .await
-        .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-        .context(UpdateBottlerocketNodeStatus {
-            selector: selector.clone(),
-        })?;
-
-        Ok(())
     }
 
     async fn update_node_spec(

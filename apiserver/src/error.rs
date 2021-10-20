@@ -21,6 +21,11 @@ pub enum Error {
 
     #[snafu(display("Error running HTTP server: '{}'", source))]
     HttpServerError { source: std::io::Error },
+
+    #[snafu(display("Error configuring tracing: '{}'", source))]
+    TracingConfiguration {
+        source: tracing::subscriber::SetGlobalDefaultError,
+    },
 }
 
 impl error::ResponseError for Error {}

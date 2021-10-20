@@ -1,15 +1,16 @@
 use crate::error::{self, Result};
+use crate::telemetry;
 use models::constants::APISERVER_HEALTH_CHECK_ROUTE;
 use models::node::{BottlerocketNodeClient, BottlerocketNodeSelector, BottlerocketNodeStatus};
 
 use actix_web::{
-    middleware,
     web::{self, Data},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use snafu::ResultExt;
+use tracing_actix_web::{RootSpan, TracingLogger};
 
 const NODE_RESOURCE_ENDPOINT: &'static str = "/bottlerocket-node-resource";
 
@@ -26,6 +27,21 @@ pub struct CreateBottlerocketNodeRequest {
 
 /// HTTP endpoint which creates BottlerocketNode custom resources on behalf of the caller.
 async fn create_bottlerocket_node_resource<T: BottlerocketNodeClient>(
+    req: HttpRequest,
+    settings: web::Data<APIServerSettings<T>>,
+    create_request: web::Json<CreateBottlerocketNodeRequest>,
+    root_span: RootSpan,
+) -> Result<impl Responder> {
+    root_span.record(
+        "node_name",
+        &create_request.node_selector.node_name.as_str(),
+    );
+    inner_create_bottlerocket_node_resource(req, settings, create_request).await
+}
+
+/// Inner implementation of `create_bottlerocket_node_resource`. Provided so that unit tests can avoid setting up
+/// tracing loggers, which make it difficult to introspect HTTP responses in test cases.
+async fn inner_create_bottlerocket_node_resource<T: BottlerocketNodeClient>(
     _req: HttpRequest,
     settings: web::Data<APIServerSettings<T>>,
     create_request: web::Json<CreateBottlerocketNodeRequest>,
@@ -48,6 +64,21 @@ pub struct UpdateBottlerocketNodeRequest {
 
 /// HTTP endpoint which updates the `status` of a BottlerocketNode custom resource on behalf of the caller.
 async fn update_bottlerocket_node_resource<T: BottlerocketNodeClient>(
+    req: HttpRequest,
+    settings: web::Data<APIServerSettings<T>>,
+    update_request: web::Json<UpdateBottlerocketNodeRequest>,
+    root_span: RootSpan,
+) -> Result<impl Responder> {
+    root_span.record(
+        "node_name",
+        &update_request.node_selector.node_name.as_str(),
+    );
+    inner_update_bottlerocket_node_resource(req, settings, update_request).await
+}
+
+/// Inner implementation of `update_bottlerocket_node_resource`. Provided so that unit tests can avoid setting up
+/// tracing loggers, which make it difficult to introspect HTTP responses in test cases.
+async fn inner_update_bottlerocket_node_resource<T: BottlerocketNodeClient>(
     _req: HttpRequest,
     settings: web::Data<APIServerSettings<T>>,
     update_request: web::Json<UpdateBottlerocketNodeRequest>,
@@ -76,7 +107,7 @@ pub async fn run_server<T: 'static + BottlerocketNodeClient>(
     let server_port = settings.server_port;
     HttpServer::new(move || {
         App::new()
-            .wrap(middleware::Logger::default().exclude(APISERVER_HEALTH_CHECK_ROUTE))
+            .wrap(TracingLogger::<telemetry::BrupopApiserverRootSpanBuilder>::new())
             .app_data(Data::new(settings.clone()))
             .service(
                 web::resource(NODE_RESOURCE_ENDPOINT)
@@ -153,8 +184,9 @@ mod tests {
             App::new()
                 .route(
                     NODE_RESOURCE_ENDPOINT,
-                    web::post()
-                        .to(create_bottlerocket_node_resource::<Arc<MockBottlerocketNodeClient>>),
+                    web::post().to(inner_create_bottlerocket_node_resource::<
+                        Arc<MockBottlerocketNodeClient>,
+                    >),
                 )
                 .app_data(Data::new(settings)),
         )
@@ -211,8 +243,9 @@ mod tests {
             App::new()
                 .route(
                     NODE_RESOURCE_ENDPOINT,
-                    web::put()
-                        .to(update_bottlerocket_node_resource::<Arc<MockBottlerocketNodeClient>>),
+                    web::put().to(inner_update_bottlerocket_node_resource::<
+                        Arc<MockBottlerocketNodeClient>,
+                    >),
                 )
                 .app_data(Data::new(settings)),
         )
