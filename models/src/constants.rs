@@ -15,6 +15,8 @@ pub const API_VERSION: &str = brupop_domain!("v1");
 pub const NAMESPACE: &str = "brupop-bottlerocket-aws";
 pub const BRUPOP: &str = "brupop";
 pub const BRUPOP_DOMAIN_LIKE_NAME: &str = brupop_domain!();
+pub const LABEL_BRUPOP_INTERFACE_NAME: &str = "bottlerocket.aws/updater-interface-version";
+pub const BRUPOP_INTERFACE_VERSION: &str = "2.0.0";
 
 // Label keys
 pub const LABEL_COMPONENT: &str = brupop_domain!("component");
@@ -34,3 +36,7 @@ pub const APISERVER_SERVICE_PORT: i32 = 80; // The k8s service port hosting the 
 pub const APISERVER_MAX_UNAVAILABLE: &str = "33%"; // The maximum number of unavailable nodes for the apiserver deployment.
 pub const APISERVER_HEALTH_CHECK_ROUTE: &str = "/ping"; // Route used for apiserver k8s liveness and readiness checks.
 pub const APISERVER_SERVICE_NAME: &str = "brupop-apiserver"; // The name for the `svc` fronting the apiserver.
+
+// agent constants
+pub const AGENT: &str = "agent";
+pub const AGENT_NAME: &str = "brupop-agent";
