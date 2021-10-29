@@ -1,5 +1,4 @@
-/bin/
-vendor/
-*.tar.*
-*.tar
+*.tar*
 target/
+.cargo/*
+!.cargo/config.toml
