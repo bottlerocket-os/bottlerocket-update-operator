@@ -1,6 +1,6 @@
 TOP := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 
-.PHONY: image fetch build brupop-image clean
+.PHONY: image fetch check-licenses build brupop-image clean
 
 # IMAGE_NAME is the full name of the container image being built. This may be
 # specified to fully control the name of the container image's tag.
@@ -36,13 +36,24 @@ image: build brupop-image
 fetch:
 	cargo fetch --locked
 
+check-licenses: fetch
+	docker run --rm \
+		--network none \
+		--user "$(shell id -u):$(shell id -g)" \
+		--security-opt label=disable \
+		--env CARGO_HOME="/src/.cargo" \
+		--volume "$(TOP):/src" \
+		--workdir "/src/" \
+		"$(BUILDER_IMAGE)" \
+		bash -c "cargo deny --all-features check --disable-fetch licenses bans sources"
+
 # Builds, Lints and Tests the Rust workspace
-build: fetch
+build: fetch check-licenses
 	cargo fmt -- --check
 	cargo build --locked
 	cargo test --locked
 
-brupop-image: fetch
+brupop-image: fetch check-licenses
 	docker build $(DOCKER_BUILD_FLAGS) \
 		--build-arg UNAME_ARCH="$(UNAME_ARCH)" \
 		--build-arg BUILDER_IMAGE="$(BUILDER_IMAGE)" \

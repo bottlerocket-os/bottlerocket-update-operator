@@ -6,7 +6,7 @@ publish = false
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
-models = { path = "../models" }
+models = { path = "../models", version = "0.1.0" }
 
 actix-web = { version = "4.0.0-beta.9", default-features = false }
 env_logger = "0.9"
@@ -27,4 +27,4 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 
 [dev-dependencies]
 mockall = "0.10"
-models = { path = "../models", features = [ "mockall" ] }
+models = { path = "../models", version = "0.1.0", features = [ "mockall" ] }
