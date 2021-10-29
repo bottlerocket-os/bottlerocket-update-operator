@@ -1,6 +1,6 @@
 TOP := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 
-.PHONY: image fetch build brupop-image
+.PHONY: image fetch build brupop-image clean
 
 # IMAGE_NAME is the full name of the container image being built. This may be
 # specified to fully control the name of the container image's tag.
@@ -49,3 +49,6 @@ brupop-image: fetch
 		--tag "$(IMAGE_NAME)" \
 		--network none \
 		-f Dockerfile .
+
+clean:
+	-rm -rf target
