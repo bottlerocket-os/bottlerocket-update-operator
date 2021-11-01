@@ -1,10 +1,8 @@
-use chrono::naive::NaiveDateTime;
 use k8s_openapi::api::core::v1::Node;
 use kube::Api;
 use snafu::OptionExt;
 use snafu::ResultExt;
 use std::env;
-use std::process::Command;
 use tokio::time::{sleep, Duration};
 
 use crate::apiclient::{boot_update, get_os_info, list_available, prepare, update};
@@ -12,8 +10,8 @@ use crate::error::{self, Result};
 use apiserver::api::{CreateBottlerocketNodeRequest, UpdateBottlerocketNodeRequest};
 use models::constants::{APISERVER_SERVICE_NAME, APISERVER_SERVICE_PORT, NAMESPACE};
 use models::node::{
-    node_resource_name, BottlerocketNode, BottlerocketNodeSelector, BottlerocketNodeState,
-    BottlerocketNodeStatus,
+    node_resource_name, BottlerocketNode, BottlerocketNodeSelector, BottlerocketNodeSpec,
+    BottlerocketNodeState, BottlerocketNodeStatus,
 };
 
 const AGENT_SLEEP_DURATION: Duration = Duration::from_secs(5);
@@ -236,7 +234,7 @@ impl BrupopAgent {
                     BottlerocketNodeState::RebootedToUpdate => {
                         log::info!("Rebooting node to complete update");
 
-                        if ensure_reboot_happened(&bottlerocket_node_status)? {
+                        if running_desired_version(&bottlerocket_node_spec).await? {
                             // previous execution `reboot` exited loop and did not update the custom resource
                             // associated with this node. When re-enter loop and finished reboot,
                             // try to update the custom resource.
@@ -277,29 +275,15 @@ impl BrupopAgent {
     }
 }
 
-// ensure if the nodes just rebooted and re-enter the loop.
-fn ensure_reboot_happened(status: &BottlerocketNodeStatus) -> Result<bool> {
-    // criteria that make sure node just rebooted
-    // 1. Check if system last reboot time is same as or around the timestamp that agent tried to reboot the system
-    // 2. Check current system version if it's same as the version we wanted to update to. (latest version)
-
-    let output = Command::new("uptime")
-        .args(["-s"])
-        .output()
-        .context(error::GetUptime)?;
-
-    // convert output string to naivedatetime
-    let uptime = String::from_utf8_lossy(&output.stdout).to_string();
-    let reboot_time = NaiveDateTime::parse_from_str(&uptime.trim_end(), "%Y-%m-%d %H:%M:%S")
-        .context(error::ConvertStringToDatetime { uptime })?;
-
-    // TODO: compare uptime to the timestamp that we're issuing at custom resource
-    // currently we compare it to current time, if the reboot happened in the past 24 hours, we
-    // assume the system just rebooted.
-    let now = chrono::offset::Utc::now().naive_local();
-    let duration_since_reboot = now.signed_duration_since(reboot_time).num_hours();
-
-    Ok(duration_since_reboot <= 1 && status.available_versions()[0] == status.current_version())
+/// Check that the currently running version is the one requested by the controller.
+async fn running_desired_version(spec: &BottlerocketNodeSpec) -> Result<bool> {
+    let os_info = get_os_info()
+        .await
+        .context(error::BottlerocketNodeStatusVersion)?;
+    Ok(match spec.version() {
+        Some(spec_version) => os_info.version_id == spec_version,
+        None => false,
+    })
 }
 
 fn get_server_domain() -> String {

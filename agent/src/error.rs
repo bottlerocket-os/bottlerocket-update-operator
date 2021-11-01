@@ -94,7 +94,4 @@ pub enum Error {
         source
     ))]
     ConvertResponseToText { source: reqwest::Error },
-
-    #[snafu(display("Unable to parse version information: '{}'", source))]
-    VersionParseError { source: semver::Error },
 }
