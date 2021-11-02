@@ -7,6 +7,9 @@ the corresponding k8s yaml files.
 
 use kube::CustomResourceExt;
 use models::{
+    agent::{
+        agent_cluster_role, agent_cluster_role_binding, agent_daemonset, agent_service_account,
+    },
     apiserver::{
         apiserver_cluster_role, apiserver_cluster_role_binding, apiserver_deployment,
         apiserver_service, apiserver_service_account,
@@ -40,11 +43,17 @@ fn main() {
         .join("brupop-apiserver.yaml");
     let mut brupop_apiserver = File::create(&path).unwrap();
 
+    let path = PathBuf::from(YAMLGEN_DIR)
+        .join("deploy")
+        .join("brupop-agent.yaml");
+    let mut brupop_agent = File::create(&path).unwrap();
+
+    // testsys-crd related K8S manifest
     bottlerocket_node_crd.write_all(HEADER.as_bytes()).unwrap();
     serde_yaml::to_writer(&bottlerocket_node_crd, &BottlerocketNode::crd()).unwrap();
 
-    let apiserver_image = env::var("BRUPOP_CONTAINER_IMAGE").ok().unwrap();
-    let apiserver_image_pull_secrets = env::var("BRUPOP_CONTAINER_IMAGE_PULL_SECRET").ok();
+    let brupop_image = env::var("BRUPOP_CONTAINER_IMAGE").ok().unwrap();
+    let brupop_image_pull_secrets = env::var("BRUPOP_CONTAINER_IMAGE_PULL_SECRET").ok();
 
     brupop_apiserver.write_all(HEADER.as_bytes()).unwrap();
     serde_yaml::to_writer(&brupop_apiserver, &brupop_namespace()).unwrap();
@@ -53,8 +62,19 @@ fn main() {
     serde_yaml::to_writer(&brupop_apiserver, &apiserver_cluster_role_binding()).unwrap();
     serde_yaml::to_writer(
         &brupop_apiserver,
-        &apiserver_deployment(apiserver_image, apiserver_image_pull_secrets),
+        &apiserver_deployment(brupop_image.clone(), brupop_image_pull_secrets.clone()),
     )
     .unwrap();
     serde_yaml::to_writer(&brupop_apiserver, &apiserver_service()).unwrap();
+
+    brupop_agent.write_all(HEADER.as_bytes()).unwrap();
+    serde_yaml::to_writer(&brupop_agent, &brupop_namespace()).unwrap();
+    serde_yaml::to_writer(&brupop_agent, &agent_service_account()).unwrap();
+    serde_yaml::to_writer(&brupop_agent, &agent_cluster_role()).unwrap();
+    serde_yaml::to_writer(&brupop_agent, &agent_cluster_role_binding()).unwrap();
+    serde_yaml::to_writer(
+        &brupop_agent,
+        &agent_daemonset(brupop_image.clone(), brupop_image_pull_secrets.clone()),
+    )
+    .unwrap();
 }
