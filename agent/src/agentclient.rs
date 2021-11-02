@@ -10,8 +10,8 @@ use crate::error::{self, Result};
 use apiserver::api::{CreateBottlerocketNodeRequest, UpdateBottlerocketNodeRequest};
 use models::constants::{APISERVER_SERVICE_NAME, APISERVER_SERVICE_PORT, NAMESPACE};
 use models::node::{
-    node_resource_name, BottlerocketNode, BottlerocketNodeSelector, BottlerocketNodeSpec,
-    BottlerocketNodeState, BottlerocketNodeStatus,
+    BottlerocketNode, BottlerocketNodeSelector, BottlerocketNodeSpec, BottlerocketNodeState,
+    BottlerocketNodeStatus,
 };
 
 const AGENT_SLEEP_DURATION: Duration = Duration::from_secs(5);
@@ -32,7 +32,7 @@ impl BrupopAgent {
     }
 
     pub async fn check_node_custom_resource_exists(&mut self) -> Result<bool> {
-        let associated_bottlerocketnode_name = node_resource_name(&self.get_node_selector().await?);
+        let associated_bottlerocketnode_name = self.get_node_selector().await?.brn_resource_name();
         let bottlerocket_nodes: Api<BottlerocketNode> =
             Api::namespaced(self.k8s_client.clone(), NAMESPACE);
 
