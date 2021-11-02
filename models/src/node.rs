@@ -81,7 +81,11 @@ pub const K8S_NODE_SHORTNAME: &str = "brn";
     shortname = "brn",
     singular = "bottlerocketnode",
     status = "BottlerocketNodeStatus",
-    version = "v1"
+    version = "v1",
+    printcolumn = r#"{"name":"State", "type":"string", "jsonPath":".status.current_state"}"#,
+    printcolumn = r#"{"name":"Version", "type":"string", "jsonPath":".status.current_version"}"#,
+    printcolumn = r#"{"name":"Target State", "type":"string", "jsonPath":".spec.state"}"#,
+    printcolumn = r#"{"name":"Target Version", "type":"string", "jsonPath":".spec.version"}"#
 )]
 pub struct BottlerocketNodeSpec {
     state: BottlerocketNodeState,
