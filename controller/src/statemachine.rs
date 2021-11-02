@@ -29,7 +29,7 @@ pub fn determine_next_node_spec(brn: &BottlerocketNode) -> BottlerocketNodeSpec 
                                 Some(latest_available.clone()),
                             )
                         })
-                        .unwrap_or_else(|| BottlerocketNodeSpec::default())
+                        .unwrap_or_else(BottlerocketNodeSpec::default)
                 }
                 BottlerocketNodeState::MonitoringUpdate => {
                     // We're ready to wait for a new update.

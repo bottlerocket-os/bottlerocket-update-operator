@@ -134,6 +134,13 @@ impl BottlerocketNode {
     pub fn selector(&self) -> Result<BottlerocketNodeSelector> {
         BottlerocketNodeSelector::from_bottlerocket_node(&self)
     }
+
+    /// Returns whether or not a node has reached the state requested by its spec.
+    pub fn has_reached_desired_state(&self) -> bool {
+        self.status.as_ref().map_or(false, |node_status| {
+            node_status.current_state == self.spec.state
+        })
+    }
 }
 
 impl BottlerocketNodeSpec {
