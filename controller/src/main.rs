@@ -1,7 +1,12 @@
-use controller::error::{self, Result};
-use models::constants::{CONTROLLER, NAMESPACE};
-use models::node::{
-    BottlerocketNode, BottlerocketNodeClient, BottlerocketNodeState, K8SBottlerocketNodeClient,
+use controller::{
+    error::{self, Result},
+    statemachine::determine_next_node_spec,
+};
+use models::{
+    constants::{CONTROLLER, NAMESPACE},
+    node::{
+        BottlerocketNode, BottlerocketNodeClient, BottlerocketNodeState, K8SBottlerocketNodeClient,
+    },
 };
 
 use futures::stream::StreamExt;
@@ -14,7 +19,7 @@ use opentelemetry::sdk::propagation::TraceContextPropagator;
 use snafu::ResultExt;
 use std::collections::BTreeMap;
 use tokio::time::{sleep, Duration};
-use tracing::{event, Level};
+use tracing::{event, instrument, Level};
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
 
@@ -43,6 +48,7 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
     ///
     /// Nodes are being acted upon if they are not in the `WaitingForUpdate` state, or if their desired state does
     /// not match their current state.
+    #[instrument(skip(self))]
     fn active_node_set(&self) -> BTreeMap<String, BottlerocketNode> {
         self.all_nodes()
             .iter()
@@ -60,6 +66,7 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
     }
 
     /// Determines next actions for a BottlerocketNode.
+    #[instrument(skip(self), err)]
     async fn progress_node(&self, node: BottlerocketNode) -> Result<()> {
         event!(
             Level::TRACE,
@@ -75,12 +82,10 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
 
         if node_status.current_state == node.spec.state {
             // If the node has reached its desired status, it is ready to move on.
-            let desired_spec = node
-                .determine_next_spec()
-                .context(error::NodeSpecCannotBeDetermined)?;
+            let desired_spec = determine_next_node_spec(&node);
 
             event!(
-                Level::TRACE,
+                Level::INFO,
                 ?node,
                 ?desired_spec,
                 "BottlerocketNode has reached desired status. Modifying spec."
@@ -107,15 +112,13 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
     async fn search_for_node_to_update(&self) -> Option<BottlerocketNode> {
         for brn in self.all_nodes() {
             // If we determine that the spec should change, this node is a candidate to begin updating.
-            let next_spec = brn.determine_next_spec();
-            if let Ok(spec) = next_spec {
-                if spec != brn.spec {
-                    match self.progress_node(brn.clone()).await {
-                        Ok(_) => return Some(brn),
-                        Err(err) => {
-                            event!(Level::ERROR, error = %err, node = ?brn, "Failed to progress node.");
-                            continue;
-                        }
+            let next_spec = determine_next_node_spec(&brn);
+            if next_spec != brn.spec {
+                match self.progress_node(brn.clone()).await {
+                    Ok(_) => return Some(brn),
+                    Err(err) => {
+                        event!(Level::ERROR, error = %err, node = ?brn, "Failed to progress node.");
+                        continue;
                     }
                 }
             } else {
