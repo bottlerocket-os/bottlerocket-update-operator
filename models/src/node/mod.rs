@@ -36,15 +36,15 @@ pub use self::client::MockBottlerocketNodeClient;
 pub enum BottlerocketNodeState {
     /// Nodes in this state are waiting for new updates to become available. This is both the starting and terminal state
     /// in the update process.
-    WaitingForUpdate,
+    Idle,
     /// Nodes in this state have staged a new update image and used the kubernetes cordon and drain APIs to remove
     /// running pods.
-    PreparedToUpdate,
+    StagedUpdate,
     /// Nodes in this state have installed the new image and updated the partition table to mark it as the new active
     /// image.
     PerformedUpdate,
     /// Nodes in this state have rebooted after performing an update.
-    RebootedToUpdate,
+    RebootedIntoUpdate,
     /// Nodes in this state have un-cordoned the node to allow work to be scheduled, and are monitoring to ensure that
     /// the node seems healthy before marking the udpate as complete.
     MonitoringUpdate,
@@ -52,37 +52,37 @@ pub enum BottlerocketNodeState {
 
 impl Default for BottlerocketNodeState {
     fn default() -> Self {
-        BottlerocketNodeState::WaitingForUpdate
+        BottlerocketNodeState::Idle
     }
 }
 
 // These constants define the maximum amount of time to allow a machine to transition *into* this state.
-const PREPARED_TO_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(600));
+const STAGED_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(600));
 const PERFORMED_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(120));
-const REBOOTED_TO_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(600));
+const REBOOTED_INTO_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(600));
 const MONITORING_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(300));
-const WAITING_FOR_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(120));
+const IDLE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(120));
 
 impl BottlerocketNodeState {
     /// Returns the next state in the state machine if the current state has been reached successfully.
     pub fn on_success(&self) -> Self {
         match self {
-            Self::WaitingForUpdate => Self::PreparedToUpdate,
-            Self::PreparedToUpdate => Self::PerformedUpdate,
-            Self::PerformedUpdate => Self::RebootedToUpdate,
-            Self::RebootedToUpdate => Self::MonitoringUpdate,
-            Self::MonitoringUpdate => Self::WaitingForUpdate,
+            Self::Idle => Self::StagedUpdate,
+            Self::StagedUpdate => Self::PerformedUpdate,
+            Self::PerformedUpdate => Self::RebootedIntoUpdate,
+            Self::RebootedIntoUpdate => Self::MonitoringUpdate,
+            Self::MonitoringUpdate => Self::Idle,
         }
     }
 
     /// Returns the total time that a node can spend transitioning *from* the given state to the next state in the process.
     pub fn timeout_time(&self) -> Option<Duration> {
         match self {
-            Self::WaitingForUpdate => PREPARED_TO_UPDATE_TIMEOUT,
-            Self::PreparedToUpdate => PERFORMED_UPDATE_TIMEOUT,
-            Self::PerformedUpdate => REBOOTED_TO_UPDATE_TIMEOUT,
-            Self::RebootedToUpdate => MONITORING_UPDATE_TIMEOUT,
-            Self::MonitoringUpdate => WAITING_FOR_UPDATE_TIMEOUT,
+            Self::Idle => IDLE_TIMEOUT,
+            Self::StagedUpdate => STAGED_UPDATE_TIMEOUT,
+            Self::PerformedUpdate => PERFORMED_UPDATE_TIMEOUT,
+            Self::RebootedIntoUpdate => REBOOTED_INTO_UPDATE_TIMEOUT,
+            Self::MonitoringUpdate => MONITORING_UPDATE_TIMEOUT,
         }
     }
 }

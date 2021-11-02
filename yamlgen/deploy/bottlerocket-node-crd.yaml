@@ -39,10 +39,10 @@ spec:
                 state:
                   description: "Records the desired state of the `BottlerocketNode`"
                   enum:
-                    - WaitingForUpdate
-                    - PreparedToUpdate
+                    - Idle
+                    - StagedUpdate
                     - PerformedUpdate
-                    - RebootedToUpdate
+                    - RebootedIntoUpdate
                     - MonitoringUpdate
                   type: string
                 state_transition_timestamp:
@@ -68,10 +68,10 @@ spec:
                 current_state:
                   description: "BottlerocketNodeState represents a node's state in the update state machine."
                   enum:
-                    - WaitingForUpdate
-                    - PreparedToUpdate
+                    - Idle
+                    - StagedUpdate
                     - PerformedUpdate
-                    - RebootedToUpdate
+                    - RebootedIntoUpdate
                     - MonitoringUpdate
                   type: string
                 current_version:
