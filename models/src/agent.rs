@@ -186,7 +186,6 @@ pub fn agent_daemonset(agent_image: String, image_pull_secret: Option<String>) -
                                 "memory".to_string() => Quantity("50Mi".to_string()),
                                 "cpu".to_string() => Quantity("10m".to_string()),
                             }),
-                            ..Default::default()
                         }),
                         volume_mounts: Some(vec![
                             VolumeMount {

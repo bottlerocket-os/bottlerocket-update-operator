@@ -20,7 +20,11 @@ use std::str::FromStr;
 lazy_static! {
     // Regex gathered from semver.org as the recommended semver validation regex.
     static ref SEMVER_RE: regex::Regex = regex::Regex::new(
-        r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$")
+        concat!(
+            r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)",
+            r"(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?",
+            r"(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
+        ))
         .expect("Invalid regex literal.");
 }
 
@@ -60,24 +64,25 @@ const MONITORING_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(300
 const WAITING_FOR_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(120));
 
 impl BottlerocketNodeState {
+    /// Returns the next state in the state machine if the current state has been reached successfully.
     pub fn on_success(&self) -> Self {
         match self {
-            &Self::WaitingForUpdate => Self::PreparedToUpdate,
-            &Self::PreparedToUpdate => Self::PerformedUpdate,
-            &Self::PerformedUpdate => Self::RebootedToUpdate,
-            &Self::RebootedToUpdate => Self::MonitoringUpdate,
-            &Self::MonitoringUpdate => Self::WaitingForUpdate,
+            Self::WaitingForUpdate => Self::PreparedToUpdate,
+            Self::PreparedToUpdate => Self::PerformedUpdate,
+            Self::PerformedUpdate => Self::RebootedToUpdate,
+            Self::RebootedToUpdate => Self::MonitoringUpdate,
+            Self::MonitoringUpdate => Self::WaitingForUpdate,
         }
     }
 
     /// Returns the total time that a node can spend transitioning *from* the given state to the next state in the process.
     pub fn timeout_time(&self) -> Option<Duration> {
         match self {
-            &Self::WaitingForUpdate => PREPARED_TO_UPDATE_TIMEOUT,
-            &Self::PreparedToUpdate => PERFORMED_UPDATE_TIMEOUT,
-            &Self::PerformedUpdate => REBOOTED_TO_UPDATE_TIMEOUT,
-            &Self::RebootedToUpdate => MONITORING_UPDATE_TIMEOUT,
-            &Self::MonitoringUpdate => WAITING_FOR_UPDATE_TIMEOUT,
+            Self::WaitingForUpdate => PREPARED_TO_UPDATE_TIMEOUT,
+            Self::PreparedToUpdate => PERFORMED_UPDATE_TIMEOUT,
+            Self::PerformedUpdate => REBOOTED_TO_UPDATE_TIMEOUT,
+            Self::RebootedToUpdate => MONITORING_UPDATE_TIMEOUT,
+            Self::MonitoringUpdate => WAITING_FOR_UPDATE_TIMEOUT,
         }
     }
 }
@@ -132,7 +137,7 @@ pub struct BottlerocketNodeSpec {
 impl BottlerocketNode {
     /// Creates a `BottlerocketNodeSelector` from this `BottlerocketNode`.
     pub fn selector(&self) -> Result<BottlerocketNodeSelector> {
-        BottlerocketNodeSelector::from_bottlerocket_node(&self)
+        BottlerocketNodeSelector::from_bottlerocket_node(self)
     }
 
     /// Returns whether or not a node has reached the state requested by its spec.
