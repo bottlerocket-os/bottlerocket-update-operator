@@ -14,6 +14,9 @@ use tracing_actix_web::{RootSpan, TracingLogger};
 
 const NODE_RESOURCE_ENDPOINT: &'static str = "/bottlerocket-node-resource";
 
+// The set of API endpoints for which `tracing::Span`s will not be recorded.
+pub const NO_TELEMETRY_ENDPOINTS: &[&str] = &[APISERVER_HEALTH_CHECK_ROUTE];
+
 /// HTTP endpoint that implements a shallow health check for the HTTP service.
 async fn health_check() -> impl Responder {
     HttpResponse::Ok().body("pong")
@@ -105,6 +108,7 @@ pub async fn run_server<T: 'static + BottlerocketNodeClient>(
     settings: APIServerSettings<T>,
 ) -> Result<()> {
     let server_port = settings.server_port;
+
     HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::<telemetry::BrupopApiserverRootSpanBuilder>::new())

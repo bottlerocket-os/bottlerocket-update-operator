@@ -257,6 +257,7 @@ dependencies = [
  "futures",
  "k8s-openapi",
  "kube",
+ "lazy_static",
  "log",
  "mockall",
  "models",
