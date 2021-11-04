@@ -1,8 +1,13 @@
 use k8s_openapi::api::core::v1::Node;
 use kube::Api;
 use snafu::{OptionExt, ResultExt};
-use std::env;
 use tokio::time::{sleep, Duration};
+use tokio_retry::{
+    strategy::{jitter, ExponentialBackoff},
+    Retry,
+};
+
+use kube::runtime::reflector::Store;
 
 use crate::{
     apiclient::{boot_update, get_os_info, list_available, prepare, update},
@@ -20,90 +25,139 @@ use models::{
     },
 };
 
+// The reflector uses exponential backoff.
+// These values configure how long to delay between tries.
+const RETRY_BASE_DELAY: Duration = Duration::from_millis(1000);
+const RETRY_MAX_DELAY: Duration = Duration::from_secs(10);
+const NUM_RETRIES: usize = 5;
+
 const AGENT_SLEEP_DURATION: Duration = Duration::from_secs(5);
 
 #[derive(Clone)]
 pub struct BrupopAgent<T: APIServerClient> {
     k8s_client: kube::client::Client,
-    node_selector: Option<BottlerocketNodeSelector>,
     apiserver_client: T,
+    brn_reader: Store<BottlerocketNode>,
+    node_reader: Store<Node>,
+    associated_node_name: String,
+    associated_bottlerocketnode_name: String,
 }
 
 impl<T: APIServerClient> BrupopAgent<T> {
-    pub fn new(k8s_client: kube::client::Client, apiserver_client: T) -> Self {
+    pub fn new(
+        k8s_client: kube::client::Client,
+        apiserver_client: T,
+        brn_reader: Store<BottlerocketNode>,
+        node_reader: Store<Node>,
+        associated_node_name: String,
+        associated_bottlerocketnode_name: String,
+    ) -> Self {
         BrupopAgent {
             k8s_client,
             apiserver_client,
-            node_selector: None,
+            brn_reader,
+            node_reader,
+            associated_node_name,
+            associated_bottlerocketnode_name,
         }
     }
 
     pub async fn check_node_custom_resource_exists(&mut self) -> Result<bool> {
-        let associated_bottlerocketnode_name = self.get_node_selector().await?.brn_resource_name();
-        let bottlerocket_nodes: Api<BottlerocketNode> =
-            Api::namespaced(self.k8s_client.clone(), NAMESPACE);
+        // try to check if node custom resource exist in the store first. If it's not present in the
+        // store(either node custom resource doesn't exist or store data delays), make the API call for second round check.
 
-        Ok(bottlerocket_nodes
-            .get(&associated_bottlerocketnode_name)
-            .await
-            .context(error::BottlerocketNodeNotExist {
-                node_name: associated_bottlerocketnode_name,
-            })
-            .is_ok())
+        let associated_bottlerocketnode = self.brn_reader.state().clone();
+        if associated_bottlerocketnode.len() != 0 {
+            Ok(true)
+        } else {
+            let bottlerocket_nodes: Api<BottlerocketNode> =
+                Api::namespaced(self.k8s_client.clone(), NAMESPACE);
+
+            // handle the special case which custom resource does exist but communication with the k8s API fails for other errors.
+            if let Err(e) = bottlerocket_nodes
+                .get(&self.associated_bottlerocketnode_name.clone())
+                .await
+            {
+                match e {
+                    // 404 not found response error is OK for this use, which means custom resource doesn't exist
+                    kube::Error::Api(error_response) => {
+                        if error_response.code == 404 {
+                            return Ok(false);
+                        } else {
+                            return error::FetchBottlerocketNodeErrorCode {
+                                code: error_response.code,
+                            }
+                            .fail();
+                        }
+                    }
+                    // Any other type of errors can not present that custom resource doesn't exist, need return error
+                    _ => {
+                        // TODO: Err will cause pod to be terminated and restarted, so it worths to add re-enter agent loop functionality to avoid unexpected pod termination.
+                        return Err(e).context(error::UnableFetchBottlerocketNode {
+                            node_name: &self.associated_bottlerocketnode_name.clone(),
+                        });
+                    }
+                }
+            }
+            Ok(true)
+        }
     }
 
-    pub async fn check_custom_resource_status_exists(&mut self) -> Result<bool> {
+    pub async fn check_custom_resource_status_exists(&self) -> Result<bool> {
         Ok(self.fetch_custom_resource().await?.status.is_some())
     }
 
-    async fn get_node_selector(&mut self) -> Result<BottlerocketNodeSelector> {
-        if self.node_selector.is_none() {
-            let associated_node_name = env::var("MY_NODE_NAME").context(error::GetNodeName)?;
+    async fn get_node_selector(&self) -> Result<BottlerocketNodeSelector> {
+        Retry::spawn(retry_strategy(), || async {
+            // Agent specifies node reflector only watch and cache the node that agent pod currently lives on,
+            // so vector of nodes_reader only have one object. Therefore, get_node_selector uses index 0 to extract node object.
+            let node = self.node_reader.state().clone();
+            if node.len() != 0 {
+                let associated_node_uid = node[0]
+                    .metadata
+                    .uid
+                    .as_ref()
+                    .context(error::MissingNodeUid)?;
+                return Ok(BottlerocketNodeSelector {
+                    node_name: self.associated_node_name.clone(),
+                    node_uid: associated_node_uid.to_string(),
+                });
+            }
 
-            let nodes: Api<Node> = Api::all(self.k8s_client.clone());
-            let associated_node: Node = nodes
-                .get(&associated_node_name)
-                .await
-                .context(error::FetchNode)?;
-
-            let associated_node_uid = associated_node
-                .metadata
-                .uid
-                .context(error::MissingNodeUid)?;
-            self.node_selector = Some(BottlerocketNodeSelector {
-                node_name: associated_node_name.clone(),
-                node_uid: associated_node_uid.clone(),
-            });
-        }
-
-        Ok(self
-            .node_selector
-            .clone()
-            .context(error::NodeSelectorIsNone)?)
+            // reflector store is currently unavailable, bail out
+            // TODO: Err will cause pod to be terminated and restarted, so it worths to add re-enter agent loop functionality to avoid unexpected pod termination.
+            Err(error::Error::ReflectorUnavailable {
+                object: "Node".to_string(),
+            })
+        })
+        .await
     }
 
     // fetch associated bottlerocketnode (custom resource) and help to get node `metadata`, `spec`, and  `status`.
-    async fn fetch_custom_resource(&mut self) -> Result<BottlerocketNode> {
+    async fn fetch_custom_resource(&self) -> Result<BottlerocketNode> {
         // get associated bottlerocketnode (custom resource) name, and we can use this
         // bottlerocketnode name to fetch targeted bottlerocketnode (custom resource) and get node `metadata`, `spec`, and  `status`.
 
-        //TODO: use a reflector to watch event instead of polling etcd
-        let associated_bottlerocketnode_name =
-            format!("brn-{}", self.get_node_selector().await?.node_name);
+        Retry::spawn(retry_strategy(), || async {
+            // Agent specifies node reflector only watch and cache the bottlerocketnode which is associated with the node that agent pod currently lives on,
+            // so vector of brn_reader only have one object. Therefore, fetch_custom_resource uses index 0 to extract bottlerocketnode object.
+            let associated_bottlerocketnode = self.brn_reader.state().clone();
+            if associated_bottlerocketnode.len() != 0 {
+                return Ok(associated_bottlerocketnode[0].clone());
+            }
 
-        let bottlerocket_nodes: Api<BottlerocketNode> =
-            Api::namespaced(self.k8s_client.clone(), NAMESPACE);
-        let associated_bottlerocketnode: BottlerocketNode = bottlerocket_nodes
-            .get(&associated_bottlerocketnode_name)
-            .await
-            .context(error::FetchCustomResource)?;
-
-        Ok(associated_bottlerocketnode)
+            // reflector store is currently unavailable, bail out
+            // TODO: Err will cause pod to be terminated and restarted, so it worths to add re-enter agent loop functionality to avoid unexpected pod termination.
+            Err(error::Error::ReflectorUnavailable {
+                object: "BottlerocketNode".to_string(),
+            })
+        })
+        .await
     }
 
     /// Gather metadata about the system, node status provided by spec.
     async fn gather_system_metadata(
-        &mut self,
+        &self,
         state: BottlerocketNodeState,
     ) -> Result<BottlerocketNodeStatus> {
         let current_version = get_os_info()
@@ -137,7 +191,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
 
     /// update the custom resource associated with this node
     async fn update_metadata_custom_resource(
-        &mut self,
+        &self,
         current_metadata: BottlerocketNodeStatus,
     ) -> Result<()> {
         let selector = self.get_node_selector().await?;
@@ -155,7 +209,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
     }
 
     /// initialize bottlerocketnode (custom resource) `status` when create new bottlerocketnode
-    pub async fn initialize_metadata_custom_resource(&mut self) -> Result<()> {
+    pub async fn initialize_metadata_custom_resource(&self) -> Result<()> {
         let update_node_status = self
             .gather_system_metadata(BottlerocketNodeState::Idle)
             .await?;
@@ -171,6 +225,16 @@ impl<T: APIServerClient> BrupopAgent<T> {
         // - Determine if the spec on the system's custom resource demands the node take action. If so, begin taking that action.
 
         loop {
+            // Create a bottlerocketnode (custom resource) if associated bottlerocketnode does not exist
+            if !self.check_node_custom_resource_exists().await? {
+                self.create_metadata_custom_resource().await?;
+            }
+
+            // Initialize bottlerocketnode (custom resource) `status` if associated bottlerocketnode does not have `status`
+            if !self.check_custom_resource_status_exists().await? {
+                self.initialize_metadata_custom_resource().await?;
+            }
+
             // Requests metadata 'status' and 'spec' for the current BottlerocketNode
             let bottlerocket_node = self.fetch_custom_resource().await?;
 
@@ -222,8 +286,8 @@ impl<T: APIServerClient> BrupopAgent<T> {
                         }
                     }
                     BottlerocketNodeState::MonitoringUpdate => {
-                        log::info!("Monitoring node's healthy condtion");
-                        // TODO: we need add some critierias here by which we decide to transition
+                        log::info!("Monitoring node's healthy condition");
+                        // TODO: we need add some criterias here by which we decide to transition
                         // from MonitoringUpdate to WaitingForUpdate.
                     }
                 }
@@ -256,4 +320,11 @@ async fn running_desired_version(spec: &BottlerocketNodeSpec) -> Result<bool> {
         Some(spec_version) => os_info.version_id == spec_version,
         None => false,
     })
+}
+
+fn retry_strategy() -> impl Iterator<Item = Duration> {
+    ExponentialBackoff::from_millis(RETRY_BASE_DELAY.as_millis() as u64)
+        .max_delay(RETRY_MAX_DELAY)
+        .map(jitter)
+        .take(NUM_RETRIES)
 }

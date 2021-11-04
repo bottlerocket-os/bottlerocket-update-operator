@@ -25,3 +25,4 @@ snafu = "0.6"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 reqwest = { version = "0.11", features =  [ "json" ] }
 chrono = { version = "0.4.11", features = [ "serde" ] }
+tokio-retry = "0.3"
