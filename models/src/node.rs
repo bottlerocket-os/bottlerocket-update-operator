@@ -88,8 +88,8 @@ pub const K8S_NODE_SHORTNAME: &str = "brn";
     printcolumn = r#"{"name":"Target Version", "type":"string", "jsonPath":".spec.version"}"#
 )]
 pub struct BottlerocketNodeSpec {
-    state: BottlerocketNodeState,
-    version: Option<String>,
+    pub state: BottlerocketNodeState,
+    pub version: Option<String>,
 }
 
 /// `BottlerocketNodeStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent,
@@ -108,7 +108,7 @@ pub struct BottlerocketNodeSelector {
     pub node_uid: String,
 }
 
-fn node_resource_name(node_selector: &BottlerocketNodeSelector) -> String {
+pub fn node_resource_name(node_selector: &BottlerocketNodeSelector) -> String {
     format!("brn-{}", node_selector.node_name)
 }
 
