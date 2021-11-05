@@ -1,5 +1,5 @@
 use crate::constants::{
-    AGENT, AGENT_NAME, APP_COMPONENT, APP_MANAGED_BY, APP_PART_OF, BRUPOP,
+    AGENT, AGENT_NAME, APISERVER_SERVICE_NAME, APP_COMPONENT, APP_MANAGED_BY, APP_PART_OF, BRUPOP,
     BRUPOP_INTERFACE_VERSION, LABEL_BRUPOP_INTERFACE_NAME, LABEL_COMPONENT, NAMESPACE,
 };
 use k8s_openapi::api::apps::v1::{DaemonSet, DaemonSetSpec};
@@ -17,6 +17,9 @@ use maplit::btreemap;
 
 const BRUPOP_AGENT_SERVICE_ACCOUNT: &str = "brupop-agent-service-account";
 const BRUPOP_AGENT_CLUSTER_ROLE: &str = "brupop-agent-role";
+
+pub const TOKEN_PROJECTION_MOUNT_PATH: &str = "/var/run/secrets/tokens/";
+pub const AGENT_TOKEN_PATH: &str = "bottlerocket-agent-service-account-token";
 
 /// Defines the brupop-agent service account
 pub fn agent_service_account() -> ServiceAccount {
@@ -199,7 +202,7 @@ pub fn agent_daemonset(agent_image: String, image_pull_secret: Option<String>) -
                             },
                             VolumeMount {
                                 name: "bottlerocket-agent-service-account-token".to_string(),
-                                mount_path: "/var/run/secrets/tokens".to_string(),
+                                mount_path: TOKEN_PROJECTION_MOUNT_PATH.to_string(),
                                 ..Default::default()
                             },
                         ]),
@@ -233,8 +236,8 @@ pub fn agent_daemonset(agent_image: String, image_pull_secret: Option<String>) -
                             projected: Some(ProjectedVolumeSource {
                                 sources: Some(vec![VolumeProjection {
                                     service_account_token: Some(ServiceAccountTokenProjection {
-                                        path: "bottlerocket-agent-service-account-token"
-                                            .to_string(),
+                                        path: AGENT_TOKEN_PATH.to_string(),
+                                        audience: Some(APISERVER_SERVICE_NAME.to_string()),
                                         ..Default::default()
                                     }),
                                     ..Default::default()

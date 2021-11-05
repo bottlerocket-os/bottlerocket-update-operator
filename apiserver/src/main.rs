@@ -37,9 +37,9 @@ async fn run_server() -> Result<()> {
         .context(error::ClientCreate)?;
 
     let settings = APIServerSettings {
-        node_client: K8SBottlerocketNodeClient::new(k8s_client),
+        node_client: K8SBottlerocketNodeClient::new(k8s_client.clone()),
         server_port: 8080,
     };
 
-    api::run_server(settings).await
+    api::run_server(settings, k8s_client).await
 }

@@ -1,11 +1,13 @@
 use agent::agentclient::BrupopAgent;
 use agent::error::{self, Result};
 use apiserver::client::K8SAPIServerClient;
+use models::agent::{AGENT_TOKEN_PATH, TOKEN_PROJECTION_MOUNT_PATH};
 
-use snafu::ResultExt;
+use snafu::{OptionExt, ResultExt};
 
 use std::env;
 use std::fs;
+use std::path::Path;
 
 const TERMINATION_LOG: &str = "/dev/termination-log";
 #[tokio::main]
@@ -28,8 +30,12 @@ async fn run_agent() -> Result<()> {
         .await
         .context(error::ClientCreate)?;
 
-    let k8s_auth_token = "TODO".to_string();
-    let apiserver_client = K8SAPIServerClient::new(k8s_auth_token);
+    // Configure our brupop apiserver client to use the auth token mounted to our Pod.
+    let token_path = Path::new(TOKEN_PROJECTION_MOUNT_PATH).join(AGENT_TOKEN_PATH);
+    let token_path = token_path.to_str().context(error::Assertion {
+        message: "Token path (defined in models/agent.rs) is not valid unicode.",
+    })?;
+    let apiserver_client = K8SAPIServerClient::new(token_path.to_string());
 
     let mut agent = BrupopAgent::new(k8s_client, apiserver_client);
 

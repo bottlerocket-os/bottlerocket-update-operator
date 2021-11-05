@@ -21,6 +21,8 @@ use tokio_retry::{
 };
 use tracing::instrument;
 
+use std::fs;
+
 // The web client uses exponential backoff.
 // These values configure how long to delay between tries.
 const RETRY_BASE_DELAY: Duration = Duration::from_millis(100);
@@ -51,18 +53,29 @@ pub trait APIServerClient {
 
 #[derive(Debug, Clone)]
 pub struct K8SAPIServerClient {
-    k8s_auth_token: String,
+    k8s_projected_token_path: String,
 }
 
 impl K8SAPIServerClient {
-    pub fn new(k8s_auth_token: String) -> Self {
-        Self { k8s_auth_token }
+    pub fn new(k8s_projected_token_path: String) -> Self {
+        Self {
+            k8s_projected_token_path,
+        }
     }
 
+    /// Reads a projected auth token from the configured path.
+    fn auth_token(&self) -> Result<String> {
+        fs::read_to_string(&self.k8s_projected_token_path)
+            .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+            .context(error::IOError)
+    }
+
+    /// Protocol scheme for communicating with the server.
     pub fn scheme() -> String {
         "http".to_string()
     }
 
+    /// Returns the domain on which the server can be reached.
     pub fn server_domain() -> String {
         format!(
             "{}.{}.svc.cluster.local:{}",
@@ -74,10 +87,11 @@ impl K8SAPIServerClient {
         &self,
         req: reqwest::RequestBuilder,
         node_selector: &BottlerocketNodeSelector,
-    ) -> reqwest::RequestBuilder {
-        req.header(HEADER_BRUPOP_NODE_UID, &node_selector.node_uid)
+    ) -> Result<reqwest::RequestBuilder> {
+        Ok(req
+            .header(HEADER_BRUPOP_NODE_UID, &node_selector.node_uid)
             .header(HEADER_BRUPOP_NODE_NAME, &node_selector.node_name)
-            .header(HEADER_BRUPOP_K8S_AUTH_TOKEN, &self.k8s_auth_token)
+            .header(HEADER_BRUPOP_K8S_AUTH_TOKEN, &self.auth_token()?))
     }
 }
 
@@ -91,16 +105,17 @@ impl APIServerClient for K8SAPIServerClient {
         Retry::spawn(retry_strategy(), || async {
             let http_client = reqwest::Client::new();
 
-            let response = self
-                .add_common_request_headers(
-                    http_client.post(format!(
-                        "{}://{}{}",
-                        Self::scheme(),
-                        Self::server_domain(),
-                        NODE_RESOURCE_ENDPOINT
-                    )),
-                    &req.node_selector,
-                )
+            let request_builder = self.add_common_request_headers(
+                http_client.post(format!(
+                    "{}://{}{}",
+                    Self::scheme(),
+                    Self::server_domain(),
+                    NODE_RESOURCE_ENDPOINT
+                )),
+                &req.node_selector,
+            )?;
+
+            let response = request_builder
                 .json(&req)
                 .send()
                 .await
@@ -130,16 +145,17 @@ impl APIServerClient for K8SAPIServerClient {
         Retry::spawn(retry_strategy(), || async {
             let http_client = reqwest::Client::new();
 
-            let response = self
-                .add_common_request_headers(
-                    http_client.put(format!(
-                        "{}://{}{}",
-                        Self::scheme(),
-                        Self::server_domain(),
-                        NODE_RESOURCE_ENDPOINT
-                    )),
-                    &req.node_selector,
-                )
+            let request_builder = self.add_common_request_headers(
+                http_client.put(format!(
+                    "{}://{}{}",
+                    Self::scheme(),
+                    Self::server_domain(),
+                    NODE_RESOURCE_ENDPOINT
+                )),
+                &req.node_selector,
+            )?;
+
+            let response = request_builder
                 .json(&req.node_status)
                 .send()
                 .await

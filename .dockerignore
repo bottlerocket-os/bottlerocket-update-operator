@@ -6,3 +6,4 @@ dev/
 *.el
 *.tar*
 target/
+design/

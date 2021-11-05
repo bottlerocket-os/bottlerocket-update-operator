@@ -21,6 +21,9 @@ use maplit::btreemap;
 const BRUPOP_APISERVER_SERVICE_ACCOUNT: &str = "brupop-apiserver-service-account";
 const BRUPOP_APISERVER_CLUSTER_ROLE: &str = "brupop-apiserver-role";
 
+// A kubernetes system role which allows a system to use the TokenReview API.
+const AUTH_DELEGATOR_ROLE_NAME: &str = "system:auth-delegator";
+
 /// Defines the brupop-apiserver service account
 pub fn apiserver_service_account() -> ServiceAccount {
     ServiceAccount {
@@ -74,6 +77,12 @@ pub fn apiserver_cluster_role() -> ClusterRole {
                 .collect(),
                 ..Default::default()
             },
+            PolicyRule {
+                api_groups: Some(vec!["".to_string()]),
+                resources: Some(vec!["pods".to_string()]),
+                verbs: vec!["get", "list"].iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            },
         ]),
         ..Default::default()
     }
@@ -91,6 +100,28 @@ pub fn apiserver_cluster_role_binding() -> ClusterRoleBinding {
             api_group: "rbac.authorization.k8s.io".to_string(),
             kind: "ClusterRole".to_string(),
             name: BRUPOP_APISERVER_CLUSTER_ROLE.to_string(),
+        },
+        subjects: Some(vec![Subject {
+            kind: "ServiceAccount".to_string(),
+            name: BRUPOP_APISERVER_SERVICE_ACCOUNT.to_string(),
+            namespace: Some(NAMESPACE.to_string()),
+            ..Default::default()
+        }]),
+    }
+}
+
+/// Defines the brupop-apiserver cluster role binding
+pub fn apiserver_auth_delegator_cluster_role_binding() -> ClusterRoleBinding {
+    ClusterRoleBinding {
+        metadata: ObjectMeta {
+            name: Some("brupop-apiserver-auth-delegator-role-binding".to_string()),
+            namespace: Some(NAMESPACE.to_string()),
+            ..Default::default()
+        },
+        role_ref: RoleRef {
+            api_group: "rbac.authorization.k8s.io".to_string(),
+            kind: "ClusterRole".to_string(),
+            name: AUTH_DELEGATOR_ROLE_NAME.to_string(),
         },
         subjects: Some(vec![Subject {
             kind: "ServiceAccount".to_string(),
