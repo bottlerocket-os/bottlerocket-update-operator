@@ -1,5 +1,6 @@
 use agent::agentclient::BrupopAgent;
 use agent::error::{self, Result};
+use apiserver::client::K8SAPIServerClient;
 
 use snafu::ResultExt;
 
@@ -27,7 +28,10 @@ async fn run_agent() -> Result<()> {
         .await
         .context(error::ClientCreate)?;
 
-    let mut agent = BrupopAgent::new(k8s_client);
+    let k8s_auth_token = "TODO".to_string();
+    let apiserver_client = K8SAPIServerClient::new(k8s_auth_token);
+
+    let mut agent = BrupopAgent::new(k8s_client, apiserver_client);
 
     // Create a bottlerocketnode (custom resource) if associated bottlerocketnode does not exist
     if !agent.check_node_custom_resource_exists().await? {

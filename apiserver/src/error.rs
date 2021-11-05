@@ -13,6 +13,9 @@ pub enum Error {
     #[snafu(display("Unable to create client: '{}'", source))]
     ClientCreate { source: kube::Error },
 
+    #[snafu(display("Unable to parse HTTP header. Missing '{}'", missing_header))]
+    HTTPHeaderParse { missing_header: &'static str },
+
     #[snafu(display("Error creating BottlerocketNode: '{}'", source))]
     BottlerocketNodeCreate { source: BottlerocketNodeError },
 

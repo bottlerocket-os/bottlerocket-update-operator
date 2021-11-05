@@ -1,32 +1,39 @@
 use k8s_openapi::api::core::v1::Node;
 use kube::Api;
-use snafu::OptionExt;
-use snafu::ResultExt;
+use snafu::{OptionExt, ResultExt};
 use std::env;
 use tokio::time::{sleep, Duration};
 
-use crate::apiclient::{boot_update, get_os_info, list_available, prepare, update};
-use crate::error::{self, Result};
-use apiserver::api::{CreateBottlerocketNodeRequest, UpdateBottlerocketNodeRequest};
-use models::constants::{APISERVER_SERVICE_NAME, APISERVER_SERVICE_PORT, NAMESPACE};
-use models::node::{
-    BottlerocketNode, BottlerocketNodeSelector, BottlerocketNodeSpec, BottlerocketNodeState,
-    BottlerocketNodeStatus,
+use crate::{
+    apiclient::{boot_update, get_os_info, list_available, prepare, update},
+    error::{self, Result},
+};
+use apiserver::{
+    client::APIServerClient,
+    {CreateBottlerocketNodeRequest, UpdateBottlerocketNodeRequest},
+};
+use models::{
+    constants::NAMESPACE,
+    node::{
+        BottlerocketNode, BottlerocketNodeSelector, BottlerocketNodeSpec, BottlerocketNodeState,
+        BottlerocketNodeStatus,
+    },
 };
 
 const AGENT_SLEEP_DURATION: Duration = Duration::from_secs(5);
-const NODE_RESOURCE_ENDPOINT: &'static str = "/bottlerocket-node-resource";
 
 #[derive(Clone)]
-pub struct BrupopAgent {
+pub struct BrupopAgent<T: APIServerClient> {
     k8s_client: kube::client::Client,
     node_selector: Option<BottlerocketNodeSelector>,
+    apiserver_client: T,
 }
 
-impl BrupopAgent {
-    pub fn new(k8s_client: kube::client::Client) -> Self {
+impl<T: APIServerClient> BrupopAgent<T> {
+    pub fn new(k8s_client: kube::client::Client, apiserver_client: T) -> Self {
         BrupopAgent {
             k8s_client,
+            apiserver_client,
             node_selector: None,
         }
     }
@@ -115,70 +122,35 @@ impl BrupopAgent {
 
     /// create the custom resource associated with this node
     pub async fn create_metadata_custom_resource(&mut self) -> Result<()> {
-        let client = reqwest::Client::new();
-        let current_node_selector = self.get_node_selector().await?;
-        let node_req = CreateBottlerocketNodeRequest {
-            node_selector: current_node_selector.clone(),
-        };
-        let server_domain = get_server_domain();
-
-        let response = client
-            .post(format!(
-                "http://{}{}",
-                &server_domain, NODE_RESOURCE_ENDPOINT
-            ))
-            .json(&node_req)
-            .send()
+        let selector = self.get_node_selector().await?;
+        let brn = self
+            .apiserver_client
+            .create_bottlerocket_node(CreateBottlerocketNodeRequest {
+                node_selector: selector,
+            })
             .await
-            .context(error::CreateBottlerocketNodeResource {
-                node_name: current_node_selector.node_name,
-            })?;
+            .context(error::CreateBottlerocketNodeResource)?;
 
-        log::info!(
-            "{}",
-            response
-                .text()
-                .await
-                .context(error::ConvertResponseToText)?
-        );
-
+        log::info!("Created brn: '{:?}'", brn);
         Ok(())
     }
 
     /// update the custom resource associated with this node
     async fn update_metadata_custom_resource(
         &mut self,
-        _current_metadata: BottlerocketNodeStatus,
+        current_metadata: BottlerocketNodeStatus,
     ) -> Result<()> {
-        let client = reqwest::Client::new();
-        let current_node_selector = self.get_node_selector().await?;
-        let server_domain = get_server_domain();
-
-        let node_req = UpdateBottlerocketNodeRequest {
-            node_status: _current_metadata,
-            node_selector: current_node_selector.clone(),
-        };
-
-        let response = client
-            .put(format!(
-                "http://{}{}",
-                &server_domain, NODE_RESOURCE_ENDPOINT
-            ))
-            .json(&node_req)
-            .send()
+        let selector = self.get_node_selector().await?;
+        let brn_update = self
+            .apiserver_client
+            .update_bottlerocket_node(UpdateBottlerocketNodeRequest {
+                node_selector: selector,
+                node_status: current_metadata,
+            })
             .await
-            .context(error::UpdateBottlerocketNodeResource {
-                node_name: current_node_selector.node_name,
-            })?;
+            .context(error::UpdateBottlerocketNodeResource)?;
 
-        log::info!(
-            "{}",
-            response
-                .text()
-                .await
-                .context(error::ConvertResponseToText)?
-        );
-
+        log::info!("Update brn status: '{:?}'", brn_update);
         Ok(())
     }
 
@@ -284,11 +256,4 @@ async fn running_desired_version(spec: &BottlerocketNodeSpec) -> Result<bool> {
         Some(spec_version) => os_info.version_id == spec_version,
         None => false,
     })
-}
-
-fn get_server_domain() -> String {
-    format!(
-        "{}.{}.svc.cluster.local:{}",
-        APISERVER_SERVICE_NAME, NAMESPACE, APISERVER_SERVICE_PORT
-    )
 }
