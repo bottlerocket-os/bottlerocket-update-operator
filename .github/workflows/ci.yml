@@ -1,0 +1,45 @@
+name: CI
+
+on:
+
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'COPYRIGHT'
+      - 'LICENSE**'
+      - 'design/**'
+    branches: [0.2.0]
+
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'COPYRIGHT'
+      - 'LICENSE**'
+      - 'design/**'
+    branches: [0.2.0]
+
+jobs:
+
+  build-binary:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            .cargo
+            target
+          # you can edit the .github/cache_bust file if you need to clear the cache
+          key: ${{ hashFiles('.github/cache_bust') }}-${{ runner.os }}-build-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ hashFiles('.github/cache_bust') }}-${{ runner.os }}-build-
+      - run: rustup update stable
+      - run: make build
+
+  build-container:
+    name: brupop-image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: make brupop-image
