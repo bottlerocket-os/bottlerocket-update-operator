@@ -170,6 +170,8 @@ You may also choose to pull from regional Amazon ECR repositories such as the fo
   - 328549459982.dkr.ecr.us-east-2.amazonaws.com
   - 328549459982.dkr.ecr.us-west-1.amazonaws.com
   - 328549459982.dkr.ecr.us-west-2.amazonaws.com
+  - 388230364387.dkr.ecr.us-gov-east-1.amazonaws.com
+  - 347163068887.dkr.ecr.us-gov-west-1.amazonaws.com
 
 ### Current Limitations
 
