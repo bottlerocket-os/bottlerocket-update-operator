@@ -58,4 +58,10 @@ pub enum Error {
 
     #[snafu(display("BottlerocketNode object ('{}') is missing a reference to the owning Node.", brn.name()))]
     MissingOwnerReference { brn: BottlerocketNode },
+
+    #[snafu(display(
+        "BottlerocketNode object must have valid rfc3339 timestamp: '{}'",
+        source
+    ))]
+    TimestampFormat { source: chrono::ParseError },
 }

@@ -11,6 +11,7 @@ use lazy_static::lazy_static;
 use schemars::JsonSchema;
 pub use semver::Version;
 use serde::{Deserialize, Serialize};
+use snafu::ResultExt;
 use tokio::time::Duration;
 use validator::Validate;
 
@@ -170,12 +171,16 @@ impl BottlerocketNodeSpec {
 
     /// JsonSchema cannot appropriately handle DateTime objects. This accessor returns the transition timestamp
     /// as a DateTime.
-    pub fn state_timestamp(&self) -> Option<DateTime<Utc>> {
-        self.state_transition_timestamp.as_ref().map(|ts_str| {
-            DateTime::parse_from_rfc3339(ts_str)
-                .expect("state_transition_timestamp must be rfc3339 string.")
-                .into()
-        })
+    pub fn state_timestamp(&self) -> Result<Option<DateTime<Utc>>> {
+        self.state_transition_timestamp
+            .as_ref()
+            .map(|ts_str| {
+                DateTime::parse_from_rfc3339(ts_str)
+                    // Convert `DateTime<FixedOffset>` into `DateTime<Utc>`
+                    .map(|ts| ts.into())
+                    .context(error::TimestampFormat)
+            })
+            .transpose()
     }
 
     /// Returns the desired version for this BottlerocketNode.

@@ -183,9 +183,6 @@ impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
             ..Default::default()
         };
 
-        let br_node_status_patch =
-            serde_json::to_value(br_node_status_patch).context(error::CreateK8SPatch)?;
-
         let api: Api<BottlerocketNode> =
             Api::namespaced(self.k8s_client.clone(), constants::NAMESPACE);
 
