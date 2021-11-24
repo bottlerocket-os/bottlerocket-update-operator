@@ -340,8 +340,7 @@ spec:
     matchLabels:
       brupop.bottlerocket.aws/component: brupop-controller
   strategy:
-    rollingUpdate:
-      maxUnavailable: 100
+    type: Recreate
   template:
     metadata:
       labels:

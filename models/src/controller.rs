@@ -142,10 +142,7 @@ pub fn controller_deployment(
                 ..Default::default()
             },
             strategy: Some(DeploymentStrategy {
-                rolling_update: Some(RollingUpdateDeployment {
-                    max_unavailable: Some(IntOrString::Int(100)),
-                    ..Default::default()
-                }),
+                type_: Some("Recreate".to_string()),
                 ..Default::default()
             }),
             template: PodTemplateSpec {

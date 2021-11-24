@@ -92,7 +92,7 @@ where
 
 #[derive(Clone)]
 /// Concrete implementation of the `BottlerocketNodeClient` trait. This implementation will almost
-/// certainly be used in ggany case that isn't a unit test.
+/// certainly be used in any case that isn't a unit test.
 pub struct K8SBottlerocketNodeClient {
     k8s_client: kube::client::Client,
 }
