@@ -205,12 +205,7 @@ pub fn agent_daemonset(agent_image: String, image_pull_secret: Option<String>) -
                             },
                         ]),
                         security_context: Some(SecurityContext {
-                            se_linux_options: Some(SELinuxOptions {
-                                role: Some("system_r".to_string()),
-                                type_: Some("super_t".to_string()),
-                                user: Some("system_u".to_string()),
-                                level: Some("s0".to_string()),
-                            }),
+                            privileged: Some(true),
                             ..Default::default()
                         }),
                         ..Default::default()
