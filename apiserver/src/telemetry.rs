@@ -51,7 +51,7 @@ impl RootSpanBuilder for BrupopApiserverRootSpanBuilder {
 pub fn init_telemetry() -> Result<()> {
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
 
-    let env_filter = EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new("info"));
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
     let stdio_formatting_layer = BunyanFormattingLayer::new(APISERVER.into(), std::io::stdout);
     let subscriber = Registry::default()
         .with(env_filter)

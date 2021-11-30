@@ -53,23 +53,19 @@ pub enum Error {
     BottlerocketNodeStatusAvailableVersions { source: apiclient_error::Error },
 
     #[snafu(display(
-        "Unable to update the custom resource associated with this node '{}' : '{}'",
-        node_name,
+        "Unable to update the custom resource associated with this node: '{}'",
         source
     ))]
     UpdateBottlerocketNodeResource {
-        node_name: String,
-        source: reqwest::Error,
+        source: apiserver::client::ClientError,
     },
 
     #[snafu(display(
-        "Unable to create the custom resource associated with this node '{}' : '{}'",
-        node_name,
+        "Unable to create the custom resource associated with this node: '{}'",
         source
     ))]
     CreateBottlerocketNodeResource {
-        node_name: String,
-        source: reqwest::Error,
+        source: apiserver::client::ClientError,
     },
 
     #[snafu(display("Unable to take action '{}': '{}'", action, source))]

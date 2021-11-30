@@ -1,18 +1,62 @@
-use crate::error::{self, Result};
-use crate::telemetry;
+use crate::{
+    constants::{
+        HEADER_BRUPOP_K8S_AUTH_TOKEN, HEADER_BRUPOP_NODE_NAME, HEADER_BRUPOP_NODE_UID,
+        NODE_RESOURCE_ENDPOINT,
+    },
+    error::{self, Result},
+    telemetry,
+};
 use models::constants::APISERVER_HEALTH_CHECK_ROUTE;
 use models::node::{BottlerocketNodeClient, BottlerocketNodeSelector, BottlerocketNodeStatus};
 
 use actix_web::{
+    http::HeaderMap,
     web::{self, Data},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
-use serde::{Deserialize, Serialize};
 use serde_json::json;
-use snafu::ResultExt;
+use snafu::{OptionExt, ResultExt};
 use tracing_actix_web::{RootSpan, TracingLogger};
 
-const NODE_RESOURCE_ENDPOINT: &'static str = "/bottlerocket-node-resource";
+use std::convert::TryFrom;
+
+/// A struct containing information intended to be passed to the apiserver via HTTP headers.
+struct ApiserverCommonHeaders {
+    node_selector: BottlerocketNodeSelector,
+    _k8s_auth_token: String,
+}
+
+/// Returns a string value extracted from HTTP headers.
+fn extract_header_string(headers: &HeaderMap, key: &'static str) -> Result<String> {
+    Ok(headers
+        .get(key)
+        .context(error::HTTPHeaderParse {
+            missing_header: key,
+        })?
+        .to_str()
+        .map_err(|_| error::Error::HTTPHeaderParse {
+            missing_header: key,
+        })?
+        .to_string())
+}
+
+impl TryFrom<&HeaderMap> for ApiserverCommonHeaders {
+    type Error = error::Error;
+
+    fn try_from(headers: &HeaderMap) -> Result<Self> {
+        let node_name = extract_header_string(headers, HEADER_BRUPOP_NODE_NAME)?;
+        let node_uid = extract_header_string(headers, HEADER_BRUPOP_NODE_UID)?;
+        let _k8s_auth_token = extract_header_string(headers, HEADER_BRUPOP_K8S_AUTH_TOKEN)?;
+
+        Ok(ApiserverCommonHeaders {
+            node_selector: BottlerocketNodeSelector {
+                node_name,
+                node_uid,
+            },
+            _k8s_auth_token,
+        })
+    }
+}
 
 // The set of API endpoints for which `tracing::Span`s will not be recorded.
 pub const NO_TELEMETRY_ENDPOINTS: &[&str] = &[APISERVER_HEALTH_CHECK_ROUTE];
@@ -22,24 +66,16 @@ async fn health_check() -> impl Responder {
     HttpResponse::Ok().body("pong")
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-/// Describes a node for which a BottlerocketNode custom resource should be constructed.
-pub struct CreateBottlerocketNodeRequest {
-    pub node_selector: BottlerocketNodeSelector,
-}
-
 /// HTTP endpoint which creates BottlerocketNode custom resources on behalf of the caller.
 async fn create_bottlerocket_node_resource<T: BottlerocketNodeClient>(
     req: HttpRequest,
     settings: web::Data<APIServerSettings<T>>,
-    create_request: web::Json<CreateBottlerocketNodeRequest>,
+    http_req: HttpRequest,
     root_span: RootSpan,
 ) -> Result<impl Responder> {
-    root_span.record(
-        "node_name",
-        &create_request.node_selector.node_name.as_str(),
-    );
-    inner_create_bottlerocket_node_resource(req, settings, create_request).await
+    let headers = ApiserverCommonHeaders::try_from(http_req.headers())?;
+    root_span.record("node_name", &headers.node_selector.node_name.as_str());
+    inner_create_bottlerocket_node_resource(req, settings, http_req).await
 }
 
 /// Inner implementation of `create_bottlerocket_node_resource`. Provided so that unit tests can avoid setting up
@@ -47,36 +83,29 @@ async fn create_bottlerocket_node_resource<T: BottlerocketNodeClient>(
 async fn inner_create_bottlerocket_node_resource<T: BottlerocketNodeClient>(
     _req: HttpRequest,
     settings: web::Data<APIServerSettings<T>>,
-    create_request: web::Json<CreateBottlerocketNodeRequest>,
+    http_req: HttpRequest,
 ) -> Result<impl Responder> {
+    let headers = ApiserverCommonHeaders::try_from(http_req.headers())?;
     let br_node = settings
         .node_client
-        .create_node(&create_request.node_selector)
+        .create_node(&headers.node_selector)
         .await
         .context(error::BottlerocketNodeCreate)?;
 
     Ok(HttpResponse::Ok().body(format!("{}", json!(&br_node))))
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-/// Describes updates to a BottlerocketNode object's `status`.
-pub struct UpdateBottlerocketNodeRequest {
-    pub node_selector: BottlerocketNodeSelector,
-    pub node_status: BottlerocketNodeStatus,
-}
-
 /// HTTP endpoint which updates the `status` of a BottlerocketNode custom resource on behalf of the caller.
 async fn update_bottlerocket_node_resource<T: BottlerocketNodeClient>(
     req: HttpRequest,
     settings: web::Data<APIServerSettings<T>>,
-    update_request: web::Json<UpdateBottlerocketNodeRequest>,
+    http_req: HttpRequest,
+    node_status: web::Json<BottlerocketNodeStatus>,
     root_span: RootSpan,
 ) -> Result<impl Responder> {
-    root_span.record(
-        "node_name",
-        &update_request.node_selector.node_name.as_str(),
-    );
-    inner_update_bottlerocket_node_resource(req, settings, update_request).await
+    let headers = ApiserverCommonHeaders::try_from(http_req.headers())?;
+    root_span.record("node_name", &headers.node_selector.node_name.as_str());
+    inner_update_bottlerocket_node_resource(req, settings, http_req, node_status).await
 }
 
 /// Inner implementation of `update_bottlerocket_node_resource`. Provided so that unit tests can avoid setting up
@@ -84,15 +113,17 @@ async fn update_bottlerocket_node_resource<T: BottlerocketNodeClient>(
 async fn inner_update_bottlerocket_node_resource<T: BottlerocketNodeClient>(
     _req: HttpRequest,
     settings: web::Data<APIServerSettings<T>>,
-    update_request: web::Json<UpdateBottlerocketNodeRequest>,
+    http_req: HttpRequest,
+    node_status: web::Json<BottlerocketNodeStatus>,
 ) -> Result<impl Responder> {
+    let headers = ApiserverCommonHeaders::try_from(http_req.headers())?;
     settings
         .node_client
-        .update_node_status(&update_request.node_selector, &update_request.node_status)
+        .update_node_status(&headers.node_selector, &node_status)
         .await
         .context(error::BottlerocketNodeUpdate)?;
 
-    Ok(HttpResponse::Ok().body(format!("{}", json!(&update_request.node_status))))
+    Ok(HttpResponse::Ok().body(format!("{}", json!(&node_status))))
 }
 
 #[derive(Clone)]
@@ -134,8 +165,8 @@ mod tests {
     use super::*;
     use models::constants::APISERVER_INTERNAL_PORT;
     use models::node::{
-        BottlerocketNode, BottlerocketNodeSpec, BottlerocketNodeState, MockBottlerocketNodeClient,
-        Version,
+        BottlerocketNode, BottlerocketNodeSelector, BottlerocketNodeSpec, BottlerocketNodeState,
+        BottlerocketNodeStatus, MockBottlerocketNodeClient, Version,
     };
 
     use actix_web::body::AnyBody;
@@ -163,9 +194,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_node() {
+        let node_name = "test-node-name";
+        let node_uid = "test-node-uid";
+
         let node_selector = BottlerocketNodeSelector {
-            node_name: "test-node-name".to_string(),
-            node_uid: "test-node-uid".to_string(),
+            node_name: node_name.to_string(),
+            node_uid: node_uid.to_string(),
         };
 
         let return_value =
@@ -182,7 +216,9 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri(NODE_RESOURCE_ENDPOINT)
-            .set_json(&CreateBottlerocketNodeRequest { node_selector })
+            .insert_header((HEADER_BRUPOP_K8S_AUTH_TOKEN, "authy"))
+            .insert_header((HEADER_BRUPOP_NODE_NAME, node_name))
+            .insert_header((HEADER_BRUPOP_NODE_UID, node_uid))
             .to_request();
 
         let mut app = test::init_service(
@@ -212,9 +248,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_update_node() {
+        let node_name = "test-node-name";
+        let node_uid = "test-node-uid";
+
         let node_selector = BottlerocketNodeSelector {
-            node_name: "test-node-name".to_string(),
-            node_uid: "test-node-uid".to_string(),
+            node_name: node_name.to_string(),
+            node_uid: node_uid.to_string(),
         };
         let node_status = BottlerocketNodeStatus::new(
             Version::new(1, 2, 1),
@@ -238,10 +277,10 @@ mod tests {
 
         let req = test::TestRequest::put()
             .uri(NODE_RESOURCE_ENDPOINT)
-            .set_json(&UpdateBottlerocketNodeRequest {
-                node_selector: node_selector.clone(),
-                node_status: node_status.clone(),
-            })
+            .insert_header((HEADER_BRUPOP_K8S_AUTH_TOKEN, "authy"))
+            .insert_header((HEADER_BRUPOP_NODE_NAME, node_name))
+            .insert_header((HEADER_BRUPOP_NODE_UID, node_uid))
+            .set_json(&node_status)
             .to_request();
 
         let mut app = test::init_service(
