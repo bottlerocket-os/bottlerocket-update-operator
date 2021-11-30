@@ -215,7 +215,7 @@ mod tests {
         let node_client = Arc::new(node_client);
 
         APIServerSettings {
-            node_client: node_client,
+            node_client,
             server_port: APISERVER_INTERNAL_PORT as u16,
         }
     }
@@ -249,7 +249,7 @@ mod tests {
             .insert_header((HEADER_BRUPOP_NODE_UID, node_uid))
             .to_request();
 
-        let mut app = test::init_service(
+        let app = test::init_service(
             App::new()
                 .route(
                     NODE_RESOURCE_ENDPOINT,
@@ -260,7 +260,7 @@ mod tests {
         )
         .await;
 
-        let resp = test::call_service(&mut app, req).await;
+        let resp = test::call_service(&app, req).await;
 
         // The call returns a JSON-ified copy of the created node on success.
         assert!(resp.status().is_success());
@@ -310,7 +310,7 @@ mod tests {
             .set_json(&node_status)
             .to_request();
 
-        let mut app = test::init_service(
+        let app = test::init_service(
             App::new()
                 .route(
                     NODE_RESOURCE_ENDPOINT,
@@ -321,7 +321,7 @@ mod tests {
         )
         .await;
 
-        let resp = test::call_service(&mut app, req).await;
+        let resp = test::call_service(&app, req).await;
 
         assert!(resp.status().is_success());
         if let AnyBody::Bytes(b) = resp.into_body() {
