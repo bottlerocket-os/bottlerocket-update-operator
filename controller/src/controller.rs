@@ -87,7 +87,7 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
     /// The state transition is then attempted. If successful, this node should be detected as part of the active
     /// set during the next iteration of the controller's event loop.
     #[instrument(skip(self))]
-    async fn search_for_node_to_update(&self) -> Option<BottlerocketNode> {
+    async fn find_and_update_ready_node(&self) -> Option<BottlerocketNode> {
         for brn in self.all_nodes() {
             // If we determine that the spec should change, this node is a candidate to begin updating.
             let next_spec = determine_next_node_spec(&brn);
@@ -136,7 +136,7 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
                 }
             } else {
                 // If there's nothing to operate on, check to see if any other nodes are ready for action.
-                let new_active_node = self.search_for_node_to_update().await;
+                let new_active_node = self.find_and_update_ready_node().await;
                 if let Some(brn) = new_active_node {
                     event!(Level::INFO, name = %brn.name(), "Began updating new node.")
                 }
