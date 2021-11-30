@@ -40,3 +40,7 @@ pub const APISERVER_SERVICE_NAME: &str = "brupop-apiserver"; // The name for the
 // agent constants
 pub const AGENT: &str = "agent";
 pub const AGENT_NAME: &str = "brupop-agent";
+
+// controller constants
+pub const CONTROLLER: &str = "brupop-controller";
+pub const CONTROLLER_DEPLOYMENT_NAME: &str = "brupop-controller-deployment";

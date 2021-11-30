@@ -6,6 +6,7 @@ Bottlerocket Update API: https://github.com/bottlerocket-os/bottlerocket/tree/de
 Bottlerocket apiclient: https://github.com/bottlerocket-os/bottlerocket/tree/develop/sources/api/apiclient
 */
 
+use semver::Version;
 use serde::Deserialize;
 use snafu::{ensure, ResultExt};
 use std::process::{Command, Output};
@@ -82,13 +83,13 @@ pub struct UpdateImage {
 
 #[derive(Debug, Deserialize)]
 pub struct OsInfo {
-    pub version_id: String,
+    pub version_id: Version,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateStatus {
     update_state: UpdateState,
-    available_updates: Vec<String>,
+    available_updates: Vec<Version>,
     chosen_update: Option<UpdateImage>,
     active_partition: Option<StagedImage>,
     staging_partition: Option<StagedImage>,
@@ -225,7 +226,10 @@ pub async fn reboot() -> Result<Output> {
 }
 
 // List all available versions which current Bottlerocket OS can update to.
-pub async fn list_available() -> Result<Vec<String>> {
+pub async fn list_available() -> Result<Vec<Version>> {
+    // Refresh list of updates and check if there are any available
+    refresh_updates().await?;
+
     let update_status = get_update_status().await?;
 
     // Raise error if failed to refresh update or update acton performed out of band
@@ -347,5 +351,8 @@ pub mod apiclient_error {
 
         #[snafu(display("Unable to process command apiclient {}: update API unavailable: retries exhausted", args.join(" ")))]
         UpdateApiUnavailable { args: Vec<String> },
+
+        #[snafu(display("Unable to parse version information: '{}'", source))]
+        VersionParseError { source: semver::Error },
     }
 }

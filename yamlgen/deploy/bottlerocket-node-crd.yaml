@@ -37,16 +37,22 @@ spec:
               description: "The `BottlerocketNodeSpec` can be used to drive a node through the update state machine. A node linearly drives towards the desired state. The brupop controller updates the spec to specify a node's desired state, and the host agent drives state changes forward and updates the `BottlerocketNodeStatus`."
               properties:
                 state:
-                  description: "BottlerocketNodeState represents a node's state in the update state machine."
+                  description: "Records the desired state of the `BottlerocketNode`"
                   enum:
                     - WaitingForUpdate
-                    - PreparingToUpdate
-                    - PerformingUpdate
-                    - RebootingToUpdate
+                    - PreparedToUpdate
+                    - PerformedUpdate
+                    - RebootedToUpdate
                     - MonitoringUpdate
                   type: string
-                version:
+                state_transition_timestamp:
+                  description: The time at which the most recent state was set as the desired state.
                   nullable: true
+                  type: string
+                version:
+                  description: "The desired update version, if any."
+                  nullable: true
+                  pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
                   type: string
               required:
                 - state
@@ -63,12 +69,13 @@ spec:
                   description: "BottlerocketNodeState represents a node's state in the update state machine."
                   enum:
                     - WaitingForUpdate
-                    - PreparingToUpdate
-                    - PerformingUpdate
-                    - RebootingToUpdate
+                    - PreparedToUpdate
+                    - PerformedUpdate
+                    - RebootedToUpdate
                     - MonitoringUpdate
                   type: string
                 current_version:
+                  pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
                   type: string
               required:
                 - available_versions

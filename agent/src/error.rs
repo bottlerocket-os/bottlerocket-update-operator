@@ -8,20 +8,20 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
 pub enum Error {
-    #[snafu(display("Unable to create client: {}", source))]
+    #[snafu(display("Unable to create client: '{}'", source))]
     ClientCreate { source: kube::Error },
 
     #[snafu(display(
-        "Unable to fetch the Kubernetes custom resource associated with this node: {}",
+        "Unable to fetch the Kubernetes custom resource associated with this node: '{}'",
         source
     ))]
     FetchCustomResource { source: kube::Error },
 
-    #[snafu(display("Unable to get associated node name: {}", source))]
+    #[snafu(display("Unable to get associated node name: '{}'", source))]
     GetNodeName { source: std::env::VarError },
 
     #[snafu(display(
-        "Unable to fetch the Kubernetes node associated with this pod: {}",
+        "Unable to fetch the Kubernetes node associated with this pod: '{}'",
         source
     ))]
     FetchNode { source: kube::Error },
@@ -32,7 +32,7 @@ pub enum Error {
     #[snafu(display("Fail to get Node selector value: Node selector value is None"))]
     NodeSelectorIsNone {},
 
-    #[snafu(display("Unable to get Bottlerocket Node {}: {}", node_name, source))]
+    #[snafu(display("Unable to get Bottlerocket Node {}: '{}'", node_name, source))]
     BottlerocketNodeNotExist {
         node_name: String,
         source: kube::Error,
@@ -46,14 +46,14 @@ pub enum Error {
     #[snafu(display("Unable to get Bottlerocket node 'spec' because of missing 'spec' value"))]
     MissingBottlerocketNodeSpec,
 
-    #[snafu(display("Unable to gather system version metadata: {}", source))]
+    #[snafu(display("Unable to gather system version metadata: '{}'", source))]
     BottlerocketNodeStatusVersion { source: apiclient_error::Error },
 
-    #[snafu(display("Unable to gather system available versions metadata: {}", source))]
+    #[snafu(display("Unable to gather system available versions metadata: '{}'", source))]
     BottlerocketNodeStatusAvailableVersions { source: apiclient_error::Error },
 
     #[snafu(display(
-        "Unable to update the custom resource associated with this node '{}' : {}",
+        "Unable to update the custom resource associated with this node '{}' : '{}'",
         node_name,
         source
     ))]
@@ -63,7 +63,7 @@ pub enum Error {
     },
 
     #[snafu(display(
-        "Unable to create the custom resource associated with this node '{}' : {}",
+        "Unable to create the custom resource associated with this node '{}' : '{}'",
         node_name,
         source
     ))]
@@ -72,7 +72,7 @@ pub enum Error {
         source: reqwest::Error,
     },
 
-    #[snafu(display("Unable to take action '{}': {}", action, source))]
+    #[snafu(display("Unable to take action '{}': '{}'", action, source))]
     UpdateActions {
         action: String,
         source: apiclient_error::Error,
@@ -84,13 +84,13 @@ pub enum Error {
     ))]
     GetUptime { source: std::io::Error },
 
-    #[snafu(display("Unable to convert `{} `to datetime: {}", uptime, source))]
+    #[snafu(display("Unable to convert `{} `to datetime: '{}'", uptime, source))]
     ConvertStringToDatetime {
         uptime: String,
         source: chrono::ParseError,
     },
     #[snafu(display(
-        "Unable to convert response of interacting with custom resource to readable text: {}",
+        "Unable to convert response of interacting with custom resource to readable text: '{}'",
         source
     ))]
     ConvertResponseToText { source: reqwest::Error },
