@@ -3,16 +3,13 @@ use crate::constants::{
     CONTROLLER_DEPLOYMENT_NAME, LABEL_COMPONENT, NAMESPACE,
 };
 use crate::node::{K8S_NODE_PLURAL, K8S_NODE_STATUS};
-use k8s_openapi::api::apps::v1::{
-    Deployment, DeploymentSpec, DeploymentStrategy, RollingUpdateDeployment,
-};
+use k8s_openapi::api::apps::v1::{Deployment, DeploymentSpec, DeploymentStrategy};
 use k8s_openapi::api::core::v1::{
     Affinity, Container, LocalObjectReference, NodeAffinity, NodeSelector, NodeSelectorRequirement,
     NodeSelectorTerm, PodSpec, PodTemplateSpec, ServiceAccount,
 };
 use k8s_openapi::api::rbac::v1::{ClusterRole, ClusterRoleBinding, PolicyRule, RoleRef, Subject};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
-use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use kube::api::ObjectMeta;
 use maplit::btreemap;
 

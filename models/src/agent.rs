@@ -6,9 +6,8 @@ use k8s_openapi::api::apps::v1::{DaemonSet, DaemonSetSpec};
 use k8s_openapi::api::core::v1::{
     Affinity, Container, EnvVar, EnvVarSource, HostPathVolumeSource, LocalObjectReference,
     NodeAffinity, NodeSelector, NodeSelectorRequirement, NodeSelectorTerm, ObjectFieldSelector,
-    PodSpec, PodTemplateSpec, ProjectedVolumeSource, ResourceRequirements, SELinuxOptions,
-    SecurityContext, ServiceAccount, ServiceAccountTokenProjection, Volume, VolumeMount,
-    VolumeProjection,
+    PodSpec, PodTemplateSpec, ProjectedVolumeSource, ResourceRequirements, SecurityContext,
+    ServiceAccount, ServiceAccountTokenProjection, Volume, VolumeMount, VolumeProjection,
 };
 use k8s_openapi::api::rbac::v1::{ClusterRole, ClusterRoleBinding, PolicyRule, RoleRef, Subject};
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
