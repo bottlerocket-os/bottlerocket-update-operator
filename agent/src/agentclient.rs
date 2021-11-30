@@ -185,7 +185,7 @@ impl BrupopAgent {
     /// initialize bottlerocketnode (custom resource) `status` when create new bottlerocketnode
     pub async fn initialize_metadata_custom_resource(&mut self) -> Result<()> {
         let update_node_status = self
-            .gather_system_metadata(BottlerocketNodeState::WaitingForUpdate)
+            .gather_system_metadata(BottlerocketNodeState::Idle)
             .await?;
 
         self.update_metadata_custom_resource(update_node_status)
@@ -212,10 +212,10 @@ impl BrupopAgent {
                 log::info!("Detected drift between spec state and current state. Requesting node to take action: {:?}.", &bottlerocket_node_spec.state);
 
                 match bottlerocket_node_spec.state {
-                    BottlerocketNodeState::WaitingForUpdate => {
+                    BottlerocketNodeState::Idle => {
                         log::info!("Ready to finish monitoring and start update process")
                     }
-                    BottlerocketNodeState::PreparedToUpdate => {
+                    BottlerocketNodeState::StagedUpdate => {
                         log::info!("Preparing update");
                         prepare().await.context(error::UpdateActions {
                             action: "Prepare".to_string(),
@@ -231,7 +231,7 @@ impl BrupopAgent {
                             action: "Perform".to_string(),
                         })?;
                     }
-                    BottlerocketNodeState::RebootedToUpdate => {
+                    BottlerocketNodeState::RebootedIntoUpdate => {
                         log::info!("Rebooting node to complete update");
 
                         if running_desired_version(&bottlerocket_node_spec).await? {

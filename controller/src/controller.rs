@@ -43,7 +43,7 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
             .iter()
             .filter(|brn| {
                 brn.status.as_ref().map_or(false, |brn_status| {
-                    brn_status.current_state != BottlerocketNodeState::WaitingForUpdate
+                    brn_status.current_state != BottlerocketNodeState::Idle
                         || !brn.has_reached_desired_state()
                 })
             })
