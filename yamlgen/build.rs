@@ -11,8 +11,9 @@ use models::{
         agent_cluster_role, agent_cluster_role_binding, agent_daemonset, agent_service_account,
     },
     apiserver::{
-        apiserver_cluster_role, apiserver_cluster_role_binding, apiserver_deployment,
-        apiserver_service, apiserver_service_account,
+        apiserver_auth_delegator_cluster_role_binding, apiserver_cluster_role,
+        apiserver_cluster_role_binding, apiserver_deployment, apiserver_service,
+        apiserver_service_account,
     },
     controller::{
         controller_cluster_role, controller_cluster_role_binding, controller_deployment,
@@ -61,6 +62,11 @@ fn main() {
     serde_yaml::to_writer(&brupop_resources, &apiserver_service_account()).unwrap();
     serde_yaml::to_writer(&brupop_resources, &apiserver_cluster_role()).unwrap();
     serde_yaml::to_writer(&brupop_resources, &apiserver_cluster_role_binding()).unwrap();
+    serde_yaml::to_writer(
+        &brupop_resources,
+        &apiserver_auth_delegator_cluster_role_binding(),
+    )
+    .unwrap();
     serde_yaml::to_writer(
         &brupop_resources,
         &apiserver_deployment(brupop_image.clone(), brupop_image_pull_secrets.clone()),

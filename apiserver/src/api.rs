@@ -1,4 +1,5 @@
 use crate::{
+    auth::{K8STokenAuthorizor, K8STokenReviewer, TokenAuthMiddleware},
     constants::{
         HEADER_BRUPOP_K8S_AUTH_TOKEN, HEADER_BRUPOP_NODE_NAME, HEADER_BRUPOP_NODE_UID,
         NODE_RESOURCE_ENDPOINT,
@@ -6,7 +7,9 @@ use crate::{
     error::{self, Result},
     telemetry,
 };
-use models::constants::APISERVER_HEALTH_CHECK_ROUTE;
+use models::constants::{
+    AGENT, APISERVER_HEALTH_CHECK_ROUTE, APISERVER_SERVICE_NAME, LABEL_COMPONENT, NAMESPACE,
+};
 use models::node::{BottlerocketNodeClient, BottlerocketNodeSelector, BottlerocketNodeStatus};
 
 use actix_web::{
@@ -14,16 +17,24 @@ use actix_web::{
     web::{self, Data},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
+use futures::StreamExt;
+use k8s_openapi::api::core::v1::Pod;
+use kube::{
+    api::{Api, ListParams},
+    runtime::{reflector, utils::try_flatten_touched, watcher::watcher},
+    ResourceExt,
+};
 use serde_json::json;
 use snafu::{OptionExt, ResultExt};
-use tracing_actix_web::{RootSpan, TracingLogger};
+use tracing::{event, Level};
+use tracing_actix_web::TracingLogger;
 
 use std::convert::TryFrom;
 
 /// A struct containing information intended to be passed to the apiserver via HTTP headers.
-struct ApiserverCommonHeaders {
-    node_selector: BottlerocketNodeSelector,
-    _k8s_auth_token: String,
+pub(crate) struct ApiserverCommonHeaders {
+    pub node_selector: BottlerocketNodeSelector,
+    pub k8s_auth_token: String,
 }
 
 /// Returns a string value extracted from HTTP headers.
@@ -46,14 +57,14 @@ impl TryFrom<&HeaderMap> for ApiserverCommonHeaders {
     fn try_from(headers: &HeaderMap) -> Result<Self> {
         let node_name = extract_header_string(headers, HEADER_BRUPOP_NODE_NAME)?;
         let node_uid = extract_header_string(headers, HEADER_BRUPOP_NODE_UID)?;
-        let _k8s_auth_token = extract_header_string(headers, HEADER_BRUPOP_K8S_AUTH_TOKEN)?;
+        let k8s_auth_token = extract_header_string(headers, HEADER_BRUPOP_K8S_AUTH_TOKEN)?;
 
         Ok(ApiserverCommonHeaders {
             node_selector: BottlerocketNodeSelector {
                 node_name,
                 node_uid,
             },
-            _k8s_auth_token,
+            k8s_auth_token,
         })
     }
 }
@@ -68,20 +79,6 @@ async fn health_check() -> impl Responder {
 
 /// HTTP endpoint which creates BottlerocketNode custom resources on behalf of the caller.
 async fn create_bottlerocket_node_resource<T: BottlerocketNodeClient>(
-    req: HttpRequest,
-    settings: web::Data<APIServerSettings<T>>,
-    http_req: HttpRequest,
-    root_span: RootSpan,
-) -> Result<impl Responder> {
-    let headers = ApiserverCommonHeaders::try_from(http_req.headers())?;
-    root_span.record("node_name", &headers.node_selector.node_name.as_str());
-    inner_create_bottlerocket_node_resource(req, settings, http_req).await
-}
-
-/// Inner implementation of `create_bottlerocket_node_resource`. Provided so that unit tests can avoid setting up
-/// tracing loggers, which make it difficult to introspect HTTP responses in test cases.
-async fn inner_create_bottlerocket_node_resource<T: BottlerocketNodeClient>(
-    _req: HttpRequest,
     settings: web::Data<APIServerSettings<T>>,
     http_req: HttpRequest,
 ) -> Result<impl Responder> {
@@ -97,21 +94,6 @@ async fn inner_create_bottlerocket_node_resource<T: BottlerocketNodeClient>(
 
 /// HTTP endpoint which updates the `status` of a BottlerocketNode custom resource on behalf of the caller.
 async fn update_bottlerocket_node_resource<T: BottlerocketNodeClient>(
-    req: HttpRequest,
-    settings: web::Data<APIServerSettings<T>>,
-    http_req: HttpRequest,
-    node_status: web::Json<BottlerocketNodeStatus>,
-    root_span: RootSpan,
-) -> Result<impl Responder> {
-    let headers = ApiserverCommonHeaders::try_from(http_req.headers())?;
-    root_span.record("node_name", &headers.node_selector.node_name.as_str());
-    inner_update_bottlerocket_node_resource(req, settings, http_req, node_status).await
-}
-
-/// Inner implementation of `update_bottlerocket_node_resource`. Provided so that unit tests can avoid setting up
-/// tracing loggers, which make it difficult to introspect HTTP responses in test cases.
-async fn inner_update_bottlerocket_node_resource<T: BottlerocketNodeClient>(
-    _req: HttpRequest,
     settings: web::Data<APIServerSettings<T>>,
     http_req: HttpRequest,
     node_status: web::Json<BottlerocketNodeStatus>,
@@ -137,11 +119,48 @@ pub struct APIServerSettings<T: BottlerocketNodeClient> {
 /// Runs the apiserver using the given settings.
 pub async fn run_server<T: 'static + BottlerocketNodeClient>(
     settings: APIServerSettings<T>,
+    k8s_client: kube::Client,
 ) -> Result<()> {
     let server_port = settings.server_port;
 
-    HttpServer::new(move || {
+    // Set up a reflector to watch all kubernetes pods in the namespace.
+    // We use this information to authenticate write requests from brupop agents.
+    let pods = Api::<Pod>::namespaced(k8s_client.clone(), NAMESPACE);
+
+    let pod_store = reflector::store::Writer::<Pod>::default();
+    let pod_reader = pod_store.as_reader();
+
+    let pod_reflector = reflector::reflector(
+        pod_store,
+        watcher(
+            pods,
+            ListParams::default().labels(&format!("{}={}", LABEL_COMPONENT, AGENT)),
+        ),
+    );
+    let drainer = try_flatten_touched(pod_reflector)
+        .filter_map(|x| async move {
+            if let Err(err) = &x {
+                event!(Level::ERROR, %err, "Failed to process a Pod event");
+            }
+            std::result::Result::ok(x)
+        })
+        .for_each(|pod| {
+            event!(Level::TRACE, pod_name = %pod.name(), ?pod.spec, ?pod.status, "Processed event for Pod");
+            futures::future::ready(())
+        });
+
+    // Set up the actix server.
+    let server = HttpServer::new(move || {
         App::new()
+            .wrap(
+                TokenAuthMiddleware::new(K8STokenAuthorizor::new(
+                    K8STokenReviewer::new(k8s_client.clone()),
+                    NAMESPACE.to_string(),
+                    pod_reader.clone(),
+                    Some(vec![APISERVER_SERVICE_NAME.to_string()]),
+                ))
+                .exclude(APISERVER_HEALTH_CHECK_ROUTE),
+            )
             .wrap(TracingLogger::<telemetry::BrupopApiserverRootSpanBuilder>::new())
             .app_data(Data::new(settings.clone()))
             .service(
@@ -153,9 +172,18 @@ pub async fn run_server<T: 'static + BottlerocketNodeClient>(
     })
     .bind(format!("0.0.0.0:{}", server_port))
     .context(error::HttpServerError)?
-    .run()
-    .await
-    .context(error::HttpServerError)?;
+    .run();
+
+    tokio::select! {
+        _ = drainer => {
+            event!(Level::ERROR, "reflector drained");
+            return Err(error::Error::KubernetesWatcherFailed {});
+        },
+        res = server => {
+            event!(Level::ERROR, "server exited");
+            res.context(error::HttpServerError)?;
+        },
+    };
 
     Ok(())
 }
@@ -225,9 +253,8 @@ mod tests {
             App::new()
                 .route(
                     NODE_RESOURCE_ENDPOINT,
-                    web::post().to(inner_create_bottlerocket_node_resource::<
-                        Arc<MockBottlerocketNodeClient>,
-                    >),
+                    web::post()
+                        .to(create_bottlerocket_node_resource::<Arc<MockBottlerocketNodeClient>>),
                 )
                 .app_data(Data::new(settings)),
         )
@@ -287,9 +314,8 @@ mod tests {
             App::new()
                 .route(
                     NODE_RESOURCE_ENDPOINT,
-                    web::put().to(inner_update_bottlerocket_node_resource::<
-                        Arc<MockBottlerocketNodeClient>,
-                    >),
+                    web::put()
+                        .to(update_bottlerocket_node_resource::<Arc<MockBottlerocketNodeClient>>),
                 )
                 .app_data(Data::new(settings)),
         )

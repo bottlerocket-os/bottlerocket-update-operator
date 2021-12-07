@@ -7,15 +7,15 @@ publish = false
 
 [dependencies]
 models = { path = "../models", version = "0.1.0" }
-apiserver = { path = "../apiserver", version = "0.1.0", features = ["client"] }
+apiserver = { path = "../apiserver", version = "0.1.0", default-features = false, features = ["client"] }
 
 dotenv = "0.15"
 env_logger = "0.9"
 futures = "0.3"
 
 # k8s-openapi must match the version required by kube and enable a k8s version feature
-k8s-openapi = { version = "0.13.0", default-features = false, features = ["v1_20"] }
-kube = { version = "0.62.0", default-features = true, features = [ "derive", "runtime" ] }
+k8s-openapi = { version = "0.13.1", default-features = false, features = ["v1_20"] }
+kube = { version = "0.63.2", default-features = true, features = [ "derive", "runtime" ] }
 
 log = "0.4"
 semver = { version = "1.0", features = [ "serde" ] }

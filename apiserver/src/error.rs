@@ -1,6 +1,6 @@
 use models::node::BottlerocketNodeError;
 
-use actix_web::error;
+use actix_web::error::ResponseError;
 use snafu::Snafu;
 
 /// The crate-wide result type.
@@ -29,6 +29,9 @@ pub enum Error {
     TracingConfiguration {
         source: tracing::subscriber::SetGlobalDefaultError,
     },
+
+    #[snafu(display("The Kubernetes WATCH on Pod objects has failed."))]
+    KubernetesWatcherFailed {},
 }
 
-impl error::ResponseError for Error {}
+impl ResponseError for Error {}

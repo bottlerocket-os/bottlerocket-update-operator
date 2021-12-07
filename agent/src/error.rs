@@ -90,4 +90,9 @@ pub enum Error {
         source
     ))]
     ConvertResponseToText { source: reqwest::Error },
+
+    // The assertion type lets us return a Result in cases where we would otherwise use `unwrap()` on results that
+    // we know cannot be Err. This lets us bubble up to our error handler which writes to the termination log.
+    #[snafu(display("Agent failed due to internal assertion issue: '{}'", message))]
+    Assertion { message: String },
 }

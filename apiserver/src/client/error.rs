@@ -29,4 +29,10 @@ pub enum ClientError {
         source: Box<dyn std::error::Error>,
         selector: BottlerocketNodeSelector,
     },
+
+    #[snafu(display(
+        "IO error occurred while attempting to use APIServerClient: '{}'",
+        source
+    ))]
+    IOError { source: Box<dyn std::error::Error> },
 }

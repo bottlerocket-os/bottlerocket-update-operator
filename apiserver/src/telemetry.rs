@@ -1,4 +1,5 @@
 use crate::api::NO_TELEMETRY_ENDPOINTS;
+use crate::constants::HEADER_BRUPOP_NODE_NAME;
 use crate::error::{self, Result};
 use models::constants::APISERVER;
 
@@ -32,8 +33,14 @@ impl RootSpanBuilder for BrupopApiserverRootSpanBuilder {
     fn on_request_start(request: &ServiceRequest) -> Span {
         if EXCLUDED_PATHS.get(request.path()).is_none() {
             // Indicate that a `node_name` will be added to the span.
-            // TODO: Add node_name to a standardized request header (requires changes to the brupop agent's request creation)
-            tracing_actix_web::root_span!(request, node_name = tracing::field::Empty)
+            request
+                .headers()
+                .get(HEADER_BRUPOP_NODE_NAME)
+                .and_then(|node_name| node_name.to_str().ok())
+                .map(|node_name| tracing_actix_web::root_span!(request, node_name))
+                .unwrap_or_else(|| {
+                    tracing_actix_web::root_span!(request, node_name = tracing::field::Empty)
+                })
         } else {
             Span::none()
         }
