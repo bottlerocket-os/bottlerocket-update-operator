@@ -61,10 +61,6 @@ spec:
               description: "`BottlerocketNodeStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent, while the spec is updated by the brupop controller."
               nullable: true
               properties:
-                available_versions:
-                  items:
-                    type: string
-                  type: array
                 current_state:
                   description: "BottlerocketNodeState represents a node's state in the update state machine."
                   enum:
@@ -77,10 +73,13 @@ spec:
                 current_version:
                   pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
                   type: string
+                target_version:
+                  pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+                  type: string
               required:
-                - available_versions
                 - current_state
                 - current_version
+                - target_version
               type: object
           required:
             - spec

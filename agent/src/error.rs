@@ -49,8 +49,8 @@ pub enum Error {
     #[snafu(display("Unable to gather system version metadata: '{}'", source))]
     BottlerocketNodeStatusVersion { source: apiclient_error::Error },
 
-    #[snafu(display("Unable to gather system available versions metadata: '{}'", source))]
-    BottlerocketNodeStatusAvailableVersions { source: apiclient_error::Error },
+    #[snafu(display("Unable to gather system chosen update metadata: '{}'", source))]
+    BottlerocketNodeStatusChosenUpdate { source: apiclient_error::Error },
 
     #[snafu(display(
         "Unable to update the custom resource associated with this node: '{}'",

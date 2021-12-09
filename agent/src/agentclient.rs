@@ -5,7 +5,7 @@ use std::env;
 use tokio::time::{sleep, Duration};
 
 use crate::{
-    apiclient::{boot_update, get_os_info, list_available, prepare, update},
+    apiclient::{boot_update, get_chosen_update, get_os_info, prepare, update},
     error::{self, Result},
 };
 use apiserver::{
@@ -106,16 +106,21 @@ impl<T: APIServerClient> BrupopAgent<T> {
         &mut self,
         state: BottlerocketNodeState,
     ) -> Result<BottlerocketNodeStatus> {
-        let current_version = get_os_info()
+        let os_info = get_os_info()
             .await
             .context(error::BottlerocketNodeStatusVersion)?;
-        let update_versions = list_available()
+        let update_version = match get_chosen_update()
             .await
-            .context(error::BottlerocketNodeStatusAvailableVersions)?;
+            .context(error::BottlerocketNodeStatusChosenUpdate)?
+        {
+            Some(chosen_update) => chosen_update.version,
+            // if chosen update is null which means current node already in latest version, assign current version value to it.
+            _ => os_info.version_id.clone(),
+        };
 
         Ok(BottlerocketNodeStatus::new(
-            current_version.version_id.clone(),
-            update_versions,
+            os_info.version_id.clone(),
+            update_version,
             state,
         ))
     }
