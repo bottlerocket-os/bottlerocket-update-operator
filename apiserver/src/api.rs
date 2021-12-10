@@ -284,7 +284,7 @@ mod tests {
         };
         let node_status = BottlerocketNodeStatus::new(
             Version::new(1, 2, 1),
-            vec![Version::new(1, 3, 0)],
+            Version::new(1, 3, 0),
             BottlerocketNodeState::default(),
         );
 

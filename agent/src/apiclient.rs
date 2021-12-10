@@ -76,9 +76,9 @@ pub struct CommandResult {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateImage {
-    arch: String,
-    version: String,
-    variant: String,
+    pub(super) arch: String,
+    pub(super) version: Version,
+    pub(super) variant: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -225,8 +225,8 @@ pub async fn reboot() -> Result<Output> {
     Ok(invoke_apiclient(get_raw_args(raw_args)).await?)
 }
 
-// List all available versions which current Bottlerocket OS can update to.
-pub async fn list_available() -> Result<Vec<Version>> {
+// get chosen update which contains latest Bottlerocket OS can update to.
+pub async fn get_chosen_update() -> Result<Option<UpdateImage>> {
     // Refresh list of updates and check if there are any available
     refresh_updates().await?;
 
@@ -239,7 +239,7 @@ pub async fn list_available() -> Result<Vec<Version>> {
         apiclient_error::RefreshUpdate
     );
 
-    Ok(update_status.available_updates)
+    Ok(update_status.chosen_update)
 }
 
 pub async fn prepare() -> Result<()> {

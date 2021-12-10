@@ -14,19 +14,13 @@ pub fn determine_next_node_spec(brn: &BottlerocketNode) -> BottlerocketNodeSpec 
         Some(node_status) => {
             match brn.spec.state {
                 BottlerocketNodeState::Idle => {
-                    // TODO replace this with logic which just accepts the suggested version from the target host.
-                    // If there's a newer version available, then begin updating to that version.
-                    let mut available_versions = node_status.available_versions();
-                    available_versions.sort();
-                    available_versions
-                        .last()
-                        .filter(|latest_available| {
-                            &&node_status.current_version() < latest_available
-                        })
-                        .map(|latest_available| {
+                    let target_version = node_status.target_version();
+                    Some(target_version)
+                        .filter(|target_version| &node_status.current_version() != target_version)
+                        .map(|target_version| {
                             BottlerocketNodeSpec::new_starting_now(
                                 BottlerocketNodeState::StagedUpdate,
-                                Some(latest_available.clone()),
+                                Some(target_version.clone()),
                             )
                         })
                         .unwrap_or_else(BottlerocketNodeSpec::default)

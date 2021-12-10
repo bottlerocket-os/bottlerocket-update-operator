@@ -196,20 +196,20 @@ impl BottlerocketNodeSpec {
 pub struct BottlerocketNodeStatus {
     #[validate(regex = "SEMVER_RE")]
     current_version: String,
-    // TODO We haven't configured validations against `available_versions`, but we are planning to remove this field.
-    available_versions: Vec<String>,
+    #[validate(regex = "SEMVER_RE")]
+    target_version: String,
     pub current_state: BottlerocketNodeState,
 }
 
 impl BottlerocketNodeStatus {
     pub fn new(
         current_version: Version,
-        available_versions: Vec<Version>,
+        target_version: Version,
         current_state: BottlerocketNodeState,
     ) -> Self {
         BottlerocketNodeStatus {
             current_version: current_version.to_string(),
-            available_versions: available_versions.iter().map(|v| v.to_string()).collect(),
+            target_version: target_version.to_string(),
             current_state,
         }
     }
@@ -219,13 +219,10 @@ impl BottlerocketNodeStatus {
         Version::from_str(&self.current_version).unwrap()
     }
 
-    pub fn available_versions(&self) -> Vec<Version> {
+    pub fn target_version(&self) -> Version {
         // TODO This could panic if a custom `brn` is created with improperly specified versions; however, we are removing this
         // attribute in an impending iteration, so we won't fix it.
-        self.available_versions
-            .iter()
-            .map(|v| Version::from_str(v).unwrap())
-            .collect()
+        Version::from_str(&self.target_version).unwrap()
     }
 }
 
