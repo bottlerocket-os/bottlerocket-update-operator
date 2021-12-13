@@ -11,42 +11,33 @@ pub enum Error {
     #[snafu(display("Unable to create client: '{}'", source))]
     ClientCreate { source: kube::Error },
 
-    #[snafu(display(
-        "Unable to fetch the Kubernetes custom resource associated with this node: '{}'",
-        source
-    ))]
-    FetchCustomResource { source: kube::Error },
-
-    #[snafu(display("Unable to get associated node name: '{}'", source))]
+    #[snafu(display("Unable to get associated node name: {}", source))]
     GetNodeName { source: std::env::VarError },
-
-    #[snafu(display(
-        "Unable to fetch the Kubernetes node associated with this pod: '{}'",
-        source
-    ))]
-    FetchNode { source: kube::Error },
 
     #[snafu(display("Unable to get Node uid because of missing Node `uid` value"))]
     MissingNodeUid {},
 
-    #[snafu(display("Fail to get Node selector value: Node selector value is None"))]
-    NodeSelectorIsNone {},
-
-    #[snafu(display("Unable to get Bottlerocket Node {}: '{}'", node_name, source))]
-    BottlerocketNodeNotExist {
+    #[snafu(display(
+        "Error {} when sending to fetch Bottlerocket Node {}",
+        source,
+        node_name
+    ))]
+    UnableFetchBottlerocketNode {
         node_name: String,
         source: kube::Error,
     },
+    #[snafu(display(
+        "ErrorResponse code '{}' when sending to fetch Bottlerocket Node",
+        code
+    ))]
+    FetchBottlerocketNodeErrorCode { code: u16 },
 
     #[snafu(display(
         "Unable to get Bottlerocket node 'status' because of missing 'status' value"
     ))]
     MissingBottlerocketNodeStatus,
 
-    #[snafu(display("Unable to get Bottlerocket node 'spec' because of missing 'spec' value"))]
-    MissingBottlerocketNodeSpec,
-
-    #[snafu(display("Unable to gather system version metadata: '{}'", source))]
+    #[snafu(display("Unable to gather system version metadata: {}", source))]
     BottlerocketNodeStatusVersion { source: apiclient_error::Error },
 
     #[snafu(display("Unable to gather system chosen update metadata: '{}'", source))]
@@ -95,4 +86,10 @@ pub enum Error {
     // we know cannot be Err. This lets us bubble up to our error handler which writes to the termination log.
     #[snafu(display("Agent failed due to internal assertion issue: '{}'", message))]
     Assertion { message: String },
+
+    #[snafu(display(
+        "Unable to fetch {} store: Store unavailable: retries exhausted",
+        object
+    ))]
+    ReflectorUnavailable { object: String },
 }

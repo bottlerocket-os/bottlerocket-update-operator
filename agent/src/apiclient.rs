@@ -329,24 +329,24 @@ pub mod apiclient_error {
         #[snafu(display("Failed to deserialize update status: {}", source))]
         UpdateStatusContent { source: serde_json::Error },
 
-        #[snafu(display("failed to refresh updates or update action performed out of band"))]
+        #[snafu(display("Failed to refresh updates or update action performed out of band"))]
         RefreshUpdate {},
 
-        #[snafu(display("failed to prepare update or update action performed out of band"))]
+        #[snafu(display("Failed to prepare update or update action performed out of band"))]
         PrepareUpdate {},
 
-        #[snafu(display("failed to activate update or update action performed out of band"))]
+        #[snafu(display("Failed to activate update or update action performed out of band"))]
         Update {},
 
         #[snafu(display(
-        "unexpected update state: {:?}, expecting state to be {}. update action performed out of band?",
+        "Unexpected update state: {:?}, expecting state to be {}. Update action performed out of band?",
          update_state, expect_state
     ))]
         UpdateStage {
             expect_state: String,
             update_state: UpdateState,
         },
-        #[snafu(display("bad http response, status code: {}", statuscode))]
+        #[snafu(display("Bad http response, status code: {}", statuscode))]
         BadHttpResponse { statuscode: String },
 
         #[snafu(display("Unable to process command apiclient {}: update API unavailable: retries exhausted", args.join(" ")))]
