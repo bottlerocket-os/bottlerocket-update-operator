@@ -3,7 +3,9 @@ use opentelemetry::{global, metrics::MetricsError};
 use prometheus::{Encoder, TextEncoder};
 
 #[get("/metrics")]
-pub async fn vending_metrics(exporter: Data<opentelemetry_prometheus::PrometheusExporter>) -> HttpResponse {
+pub async fn vending_metrics(
+    exporter: Data<opentelemetry_prometheus::PrometheusExporter>,
+) -> HttpResponse {
     let encoder = TextEncoder::new();
     let metric_families = exporter.registry().gather();
     let mut buf = Vec::new();

@@ -1,11 +1,13 @@
 use super::{
     error::{self, Result},
+    metrics::BrupopControllerMetrics,
     statemachine::determine_next_node_spec,
 };
 use models::node::{BottlerocketNode, BottlerocketNodeClient, BottlerocketNodeState};
 
 use kube::runtime::reflector::Store;
 use kube::ResourceExt;
+use opentelemetry::global;
 use snafu::ResultExt;
 use std::collections::BTreeMap;
 use tokio::time::{sleep, Duration};
@@ -18,6 +20,7 @@ const ACTION_INTERVAL: Duration = Duration::from_secs(2);
 pub struct BrupopController<T: BottlerocketNodeClient> {
     node_client: T,
     brn_reader: Store<BottlerocketNode>,
+    metrics: Option<BrupopControllerMetrics>,
 }
 
 impl<T: BottlerocketNodeClient> BrupopController<T> {
@@ -25,6 +28,7 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
         BrupopController {
             node_client,
             brn_reader,
+            metrics: None,
         }
     }
 
@@ -68,13 +72,22 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
                 "BottlerocketNode has reached desired status. Modifying spec."
             );
 
-            self.node_client
+            let ret = self
+                .node_client
                 .update_node_spec(
                     &node.selector().context(error::NodeSelectorCreation)?,
                     &desired_spec,
                 )
                 .await
-                .context(error::UpdateNodeSpec)
+                .context(error::UpdateNodeSpec);
+
+            // Update metrics to guide the next operation
+            let current_operation = desired_spec.operation();
+            if let Some(metrics) = &self.metrics {
+                metrics.op(current_operation);
+            }
+
+            ret
         } else {
             // Otherwise, we need to ensure that the node is making progress in a timely fashion.
 
@@ -105,6 +118,10 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
         None
     }
 
+    fn init_metrics(&mut self) {
+        let meter = global::meter("brupop-controller");
+        self.metrics = Some(BrupopControllerMetrics::new(meter));
+    }
     /// Runs the event loop for the Brupop controller.
     ///
     /// Because the controller wants to gate the number of simultaneously updating nodes, we can't allow the update state machine
@@ -114,7 +131,9 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
     ///
     /// The controller is designed to run on a single node in the cluster and rely on the scheduler to ensure there is always one
     /// running; however, it could be expanded using leader-election and multiple nodes if the scheduler proves to be problematic.
-    pub async fn run(&self) -> Result<()> {
+    pub async fn run(&mut self) -> Result<()> {
+        self.init_metrics();
+
         // On every iteration of the event loop, we reconstruct the state of the controller and determine its
         // next actions. This is to ensure that the operator would behave consistently even if suddenly restarted.
         loop {
@@ -139,6 +158,10 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
                 let new_active_node = self.find_and_update_ready_node().await;
                 if let Some(brn) = new_active_node {
                     event!(Level::INFO, name = %brn.name(), "Began updating new node.")
+                } else {
+                    if let Some(metrics) = &self.metrics {
+                        metrics.no_op();
+                    }
                 }
             }
 

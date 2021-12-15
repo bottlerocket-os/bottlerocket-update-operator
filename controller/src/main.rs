@@ -1,14 +1,14 @@
 use controller::{
     error::{self, Result},
-    BrupopController,
     telemetry::vending_metrics,
+    BrupopController,
 };
 use models::{
     constants::{CONTROLLER, NAMESPACE},
     node::{BottlerocketNode, K8SBottlerocketNodeClient},
 };
 
-use actix_web::{App, HttpServer, web::Data};
+use actix_web::{web::Data, App, HttpServer};
 
 use futures::StreamExt;
 use kube::{
@@ -23,7 +23,6 @@ use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
 
 const DEFAULT_TRACE_LEVEL: &str = "info";
-
 
 #[actix_web::main]
 async fn main() -> Result<()> {
