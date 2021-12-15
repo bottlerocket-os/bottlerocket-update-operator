@@ -429,11 +429,15 @@ dependencies = [
 name = "controller"
 version = "0.1.0"
 dependencies = [
+ "actix-web",
  "futures",
+ "http",
  "k8s-openapi",
  "kube",
  "models",
  "opentelemetry",
+ "opentelemetry-prometheus",
+ "prometheus",
  "snafu",
  "tokio",
  "tracing",

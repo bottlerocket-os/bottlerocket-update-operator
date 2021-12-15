@@ -1,11 +1,14 @@
 use controller::{
     error::{self, Result},
     BrupopController,
+    telemetry::vending_metrics,
 };
 use models::{
     constants::{CONTROLLER, NAMESPACE},
     node::{BottlerocketNode, K8SBottlerocketNodeClient},
 };
+
+use actix_web::{App, HttpServer, web::Data};
 
 use futures::StreamExt;
 use kube::{
@@ -21,7 +24,8 @@ use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
 
 const DEFAULT_TRACE_LEVEL: &str = "info";
 
-#[tokio::main]
+
+#[actix_web::main]
 async fn main() -> Result<()> {
     init_telemetry()?;
 
@@ -38,7 +42,7 @@ async fn main() -> Result<()> {
     let node_client = K8SBottlerocketNodeClient::new(k8s_client.clone());
 
     // Setup and run the controller.
-    let controller = BrupopController::new(node_client, brn_reader);
+    let mut controller = BrupopController::new(node_client, brn_reader);
     let controller_runner = controller.run();
 
     // Setup and run a reflector, ensuring that `BottlerocketNode` updates are reflected to the controller.
@@ -54,6 +58,17 @@ async fn main() -> Result<()> {
             futures::future::ready(())
         });
 
+    // Setup Http server to vend prometheus metrics
+    let exporter = opentelemetry_prometheus::exporter().init();
+    let prometheus_server = HttpServer::new(move || {
+        App::new()
+            .app_data(Data::new(exporter.clone()))
+            .service(vending_metrics)
+    })
+    .bind(format!("0.0.0.0:{}", 8080))
+    .context(error::PrometheusServerError)?
+    .run();
+
     // TODO if either of these fails, we should write to the k8s termination log and exit.
     tokio::select! {
         _ = drainer => {
@@ -62,6 +77,9 @@ async fn main() -> Result<()> {
         _ = controller_runner => {
             event!(Level::ERROR, "controller exited");
         },
+        _ = prometheus_server => {
+            event!(Level::ERROR, "metric server exited");
+        }
     };
     Ok(())
 }

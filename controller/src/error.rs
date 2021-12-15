@@ -31,4 +31,7 @@ pub enum Error {
 
     #[snafu(display("Could not determine selector for node: '{}'", source))]
     NodeSelectorCreation { source: BottlerocketNodeError },
+
+    #[snafu(display("Error running prometheus HTTP server: '{}'", source))]
+    PrometheusServerError { source: std::io::Error },
 }
