@@ -4,7 +4,7 @@ use controller::{
     BrupopController,
 };
 use models::{
-    constants::{CONTROLLER, NAMESPACE},
+    constants::{CONTROLLER, CONTROLLER_INTERNAL_PORT, NAMESPACE},
     node::{BottlerocketNode, K8SBottlerocketNodeClient},
 };
 
@@ -64,7 +64,7 @@ async fn main() -> Result<()> {
             .app_data(Data::new(exporter.clone()))
             .service(vending_metrics)
     })
-    .bind(format!("0.0.0.0:{}", 8080))
+    .bind(format!("0.0.0.0:{}", CONTROLLER_INTERNAL_PORT))
     .context(error::PrometheusServerError)?
     .run();
 

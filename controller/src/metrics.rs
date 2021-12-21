@@ -24,6 +24,10 @@ impl BrupopControllerMetrics {
         self.op("no_op".to_string());
     }
 
+    pub fn error(&self) {
+        self.op("error".to_string());
+    }
+
     pub fn op(&self, operation: String) {
         let labels = vec![OPERATION_KEY.string(operation)];
         self.brupop_controller_op.add(1, &labels);

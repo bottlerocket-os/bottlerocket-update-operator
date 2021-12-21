@@ -82,9 +82,13 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
                 .context(error::UpdateNodeSpec);
 
             // Update metrics to guide the next operation
-            let current_operation = desired_spec.operation();
             if let Some(metrics) = &self.metrics {
-                metrics.op(current_operation);
+                if ret.is_ok() {
+                    let current_operation = desired_spec.operation();
+                    metrics.op(current_operation);
+                } else {
+                    metrics.error();
+                }
             }
 
             ret
