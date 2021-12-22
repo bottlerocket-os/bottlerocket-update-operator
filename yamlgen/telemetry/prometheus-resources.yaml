@@ -64,6 +64,18 @@ data:
         kubernetes_sd_configs:
           - role: endpoints
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-pvc
+  namespace: brupop-bottlerocket-aws
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -84,14 +96,26 @@ spec:
       - name: prometheus-container
         image: prom/prometheus
         volumeMounts:
+        - name: prometheus-volume
+          mountPath: /prometheus/data
         - name: config-volume
           mountPath: /etc/prometheus/prometheus.yml
           subPath: prometheus.yml
         ports:
         - containerPort: 9090
+      initContainers:
+      - name: prometheus-data-permission-fix
+        image: busybox
+        command: ["/bin/chmod", "-R", "777", "/data"]
+        volumeMounts:
+        - name: prometheus-volume
+          mountPath: /data
       volumes:
         - name: config-volume
           configMap:
             name: prometheus-config
+        - name: prometheus-volume
+          persistentVolumeClaim:
+            claimName: prometheus-pvc
       serviceAccountName: prometheus-service-account
 
