@@ -118,4 +118,3 @@ spec:
           persistentVolumeClaim:
             claimName: prometheus-pvc
       serviceAccountName: prometheus-service-account
-
