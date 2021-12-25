@@ -15,7 +15,8 @@ const TERMINATION_LOG: &str = "/dev/termination-log";
 
 #[actix_web::main]
 async fn main() {
-    let termination_log = env::var("TERMINATION_LOG").unwrap_or(TERMINATION_LOG.to_string());
+    let termination_log =
+        env::var("TERMINATION_LOG").unwrap_or_else(|_| TERMINATION_LOG.to_string());
 
     match run_server().await {
         Err(error) => {
