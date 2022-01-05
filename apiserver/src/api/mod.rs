@@ -18,10 +18,12 @@ use models::constants::{
 use models::node::{BottlerocketNodeClient, BottlerocketNodeSelector};
 
 use actix_web::{
-    http::HeaderMap,
+    dev::ServiceRequest,
+    http::{self, HeaderMap},
     web::{self, Data},
     App, HttpServer,
 };
+use actix_web_opentelemetry::RequestMetrics;
 use futures::StreamExt;
 use k8s_openapi::api::core::v1::Pod;
 use kube::{
@@ -29,6 +31,7 @@ use kube::{
     runtime::{reflector, utils::try_flatten_touched, watcher::watcher},
     ResourceExt,
 };
+use opentelemetry::global::meter;
 use snafu::{OptionExt, ResultExt};
 use tracing::{event, Level};
 use tracing_actix_web::TracingLogger;
@@ -88,6 +91,7 @@ pub struct APIServerSettings<T: BottlerocketNodeClient> {
 pub async fn run_server<T: 'static + BottlerocketNodeClient>(
     settings: APIServerSettings<T>,
     k8s_client: kube::Client,
+    prometheus_exporter: Option<opentelemetry_prometheus::PrometheusExporter>,
 ) -> Result<()> {
     let server_port = settings.server_port;
 
@@ -117,6 +121,13 @@ pub async fn run_server<T: 'static + BottlerocketNodeClient>(
             futures::future::ready(())
         });
 
+    // Set up prometheus metrics
+    let request_metrics = RequestMetrics::new(
+        meter("apiserver"),
+        Some(|req: &ServiceRequest| req.path() == "/metrics" && req.method() == http::Method::GET),
+        prometheus_exporter,
+    );
+
     // Set up the actix server.
     let server = HttpServer::new(move || {
         App::new()
@@ -129,6 +140,7 @@ pub async fn run_server<T: 'static + BottlerocketNodeClient>(
                 ))
                 .exclude(APISERVER_HEALTH_CHECK_ROUTE),
             )
+            .wrap(request_metrics.clone())
             .wrap(TracingLogger::<telemetry::BrupopApiserverRootSpanBuilder>::new())
             .app_data(Data::new(settings.clone()))
             .service(

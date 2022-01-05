@@ -32,6 +32,7 @@ async fn main() {
 
 async fn run_server() -> Result<()> {
     init_telemetry()?;
+    let prometheus_exporter = opentelemetry_prometheus::exporter().init();
 
     let k8s_client = kube::client::Client::try_default()
         .await
@@ -42,5 +43,5 @@ async fn run_server() -> Result<()> {
         server_port: 8080,
     };
 
-    api::run_server(settings, k8s_client).await
+    api::run_server(settings, k8s_client, Some(prometheus_exporter)).await
 }
