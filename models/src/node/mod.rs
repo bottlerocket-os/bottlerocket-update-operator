@@ -188,17 +188,6 @@ impl BottlerocketNodeSpec {
         // We know this won't panic because we have a regex requirement on this attribute, which is enforced by the k8s schema.
         self.version.as_ref().map(|v| Version::from_str(v).unwrap())
     }
-
-    /// Returns the operation for current spec.
-    pub fn operation(&self) -> String {
-        match self.state {
-            BottlerocketNodeState::Idle => "Idle".to_string(),
-            BottlerocketNodeState::StagedUpdate => "StagedUpdate".to_string(),
-            BottlerocketNodeState::PerformedUpdate => "PerformedUpdate".to_string(),
-            BottlerocketNodeState::RebootedIntoUpdate => "RebootedIntoUpdate".to_string(),
-            BottlerocketNodeState::MonitoringUpdate => "MonitoringUpdate".to_string(),
-        }
-    }
 }
 
 /// `BottlerocketNodeStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent,
@@ -206,7 +195,7 @@ impl BottlerocketNodeSpec {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, PartialEq, JsonSchema)]
 pub struct BottlerocketNodeStatus {
     #[validate(regex = "SEMVER_RE")]
-    current_version: String,
+    pub current_version: String,
     #[validate(regex = "SEMVER_RE")]
     target_version: String,
     pub current_state: BottlerocketNodeState,

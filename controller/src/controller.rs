@@ -1,6 +1,6 @@
 use super::{
     error::{self, Result},
-    metrics::BrupopControllerMetrics,
+    metrics::{BrupopControllerMetrics, BrupopHostsData},
     statemachine::determine_next_node_spec,
 };
 use models::node::{BottlerocketNode, BottlerocketNodeClient, BottlerocketNodeState};
@@ -9,7 +9,7 @@ use kube::runtime::reflector::Store;
 use kube::ResourceExt;
 use opentelemetry::global;
 use snafu::ResultExt;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use tokio::time::{sleep, Duration};
 use tracing::{event, instrument, Level};
 
@@ -64,6 +64,9 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
     #[instrument(skip(self), err)]
     async fn progress_node(&self, node: BottlerocketNode) -> Result<()> {
         if node.has_reached_desired_state() {
+            // Emit metrics to show the existing status
+            self.emit_metrics();
+
             let desired_spec = determine_next_node_spec(&node);
 
             event!(
@@ -72,26 +75,13 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
                 "BottlerocketNode has reached desired status. Modifying spec."
             );
 
-            let ret = self
-                .node_client
+            self.node_client
                 .update_node_spec(
                     &node.selector().context(error::NodeSelectorCreation)?,
                     &desired_spec,
                 )
                 .await
-                .context(error::UpdateNodeSpec);
-
-            // Update metrics to guide the next operation
-            if let Some(metrics) = &self.metrics {
-                if ret.is_ok() {
-                    let current_operation = desired_spec.operation();
-                    metrics.op(current_operation);
-                } else {
-                    metrics.error();
-                }
-            }
-
-            ret
+                .context(error::UpdateNodeSpec)
         } else {
             // Otherwise, we need to ensure that the node is making progress in a timely fashion.
 
@@ -126,6 +116,38 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
         let meter = global::meter("brupop-controller");
         self.metrics = Some(BrupopControllerMetrics::new(meter));
     }
+
+    #[instrument(skip(self))]
+    fn emit_metrics(&self) {
+        if let Some(metrics) = &self.metrics {
+            let data = self.fetch_data();
+            metrics.emit_metrics(data);
+        }
+    }
+
+    /// Fetch the custom resources status for all resources
+    /// to gather the information on hosts's bottlerocket version
+    /// and brupop state.
+    #[instrument(skip(self))]
+    fn fetch_data(&self) -> BrupopHostsData {
+        let mut hosts_version_count_map = HashMap::new();
+        let mut hosts_state_count_map = HashMap::new();
+
+        for brn in self.all_nodes() {
+            if let Some(brn_status) = brn.status {
+                let current_version = brn_status.current_version;
+                let current_state = brn_status.current_state;
+
+                *hosts_version_count_map.entry(current_version).or_default() += 1;
+                *hosts_state_count_map
+                    .entry(serde_plain::to_string(&current_state).unwrap())
+                    .or_default() += 1;
+            }
+        }
+
+        BrupopHostsData::new(hosts_version_count_map, hosts_state_count_map)
+    }
+
     /// Runs the event loop for the Brupop controller.
     ///
     /// Because the controller wants to gate the number of simultaneously updating nodes, we can't allow the update state machine
@@ -162,12 +184,11 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
                 let new_active_node = self.find_and_update_ready_node().await;
                 if let Some(brn) = new_active_node {
                     event!(Level::INFO, name = %brn.name(), "Began updating new node.")
-                } else {
-                    if let Some(metrics) = &self.metrics {
-                        metrics.no_op();
-                    }
                 }
             }
+
+            // Emit metrics at the end of the loop in case the loop didn't progress any nodes.
+            self.emit_metrics();
 
             // Sleep until it's time to check for more action.
             sleep(ACTION_INTERVAL).await;
