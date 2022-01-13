@@ -112,6 +112,7 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
         None
     }
 
+    #[instrument(skip(self))]
     fn init_metrics(&mut self) {
         let meter = global::meter("brupop-controller");
         self.metrics = Some(BrupopControllerMetrics::new(meter));
@@ -135,7 +136,7 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
 
         for brn in self.all_nodes() {
             if let Some(brn_status) = brn.status {
-                let current_version = brn_status.current_version;
+                let current_version = brn_status.current_version().to_string();
                 let current_state = brn_status.current_state;
 
                 *hosts_version_count_map.entry(current_version).or_default() += 1;

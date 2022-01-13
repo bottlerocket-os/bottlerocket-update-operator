@@ -5,14 +5,17 @@ use opentelemetry::{
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
+use tracing::instrument;
 
 const HOST_VERSION_KEY: Key = Key::from_static_str("bottlerocket_version");
 const HOST_STATE_KEY: Key = Key::from_static_str("state");
 
+#[derive(Debug)]
 pub struct BrupopControllerMetrics {
     brupop_shared_hosts_data: Arc<Mutex<BrupopHostsData>>,
 }
 
+#[derive(Debug)]
 pub struct BrupopHostsData {
     hosts_version_count_map: HashMap<String, u64>,
     hosts_state_count_map: HashMap<String, u64>,
@@ -40,7 +43,9 @@ impl Default for BrupopHostsData {
         }
     }
 }
+
 impl BrupopControllerMetrics {
+    #[instrument]
     pub fn new(meter: Meter) -> Self {
         let brupop_shared_hosts_data = Arc::new(Mutex::new(BrupopHostsData::default()));
 

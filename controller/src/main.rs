@@ -68,7 +68,7 @@ async fn main() -> Result<()> {
     .context(error::PrometheusServerError)?
     .run();
 
-    // TODO if either of these fails, we should write to the k8s termination log and exit.
+    // TODO if any of these fails, we should write to the k8s termination log and exit.
     tokio::select! {
         _ = drainer => {
             event!(Level::ERROR, "reflector drained");

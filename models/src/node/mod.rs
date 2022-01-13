@@ -195,7 +195,7 @@ impl BottlerocketNodeSpec {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, PartialEq, JsonSchema)]
 pub struct BottlerocketNodeStatus {
     #[validate(regex = "SEMVER_RE")]
-    pub current_version: String,
+    current_version: String,
     #[validate(regex = "SEMVER_RE")]
     target_version: String,
     pub current_state: BottlerocketNodeState,
