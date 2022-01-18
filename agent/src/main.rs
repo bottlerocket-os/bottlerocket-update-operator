@@ -1,20 +1,23 @@
 use agent::agentclient::BrupopAgent;
 use agent::error::{self, Result};
 use apiserver::client::K8SAPIServerClient;
-use k8s_openapi::api::core::v1::Node;
-use kube::Api;
-use models::agent::{AGENT_TOKEN_PATH, TOKEN_PROJECTION_MOUNT_PATH};
-
 use futures::StreamExt;
+use k8s_openapi::api::core::v1::Node;
 use kube::api::ListParams;
 use kube::runtime::reflector;
 use kube::runtime::utils::try_flatten_touched;
 use kube::runtime::watcher::watcher;
-use models::constants::NAMESPACE;
+use kube::Api;
+use models::agent::{AGENT_TOKEN_PATH, TOKEN_PROJECTION_MOUNT_PATH};
+use models::constants::{AGENT, NAMESPACE};
 
 use models::node::BottlerocketNode;
 
+use opentelemetry::sdk::propagation::TraceContextPropagator;
 use snafu::{OptionExt, ResultExt};
+use tracing::{event, Level};
+use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
+use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
 
 use std::env;
 use std::fs;
@@ -35,7 +38,7 @@ async fn main() {
 }
 
 async fn run_agent() -> Result<()> {
-    env_logger::init();
+    init_telemetry()?;
 
     let k8s_client = kube::client::Client::try_default()
         .await
@@ -62,8 +65,7 @@ async fn run_agent() -> Result<()> {
     let brn_drainer = try_flatten_touched(brn_reflector)
         .filter_map(|x| async move { std::result::Result::ok(x) })
         .for_each(|_brn| {
-            // TODO: utilize tracing event
-            log::debug!("Processed event for BottlerocketNodes");
+            event!(Level::DEBUG, "Processed event for BottlerocketNodes");
             futures::future::ready(())
         });
 
@@ -77,8 +79,7 @@ async fn run_agent() -> Result<()> {
     let node_drainer = try_flatten_touched(node_reflector)
         .filter_map(|x| async move { std::result::Result::ok(x) })
         .for_each(|_node| {
-            // TODO: utilize tracing event
-            log::debug!("Processed event for node");
+            event!(Level::DEBUG, "Processed event for node");
             futures::future::ready(())
         });
 
@@ -95,14 +96,32 @@ async fn run_agent() -> Result<()> {
 
     tokio::select! {
         _ = brn_drainer => {
-            log::error!("Processed event for brn");
+            event!(Level::ERROR, "Processed event for brn");
+            return Err(error::Error::KubernetesWatcherFailed {object: "brn".to_string()});
         },
         _ = node_drainer => {
-            log::error!("Processed event for node");
+            event!(Level::ERROR, "Processed event for node");
+            return Err(error::Error::KubernetesWatcherFailed {object: "node".to_string()});
         },
-        _ = agent_runner => {
-            log::error!("runner exited");
+        res = agent_runner => {
+            event!(Level::ERROR, "Agent runner exited");
+            res.context(error::AgentError)?
         },
     };
+    Ok(())
+}
+
+/// Initializes global tracing and telemetry state for the agent.
+pub fn init_telemetry() -> Result<()> {
+    opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
+
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    let stdio_formatting_layer = BunyanFormattingLayer::new(AGENT.into(), std::io::stdout);
+    let subscriber = Registry::default()
+        .with(env_filter)
+        .with(JsonStorageLayer)
+        .with(stdio_formatting_layer);
+    tracing::subscriber::set_global_default(subscriber).context(error::TracingConfiguration)?;
+
     Ok(())
 }
