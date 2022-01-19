@@ -95,7 +95,6 @@ impl<T: APIServerClient> BrupopAgent<T> {
                     }
                     // Any other type of errors can not present that custom resource doesn't exist, need return error
                     _ => {
-                        // TODO: Err will cause pod to be terminated and restarted, so it worths to add re-enter agent loop functionality to avoid unexpected pod termination.
                         return Err(e).context(agentclient_error::UnableFetchBottlerocketNode {
                             node_name: &self.associated_bottlerocketnode_name.clone(),
                         });
@@ -130,7 +129,6 @@ impl<T: APIServerClient> BrupopAgent<T> {
             }
 
             // reflector store is currently unavailable, bail out
-            // TODO: Err will cause pod to be terminated and restarted, so it worths to add re-enter agent loop functionality to avoid unexpected pod termination.
             Err(agentclient_error::Error::ReflectorUnavailable {
                 object: "Node".to_string(),
             })
@@ -153,7 +151,6 @@ impl<T: APIServerClient> BrupopAgent<T> {
             }
 
             // reflector store is currently unavailable, bail out
-            // TODO: Err will cause pod to be terminated and restarted, so it worths to add re-enter agent loop functionality to avoid unexpected pod termination.
             Err(agentclient_error::Error::ReflectorUnavailable {
                 object: "BottlerocketNode".to_string(),
             })
@@ -268,17 +265,52 @@ impl<T: APIServerClient> BrupopAgent<T> {
 
         loop {
             // Create a bottlerocketnode (custom resource) if associated bottlerocketnode does not exist
-            if !self.check_node_custom_resource_exists().await? {
-                self.create_metadata_custom_resource().await?;
+            if self.check_node_custom_resource_exists().await.is_err() {
+                // Errors checking if brn exists are ignored (and also logged by `check_node_custom_resource_exists()`).
+                event!(Level::WARN, "An error occurred when checking if BottlerocketNode exists. Restarting event loop");
+                sleep(AGENT_SLEEP_DURATION).await;
+                continue;
+            } else {
+                if !self.check_node_custom_resource_exists().await? {
+                    if self.create_metadata_custom_resource().await.is_err() {
+                        // Errors creating brn are ignored (and also logged by `create_metadata_custom_resource()`).
+                        event!(Level::WARN, "An error occurred when creating BottlerocketNode. Restarting event loop");
+                        sleep(AGENT_SLEEP_DURATION).await;
+                        continue;
+                    }
+                }
             }
 
             // Initialize bottlerocketnode (custom resource) `status` if associated bottlerocketnode does not have `status`
-            if !self.check_custom_resource_status_exists().await? {
-                self.initialize_metadata_custom_resource().await?;
+            if self.check_custom_resource_status_exists().await.is_err() {
+                // Errors checking if brn status exists are ignored (and also logged by `check_custom_resource_status_exists()`).
+                event!(Level::WARN, "An error occurred when checking if BottlerocketNode status exists. Restarting event loop");
+                sleep(AGENT_SLEEP_DURATION).await;
+                continue;
+            } else {
+                if !self.check_custom_resource_status_exists().await? {
+                    if self.initialize_metadata_custom_resource().await.is_err() {
+                        // Errors initializing brn are ignored (and also logged by `initialize_metadata_custom_resource()`).
+                        event!(Level::WARN, "An error occurred when initializing BottlerocketNode. Restarting event loop");
+                        sleep(AGENT_SLEEP_DURATION).await;
+                        continue;
+                    }
+                }
             }
 
             // Requests metadata 'status' and 'spec' for the current BottlerocketNode
-            let bottlerocket_node = self.fetch_custom_resource().await?;
+            let bottlerocket_node = match self.fetch_custom_resource().await {
+                Ok(bottlerocket_node) => bottlerocket_node,
+                Err(_) => {
+                    // Errors fetching brn are ignored (and also logged by `fetch_custom_resource()`).
+                    event!(
+                        Level::WARN,
+                        "An error occurred when fetching BottlerocketNode. Restarting event loop"
+                    );
+                    sleep(AGENT_SLEEP_DURATION).await;
+                    continue;
+                }
+            };
 
             let bottlerocket_node_status = bottlerocket_node
                 .status
@@ -322,11 +354,28 @@ impl<T: APIServerClient> BrupopAgent<T> {
                             // previous execution `reboot` exited loop and did not update the custom resource
                             // associated with this node. When re-enter loop and finished reboot,
                             // try to update the custom resource.
-                            let update_node_status = self
+                            let update_node_status = match self
                                 .gather_system_metadata(bottlerocket_node_spec.state.clone())
-                                .await?;
-                            self.update_metadata_custom_resource(update_node_status)
-                                .await?;
+                                .await
+                            {
+                                Ok(update_node_status) => update_node_status,
+                                Err(_) => {
+                                    // Errors gathering system metadata are ignored (and also logged by `gather_system_metadata()`).
+                                    event!(Level::WARN, "An error occurred when gathering system metadata. Restarting event loop");
+                                    sleep(AGENT_SLEEP_DURATION).await;
+                                    continue;
+                                }
+                            };
+                            if self
+                                .update_metadata_custom_resource(update_node_status)
+                                .await
+                                .is_err()
+                            {
+                                // Errors updating BottlerocketNode are ignored (and also logged by `update_metadata_custom_resource()`).
+                                event!(Level::WARN, "An error occurred when updating BottlerocketNode. Restarting event loop");
+                                sleep(AGENT_SLEEP_DURATION).await;
+                                continue;
+                            };
                         } else {
                             boot_update()
                                 .await
@@ -346,13 +395,36 @@ impl<T: APIServerClient> BrupopAgent<T> {
                 event!(Level::INFO, "Did not detect action demand.");
             }
 
-            // update the custom resource associated with this node if anything has changed.
-            let updated_node_status = self
+            // update the custom resource associated with this node
+            let updated_node_status = match self
                 .gather_system_metadata(bottlerocket_node_spec.state.clone())
-                .await?;
+                .await
+            {
+                Ok(updated_node_status) => updated_node_status,
+                Err(_) => {
+                    // Errors gathering system metadata are ignored (and also logged by `gather_system_metadata()`).
+                    event!(
+                        Level::WARN,
+                        "An error occurred when gathering system metadata. Restarting event loop"
+                    );
+                    sleep(AGENT_SLEEP_DURATION).await;
+                    continue;
+                }
+            };
             if updated_node_status != bottlerocket_node_status {
-                self.update_metadata_custom_resource(updated_node_status)
-                    .await?;
+                if self
+                    .update_metadata_custom_resource(updated_node_status)
+                    .await
+                    .is_err()
+                {
+                    // Errors updating BottlerocketNode are ignored (and also logged by `update_metadata_custom_resource()`).
+                    event!(
+                        Level::WARN,
+                        "An error occurred when updating BottlerocketNode. Restarting event loop"
+                    );
+                    sleep(AGENT_SLEEP_DURATION).await;
+                    continue;
+                };
             }
 
             event!(Level::DEBUG, "Agent loop completed. Sleeping.....");
