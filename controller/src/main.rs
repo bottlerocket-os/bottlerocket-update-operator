@@ -40,8 +40,12 @@ async fn main() -> Result<()> {
 
     let node_client = K8SBottlerocketNodeClient::new(k8s_client.clone());
 
+    // Exporter has to be initialized before BrupopController
+    // in order to setup global meter provider properly
+    let exporter = opentelemetry_prometheus::exporter().init();
+
     // Setup and run the controller.
-    let mut controller = BrupopController::new(node_client, brn_reader);
+    let controller = BrupopController::new(node_client, brn_reader);
     let controller_runner = controller.run();
 
     // Setup and run a reflector, ensuring that `BottlerocketNode` updates are reflected to the controller.
@@ -58,7 +62,6 @@ async fn main() -> Result<()> {
         });
 
     // Setup Http server to vend prometheus metrics
-    let exporter = opentelemetry_prometheus::exporter().init();
     let prometheus_server = HttpServer::new(move || {
         App::new()
             .app_data(Data::new(exporter.clone()))

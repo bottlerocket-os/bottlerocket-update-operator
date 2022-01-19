@@ -34,4 +34,7 @@ pub enum Error {
 
     #[snafu(display("Error running prometheus HTTP server: '{}'", source))]
     PrometheusServerError { source: std::io::Error },
+
+    #[snafu(display("Controller failed due to internal assertion issue: '{}'", source))]
+    Assertion { source: serde_plain::Error },
 }
