@@ -86,6 +86,21 @@ pub fn apiserver_cluster_role() -> ClusterRole {
                     .collect(),
                 ..Default::default()
             },
+            PolicyRule {
+                api_groups: Some(vec!["".to_string()]),
+                resources: Some(vec!["nodes".to_string()]),
+                verbs: vec!["get", "list", "patch"]
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect(),
+                ..Default::default()
+            },
+            PolicyRule {
+                api_groups: Some(vec!["".to_string()]),
+                resources: Some(vec!["pods/eviction".to_string()]),
+                verbs: vec!["create"].iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            },
         ]),
         ..Default::default()
     }

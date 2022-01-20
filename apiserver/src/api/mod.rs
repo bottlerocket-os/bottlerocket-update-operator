@@ -1,5 +1,6 @@
 //! This module contains the brupop API server. Endpoints are stored in submodules, separated
 //! by the resource on which they act.
+mod drain;
 mod node;
 mod ping;
 
@@ -7,7 +8,7 @@ use crate::{
     auth::{K8STokenAuthorizor, K8STokenReviewer, TokenAuthMiddleware},
     constants::{
         HEADER_BRUPOP_K8S_AUTH_TOKEN, HEADER_BRUPOP_NODE_NAME, HEADER_BRUPOP_NODE_UID,
-        NODE_RESOURCE_ENDPOINT,
+        NODE_CORDON_AND_DRAIN_ENDPOINT, NODE_RESOURCE_ENDPOINT, NODE_UNCORDON_ENDPOINT,
     },
     error::{self, Result},
     telemetry,
@@ -147,6 +148,13 @@ pub async fn run_server<T: 'static + BottlerocketNodeClient>(
                 web::resource(NODE_RESOURCE_ENDPOINT)
                     .route(web::post().to(node::create_bottlerocket_node_resource::<T>))
                     .route(web::put().to(node::update_bottlerocket_node_resource::<T>)),
+            )
+            .service(
+                web::resource(NODE_CORDON_AND_DRAIN_ENDPOINT)
+                    .route(web::post().to(drain::cordon_and_drain::<T>)),
+            )
+            .service(
+                web::resource(NODE_UNCORDON_ENDPOINT).route(web::post().to(drain::uncordon::<T>)),
             )
             .route(
                 APISERVER_HEALTH_CHECK_ROUTE,

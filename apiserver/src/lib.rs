@@ -30,7 +30,7 @@ pub struct UpdateBottlerocketNodeRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// Describes a node which should have its k8s pods drained, and be cordoned to avoid more pods being scheduled..
-pub struct DrainAndCordonBottlerocketNodeRequest {
+pub struct CordonAndDrainBottlerocketNodeRequest {
     pub node_selector: BottlerocketNodeSelector,
 }
 
