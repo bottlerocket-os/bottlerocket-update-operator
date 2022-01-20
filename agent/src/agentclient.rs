@@ -346,12 +346,14 @@ impl<T: APIServerClient> BrupopAgent<T> {
                 event!(Level::INFO, "Did not detect action demand.");
             }
 
-            // update the custom resource associated with this node
-            let update_node_status = self
+            // update the custom resource associated with this node if anything has changed.
+            let updated_node_status = self
                 .gather_system_metadata(bottlerocket_node_spec.state.clone())
                 .await?;
-            self.update_metadata_custom_resource(update_node_status)
-                .await?;
+            if updated_node_status != bottlerocket_node_status {
+                self.update_metadata_custom_resource(updated_node_status)
+                    .await?;
+            }
 
             event!(Level::DEBUG, "Agent loop completed. Sleeping.....");
             sleep(AGENT_SLEEP_DURATION).await;
