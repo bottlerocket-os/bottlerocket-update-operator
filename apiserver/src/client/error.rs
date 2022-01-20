@@ -10,6 +10,16 @@ pub type Result<T> = std::result::Result<T, ClientError>;
 #[snafu(visibility = "pub")]
 pub enum ClientError {
     #[snafu(display(
+        "API server responded with an error status code {}: '{}'",
+        status_code,
+        response
+    ))]
+    ErrorResponse {
+        status_code: reqwest::StatusCode,
+        response: String,
+    },
+
+    #[snafu(display(
         "Unable to create BottlerocketNode ({}, {}): '{}'",
         selector.node_name,
         selector.node_uid,
@@ -26,6 +36,28 @@ pub enum ClientError {
         source
     ))]
     UpdateBottlerocketNodeResource {
+        source: Box<dyn std::error::Error>,
+        selector: BottlerocketNodeSelector,
+    },
+
+    #[snafu(display(
+        "Unable to drain and cordon Node status ({}, {}): '{}'",
+        selector.node_name,
+        selector.node_uid,
+        source
+    ))]
+    CordonAndDrainNodeResource {
+        source: Box<dyn std::error::Error>,
+        selector: BottlerocketNodeSelector,
+    },
+
+    #[snafu(display(
+        "Unable to uncordon Node status ({}, {}): '{}'",
+        selector.node_name,
+        selector.node_uid,
+        source
+    ))]
+    UncordonNodeResource {
         source: Box<dyn std::error::Error>,
         selector: BottlerocketNodeSelector,
     },

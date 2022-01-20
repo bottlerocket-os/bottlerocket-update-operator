@@ -2,9 +2,9 @@ use super::error::{self, Result};
 use crate::{
     constants::{
         HEADER_BRUPOP_K8S_AUTH_TOKEN, HEADER_BRUPOP_NODE_NAME, HEADER_BRUPOP_NODE_UID,
-        NODE_RESOURCE_ENDPOINT,
+        NODE_CORDON_AND_DRAIN_ENDPOINT, NODE_RESOURCE_ENDPOINT, NODE_UNCORDON_ENDPOINT,
     },
-    CreateBottlerocketNodeRequest, DrainAndCordonBottlerocketNodeRequest,
+    CordonAndDrainBottlerocketNodeRequest, CreateBottlerocketNodeRequest,
     UncordonBottlerocketNodeRequest, UpdateBottlerocketNodeRequest,
 };
 use models::{
@@ -46,7 +46,7 @@ pub trait APIServerClient {
         &self,
         req: UpdateBottlerocketNodeRequest,
     ) -> Result<BottlerocketNodeStatus>;
-    async fn drain_and_cordon_node(&self, req: DrainAndCordonBottlerocketNodeRequest)
+    async fn cordon_and_drain_node(&self, req: CordonAndDrainBottlerocketNodeRequest)
         -> Result<()>;
     async fn uncordon_node(&self, req: UncordonBottlerocketNodeRequest) -> Result<()>;
 }
@@ -124,15 +124,28 @@ impl APIServerClient for K8SAPIServerClient {
                     selector: req.node_selector.clone(),
                 })?;
 
-            let node = response
-                .json::<BottlerocketNode>()
-                .await
-                .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+            let status = response.status();
+            if status.is_success() {
+                let node = response
+                    .json::<BottlerocketNode>()
+                    .await
+                    .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+                    .context(error::CreateBottlerocketNodeResource {
+                        selector: req.node_selector.clone(),
+                    })?;
+                Ok(node)
+            } else {
+                Err(Box::new(error::ClientError::ErrorResponse {
+                    status_code: status,
+                    response: response
+                        .text()
+                        .await
+                        .unwrap_or("<empty response>".to_string()),
+                }) as Box<dyn std::error::Error>)
                 .context(error::CreateBottlerocketNodeResource {
                     selector: req.node_selector.clone(),
-                })?;
-
-            Ok(node)
+                })
+            }
         })
         .await
     }
@@ -164,29 +177,117 @@ impl APIServerClient for K8SAPIServerClient {
                     selector: req.node_selector.clone(),
                 })?;
 
-            let node_status = response
-                .json::<BottlerocketNodeStatus>()
-                .await
-                .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+            let status = response.status();
+            if status.is_success() {
+                let node_status = response
+                    .json::<BottlerocketNodeStatus>()
+                    .await
+                    .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+                    .context(error::UpdateBottlerocketNodeResource {
+                        selector: req.node_selector.clone(),
+                    })?;
+
+                Ok(node_status)
+            } else {
+                Err(Box::new(error::ClientError::ErrorResponse {
+                    status_code: status,
+                    response: response
+                        .text()
+                        .await
+                        .unwrap_or("<empty response>".to_string()),
+                }) as Box<dyn std::error::Error>)
                 .context(error::UpdateBottlerocketNodeResource {
                     selector: req.node_selector.clone(),
-                })?;
-
-            Ok(node_status)
+                })
+            }
         })
         .await
     }
 
     #[instrument]
-    async fn drain_and_cordon_node(
+    async fn cordon_and_drain_node(
         &self,
-        _req: DrainAndCordonBottlerocketNodeRequest,
+        req: CordonAndDrainBottlerocketNodeRequest,
     ) -> Result<()> {
-        todo!()
+        Retry::spawn(retry_strategy(), || async {
+            let http_client = reqwest::Client::new();
+
+            let request_builder = self.add_common_request_headers(
+                http_client.post(format!(
+                    "{}://{}{}",
+                    Self::scheme(),
+                    Self::server_domain(),
+                    NODE_CORDON_AND_DRAIN_ENDPOINT
+                )),
+                &req.node_selector,
+            )?;
+
+            let response = request_builder
+                .send()
+                .await
+                .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+                .context(error::CordonAndDrainNodeResource {
+                    selector: req.node_selector.clone(),
+                })?;
+
+            let status = response.status();
+            if status.is_success() {
+                Ok(())
+            } else {
+                Err(Box::new(error::ClientError::ErrorResponse {
+                    status_code: status,
+                    response: response
+                        .text()
+                        .await
+                        .unwrap_or("<empty response>".to_string()),
+                }) as Box<dyn std::error::Error>)
+                .context(error::CordonAndDrainNodeResource {
+                    selector: req.node_selector.clone(),
+                })
+            }
+        })
+        .await
     }
 
     #[instrument]
-    async fn uncordon_node(&self, _req: UncordonBottlerocketNodeRequest) -> Result<()> {
-        todo!()
+    async fn uncordon_node(&self, req: UncordonBottlerocketNodeRequest) -> Result<()> {
+        Retry::spawn(retry_strategy(), || async {
+            let http_client = reqwest::Client::new();
+
+            let request_builder = self.add_common_request_headers(
+                http_client.post(format!(
+                    "{}://{}{}",
+                    Self::scheme(),
+                    Self::server_domain(),
+                    NODE_UNCORDON_ENDPOINT
+                )),
+                &req.node_selector,
+            )?;
+
+            let response = request_builder
+                .send()
+                .await
+                .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+                .context(error::CordonAndDrainNodeResource {
+                    selector: req.node_selector.clone(),
+                })?;
+
+            let status = response.status();
+            if status.is_success() {
+                Ok(())
+            } else {
+                Err(Box::new(error::ClientError::ErrorResponse {
+                    status_code: status,
+                    response: response
+                        .text()
+                        .await
+                        .unwrap_or("<empty response>".to_string()),
+                }) as Box<dyn std::error::Error>)
+                .context(error::CordonAndDrainNodeResource {
+                    selector: req.node_selector.clone(),
+                })
+            }
+        })
+        .await
     }
 }

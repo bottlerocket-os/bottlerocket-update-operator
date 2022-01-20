@@ -32,6 +32,12 @@ pub enum Error {
 
     #[snafu(display("The Kubernetes WATCH on Pod objects has failed."))]
     KubernetesWatcherFailed {},
+
+    #[snafu(display("Failed to cordon Node: '{}'", source))]
+    BottlerocketNodeCordon { source: BottlerocketNodeError },
+
+    #[snafu(display("Failed to drain Node: '{}'", source))]
+    BottlerocketNodeDrain { source: BottlerocketNodeError },
 }
 
 impl ResponseError for Error {}
