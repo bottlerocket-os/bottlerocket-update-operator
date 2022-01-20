@@ -1,11 +1,14 @@
 use controller::{
     error::{self, Result},
+    telemetry::vending_metrics,
     BrupopController,
 };
 use models::{
-    constants::{CONTROLLER, NAMESPACE},
+    constants::{CONTROLLER, CONTROLLER_INTERNAL_PORT, NAMESPACE},
     node::{BottlerocketNode, K8SBottlerocketNodeClient},
 };
+
+use actix_web::{web::Data, App, HttpServer};
 
 use futures::StreamExt;
 use kube::{
@@ -21,7 +24,7 @@ use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
 
 const DEFAULT_TRACE_LEVEL: &str = "info";
 
-#[tokio::main]
+#[actix_web::main]
 async fn main() -> Result<()> {
     init_telemetry()?;
 
@@ -36,6 +39,10 @@ async fn main() -> Result<()> {
     let brn_reader = brn_store.as_reader();
 
     let node_client = K8SBottlerocketNodeClient::new(k8s_client.clone());
+
+    // Exporter has to be initialized before BrupopController
+    // in order to setup global meter provider properly
+    let exporter = opentelemetry_prometheus::exporter().init();
 
     // Setup and run the controller.
     let controller = BrupopController::new(node_client, brn_reader);
@@ -54,7 +61,17 @@ async fn main() -> Result<()> {
             futures::future::ready(())
         });
 
-    // TODO if either of these fails, we should write to the k8s termination log and exit.
+    // Setup Http server to vend prometheus metrics
+    let prometheus_server = HttpServer::new(move || {
+        App::new()
+            .app_data(Data::new(exporter.clone()))
+            .service(vending_metrics)
+    })
+    .bind(format!("0.0.0.0:{}", CONTROLLER_INTERNAL_PORT))
+    .context(error::PrometheusServerError)?
+    .run();
+
+    // TODO if any of these fails, we should write to the k8s termination log and exit.
     tokio::select! {
         _ = drainer => {
             event!(Level::ERROR, "reflector drained");
@@ -62,6 +79,9 @@ async fn main() -> Result<()> {
         _ = controller_runner => {
             event!(Level::ERROR, "controller exited");
         },
+        _ = prometheus_server => {
+            event!(Level::ERROR, "metric server exited");
+        }
     };
     Ok(())
 }

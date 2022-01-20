@@ -1,13 +1,15 @@
 use super::{
     error::{self, Result},
+    metrics::{BrupopControllerMetrics, BrupopHostsData},
     statemachine::determine_next_node_spec,
 };
 use models::node::{BottlerocketNode, BottlerocketNodeClient, BottlerocketNodeState};
 
 use kube::runtime::reflector::Store;
 use kube::ResourceExt;
+use opentelemetry::global;
 use snafu::ResultExt;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use tokio::time::{sleep, Duration};
 use tracing::{event, instrument, Level};
 
@@ -18,13 +20,19 @@ const ACTION_INTERVAL: Duration = Duration::from_secs(2);
 pub struct BrupopController<T: BottlerocketNodeClient> {
     node_client: T,
     brn_reader: Store<BottlerocketNode>,
+    metrics: BrupopControllerMetrics,
 }
 
 impl<T: BottlerocketNodeClient> BrupopController<T> {
     pub fn new(node_client: T, brn_reader: Store<BottlerocketNode>) -> Self {
+        // Creates brupop-controller meter via the configured
+        // GlobalMeterProvider which is setup in PrometheusExporter
+        let meter = global::meter("brupop-controller");
+        let metrics = BrupopControllerMetrics::new(meter);
         BrupopController {
             node_client,
             brn_reader,
+            metrics,
         }
     }
 
@@ -60,6 +68,9 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
     #[instrument(skip(self), err)]
     async fn progress_node(&self, node: BottlerocketNode) -> Result<()> {
         if node.has_reached_desired_state() {
+            // Emit metrics to show the existing status
+            self.emit_metrics()?;
+
             let desired_spec = determine_next_node_spec(&node);
 
             event!(
@@ -105,6 +116,39 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
         None
     }
 
+    #[instrument(skip(self))]
+    fn emit_metrics(&self) -> Result<()> {
+        let data = self.fetch_data()?;
+        self.metrics.emit_metrics(data);
+        Ok(())
+    }
+
+    /// Fetch the custom resources status for all resources
+    /// to gather the information on hosts's bottlerocket version
+    /// and brupop state.
+    #[instrument(skip(self))]
+    fn fetch_data(&self) -> Result<BrupopHostsData> {
+        let mut hosts_version_count_map = HashMap::new();
+        let mut hosts_state_count_map = HashMap::new();
+
+        for brn in self.all_nodes() {
+            if let Some(brn_status) = brn.status {
+                let current_version = brn_status.current_version().to_string();
+                let current_state = brn_status.current_state;
+
+                *hosts_version_count_map.entry(current_version).or_default() += 1;
+                *hosts_state_count_map
+                    .entry(serde_plain::to_string(&current_state).context(error::Assertion)?)
+                    .or_default() += 1;
+            }
+        }
+
+        Ok(BrupopHostsData::new(
+            hosts_version_count_map,
+            hosts_state_count_map,
+        ))
+    }
+
     /// Runs the event loop for the Brupop controller.
     ///
     /// Because the controller wants to gate the number of simultaneously updating nodes, we can't allow the update state machine
@@ -141,6 +185,9 @@ impl<T: BottlerocketNodeClient> BrupopController<T> {
                     event!(Level::INFO, name = %brn.name(), "Began updating new node.")
                 }
             }
+
+            // Emit metrics at the end of the loop in case the loop didn't progress any nodes.
+            self.emit_metrics()?;
 
             // Sleep until it's time to check for more action.
             sleep(ACTION_INTERVAL).await;

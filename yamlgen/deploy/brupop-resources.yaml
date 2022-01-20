@@ -392,3 +392,20 @@ spec:
       imagePullSecrets:
         - name: brupop
       serviceAccountName: brupop-controller-service-account
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: brupop-controller
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: brupop-controller
+  name: brupop-controller-server
+  namespace: brupop-bottlerocket-aws
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    brupop.bottlerocket.aws/component: brupop-controller

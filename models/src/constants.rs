@@ -44,3 +44,6 @@ pub const AGENT_NAME: &str = "brupop-agent";
 // controller constants
 pub const CONTROLLER: &str = "brupop-controller";
 pub const CONTROLLER_DEPLOYMENT_NAME: &str = "brupop-controller-deployment";
+pub const CONTROLLER_SERVICE_NAME: &str = "brupop-controller-server"; // The name for the `svc` fronting the controller.
+pub const CONTROLLER_INTERNAL_PORT: i32 = 8080; // The internal port on which the the controller service is hosted.
+pub const CONTROLLER_SERVICE_PORT: i32 = 80; // The k8s service port hosting the controller service.

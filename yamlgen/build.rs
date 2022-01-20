@@ -17,7 +17,7 @@ use models::{
     },
     controller::{
         controller_cluster_role, controller_cluster_role_binding, controller_deployment,
-        controller_service_account,
+        controller_service, controller_service_account,
     },
     namespace::brupop_namespace,
     node::BottlerocketNode,
@@ -93,4 +93,5 @@ fn main() {
         &controller_deployment(brupop_image.clone(), brupop_image_pull_secrets.clone()),
     )
     .unwrap();
+    serde_yaml::to_writer(&brupop_resources, &controller_service()).unwrap();
 }

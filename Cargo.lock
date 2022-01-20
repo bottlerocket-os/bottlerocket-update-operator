@@ -800,11 +800,16 @@ dependencies = [
 name = "controller"
 version = "0.1.0"
 dependencies = [
+ "actix-web",
  "futures",
+ "http",
  "k8s-openapi",
  "kube",
  "models",
  "opentelemetry",
+ "opentelemetry-prometheus",
+ "prometheus",
+ "serde_plain",
  "snafu",
  "tokio",
  "tracing",
@@ -2499,6 +2504,15 @@ dependencies = [
  "indexmap",
  "itoa",
  "ryu",
+ "serde",
+]
+
+[[package]]
+name = "serde_plain"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95455e7e29fada2052e72170af226fbe368a4ca33dee847875325d9fdb133858"
+dependencies = [
  "serde",
 ]
 

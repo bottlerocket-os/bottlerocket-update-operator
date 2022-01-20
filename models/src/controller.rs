@@ -1,15 +1,17 @@
 use crate::constants::{
     APP_COMPONENT, APP_MANAGED_BY, APP_PART_OF, BRUPOP, BRUPOP_DOMAIN_LIKE_NAME, CONTROLLER,
-    CONTROLLER_DEPLOYMENT_NAME, LABEL_COMPONENT, NAMESPACE,
+    CONTROLLER_DEPLOYMENT_NAME, CONTROLLER_INTERNAL_PORT, CONTROLLER_SERVICE_NAME,
+    CONTROLLER_SERVICE_PORT, LABEL_COMPONENT, NAMESPACE,
 };
 use crate::node::{K8S_NODE_PLURAL, K8S_NODE_STATUS};
 use k8s_openapi::api::apps::v1::{Deployment, DeploymentSpec, DeploymentStrategy};
 use k8s_openapi::api::core::v1::{
     Affinity, Container, LocalObjectReference, NodeAffinity, NodeSelector, NodeSelectorRequirement,
-    NodeSelectorTerm, PodSpec, PodTemplateSpec, ServiceAccount,
+    NodeSelectorTerm, PodSpec, PodTemplateSpec, Service, ServiceAccount, ServicePort, ServiceSpec,
 };
 use k8s_openapi::api::rbac::v1::{ClusterRole, ClusterRoleBinding, PolicyRule, RoleRef, Subject};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
+use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use kube::api::ObjectMeta;
 use maplit::btreemap;
 
@@ -194,6 +196,38 @@ pub fn controller_deployment(
                     ..Default::default()
                 }),
             },
+            ..Default::default()
+        }),
+        ..Default::default()
+    }
+}
+
+pub fn controller_service() -> Service {
+    Service {
+        metadata: ObjectMeta {
+            labels: Some(
+                btreemap! {
+                    APP_COMPONENT => CONTROLLER.to_string(),
+                    APP_MANAGED_BY => BRUPOP.to_string(),
+                    APP_PART_OF => BRUPOP.to_string(),
+                    LABEL_COMPONENT => CONTROLLER.to_string(),
+                }
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+            ),
+            name: Some(CONTROLLER_SERVICE_NAME.to_string()),
+            namespace: Some(NAMESPACE.to_string()),
+            ..Default::default()
+        },
+
+        spec: Some(ServiceSpec {
+            selector: Some(btreemap! { LABEL_COMPONENT.to_string() => CONTROLLER.to_string()}),
+            ports: Some(vec![ServicePort {
+                port: CONTROLLER_SERVICE_PORT,
+                target_port: Some(IntOrString::Int(CONTROLLER_INTERNAL_PORT)),
+                ..Default::default()
+            }]),
             ..Default::default()
         }),
         ..Default::default()
