@@ -59,6 +59,16 @@ pub enum Error {
         source: apiserver::client::ClientError,
     },
 
+    #[snafu(display("Unable to drain and cordon this node: '{}'", source))]
+    CordonAndDrainNode {
+        source: apiserver::client::ClientError,
+    },
+
+    #[snafu(display("Unable to uncordon this node: '{}'", source))]
+    UncordonNode {
+        source: apiserver::client::ClientError,
+    },
+
     #[snafu(display("Unable to take action '{}': '{}'", action, source))]
     UpdateActions {
         action: String,

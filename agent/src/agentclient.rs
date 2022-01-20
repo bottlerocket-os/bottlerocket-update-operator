@@ -15,6 +15,7 @@ use crate::{
 };
 use apiserver::{
     client::APIServerClient,
+    CordonAndDrainBottlerocketNodeRequest, UncordonBottlerocketNodeRequest,
     {CreateBottlerocketNodeRequest, UpdateBottlerocketNodeRequest},
 };
 use models::{
@@ -224,6 +225,32 @@ impl<T: APIServerClient> BrupopAgent<T> {
         Ok(())
     }
 
+    async fn cordon_and_drain(&self) -> Result<()> {
+        let selector = self.get_node_selector().await?;
+
+        self.apiserver_client
+            .cordon_and_drain_node(CordonAndDrainBottlerocketNodeRequest {
+                node_selector: selector,
+            })
+            .await
+            .context(error::CordonAndDrainNode)?;
+
+        Ok(())
+    }
+
+    async fn uncordon(&self) -> Result<()> {
+        let selector = self.get_node_selector().await?;
+
+        self.apiserver_client
+            .uncordon_node(UncordonBottlerocketNodeRequest {
+                node_selector: selector,
+            })
+            .await
+            .context(error::UncordonNode)?;
+
+        Ok(())
+    }
+
     pub async fn run(&mut self) -> Result<()> {
         // A running agent has two responsibilities:
         // - Gather metadata about the system and update the custom resource associated with this node
@@ -262,9 +289,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                             action: "Prepare".to_string(),
                         })?;
 
-                        // TODO: This function needs to use the k8s drain API to remove any pods from the host,
-                        // and then we need to wait until the host is successfully drained before transitioning
-                        // to the next state.
+                        self.cordon_and_drain().await?;
                     }
                     BottlerocketNodeState::PerformedUpdate => {
                         log::info!("Performing update");
@@ -292,6 +317,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                     }
                     BottlerocketNodeState::MonitoringUpdate => {
                         log::info!("Monitoring node's healthy condition");
+                        self.uncordon().await?;
                         // TODO: we need add some criterias here by which we decide to transition
                         // from MonitoringUpdate to WaitingForUpdate.
                     }
