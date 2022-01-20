@@ -13,6 +13,7 @@ use kube::runtime::reflector::Store;
 use crate::apiclient::{boot_update, get_chosen_update, get_os_info, prepare, update};
 use apiserver::{
     client::APIServerClient,
+    CordonAndDrainBottlerocketNodeRequest, UncordonBottlerocketNodeRequest,
     {CreateBottlerocketNodeRequest, UpdateBottlerocketNodeRequest},
 };
 use models::{
@@ -220,6 +221,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
     }
 
     /// initialize bottlerocketnode (custom resource) `status` when create new bottlerocketnode
+    #[instrument(skip(self), err)]
     pub async fn initialize_metadata_custom_resource(&self) -> Result<()> {
         let update_node_status = self
             .gather_system_metadata(BottlerocketNodeState::Idle)
@@ -230,7 +232,35 @@ impl<T: APIServerClient> BrupopAgent<T> {
         Ok(())
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self), err)]
+    async fn cordon_and_drain(&self) -> Result<()> {
+        let selector = self.get_node_selector().await?;
+
+        self.apiserver_client
+            .cordon_and_drain_node(CordonAndDrainBottlerocketNodeRequest {
+                node_selector: selector,
+            })
+            .await
+            .context(agentclient_error::CordonAndDrainNode)?;
+
+        Ok(())
+    }
+
+    #[instrument(skip(self), err)]
+    async fn uncordon(&self) -> Result<()> {
+        let selector = self.get_node_selector().await?;
+
+        self.apiserver_client
+            .uncordon_node(UncordonBottlerocketNodeRequest {
+                node_selector: selector,
+            })
+            .await
+            .context(agentclient_error::UncordonNode)?;
+
+        Ok(())
+    }
+
+    #[instrument(skip(self), err)]
     pub async fn run(&mut self) -> Result<()> {
         // A running agent has two responsibilities:
         // - Gather metadata about the system and update the custom resource associated with this node
@@ -277,9 +307,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                             action: "Prepare".to_string(),
                         })?;
 
-                        // TODO: This function needs to use the k8s drain API to remove any pods from the host,
-                        // and then we need to wait until the host is successfully drained before transitioning
-                        // to the next state.
+                        self.cordon_and_drain().await?;
                     }
                     BottlerocketNodeState::PerformedUpdate => {
                         event!(Level::INFO, "Performing update");
@@ -309,6 +337,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                     }
                     BottlerocketNodeState::MonitoringUpdate => {
                         event!(Level::INFO, "Monitoring node's healthy condition");
+                        self.uncordon().await?;
                         // TODO: we need add some criterias here by which we decide to transition
                         // from MonitoringUpdate to WaitingForUpdate.
                     }
@@ -361,6 +390,11 @@ pub mod agentclient_error {
         #[snafu(display("Unable to gather system chosen update metadata: '{}'", source))]
         BottlerocketNodeStatusChosenUpdate { source: apiclient_error::Error },
 
+        #[snafu(display("Unable to drain and cordon this node: '{}'", source))]
+        CordonAndDrainNode {
+            source: apiserver::client::ClientError,
+        },
+
         #[snafu(display(
             "Unable to create the custom resource associated with this node: '{}'",
             source
@@ -388,6 +422,11 @@ pub mod agentclient_error {
             object
         ))]
         ReflectorUnavailable { object: String },
+
+        #[snafu(display("Unable to uncordon this node: '{}'", source))]
+        UncordonNode {
+            source: apiserver::client::ClientError,
+        },
 
         #[snafu(display("Unable to take action '{}': '{}'", action, source))]
         UpdateActions {
