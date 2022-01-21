@@ -6,13 +6,11 @@ use tokio_retry::{
     strategy::{jitter, ExponentialBackoff},
     Retry,
 };
+use tracing::{event, instrument, Level};
 
 use kube::runtime::reflector::Store;
 
-use crate::{
-    apiclient::{boot_update, get_chosen_update, get_os_info, prepare, update},
-    error::{self, Result},
-};
+use crate::apiclient::{boot_update, get_chosen_update, get_os_info, prepare, update};
 use apiserver::{
     client::APIServerClient,
     {CreateBottlerocketNodeRequest, UpdateBottlerocketNodeRequest},
@@ -32,6 +30,9 @@ const RETRY_MAX_DELAY: Duration = Duration::from_secs(10);
 const NUM_RETRIES: usize = 5;
 
 const AGENT_SLEEP_DURATION: Duration = Duration::from_secs(5);
+
+/// The module-wide result type.
+pub type Result<T> = std::result::Result<T, agentclient_error::Error>;
 
 #[derive(Clone)]
 pub struct BrupopAgent<T: APIServerClient> {
@@ -62,6 +63,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
         }
     }
 
+    #[instrument(skip(self), err)]
     pub async fn check_node_custom_resource_exists(&mut self) -> Result<bool> {
         // try to check if node custom resource exist in the store first. If it's not present in the
         // store(either node custom resource doesn't exist or store data delays), make the API call for second round check.
@@ -84,7 +86,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                         if error_response.code == 404 {
                             return Ok(false);
                         } else {
-                            return error::FetchBottlerocketNodeErrorCode {
+                            return agentclient_error::FetchBottlerocketNodeErrorCode {
                                 code: error_response.code,
                             }
                             .fail();
@@ -93,7 +95,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                     // Any other type of errors can not present that custom resource doesn't exist, need return error
                     _ => {
                         // TODO: Err will cause pod to be terminated and restarted, so it worths to add re-enter agent loop functionality to avoid unexpected pod termination.
-                        return Err(e).context(error::UnableFetchBottlerocketNode {
+                        return Err(e).context(agentclient_error::UnableFetchBottlerocketNode {
                             node_name: &self.associated_bottlerocketnode_name.clone(),
                         });
                     }
@@ -103,10 +105,12 @@ impl<T: APIServerClient> BrupopAgent<T> {
         }
     }
 
+    #[instrument(skip(self), err)]
     pub async fn check_custom_resource_status_exists(&self) -> Result<bool> {
         Ok(self.fetch_custom_resource().await?.status.is_some())
     }
 
+    #[instrument(skip(self), err)]
     async fn get_node_selector(&self) -> Result<BottlerocketNodeSelector> {
         Retry::spawn(retry_strategy(), || async {
             // Agent specifies node reflector only watch and cache the node that agent pod currently lives on,
@@ -117,7 +121,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                     .metadata
                     .uid
                     .as_ref()
-                    .context(error::MissingNodeUid)?;
+                    .context(agentclient_error::MissingNodeUid)?;
                 return Ok(BottlerocketNodeSelector {
                     node_name: self.associated_node_name.clone(),
                     node_uid: associated_node_uid.to_string(),
@@ -126,7 +130,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
 
             // reflector store is currently unavailable, bail out
             // TODO: Err will cause pod to be terminated and restarted, so it worths to add re-enter agent loop functionality to avoid unexpected pod termination.
-            Err(error::Error::ReflectorUnavailable {
+            Err(agentclient_error::Error::ReflectorUnavailable {
                 object: "Node".to_string(),
             })
         })
@@ -134,6 +138,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
     }
 
     // fetch associated bottlerocketnode (custom resource) and help to get node `metadata`, `spec`, and  `status`.
+    #[instrument(skip(self), err)]
     async fn fetch_custom_resource(&self) -> Result<BottlerocketNode> {
         // get associated bottlerocketnode (custom resource) name, and we can use this
         // bottlerocketnode name to fetch targeted bottlerocketnode (custom resource) and get node `metadata`, `spec`, and  `status`.
@@ -148,7 +153,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
 
             // reflector store is currently unavailable, bail out
             // TODO: Err will cause pod to be terminated and restarted, so it worths to add re-enter agent loop functionality to avoid unexpected pod termination.
-            Err(error::Error::ReflectorUnavailable {
+            Err(agentclient_error::Error::ReflectorUnavailable {
                 object: "BottlerocketNode".to_string(),
             })
         })
@@ -156,16 +161,17 @@ impl<T: APIServerClient> BrupopAgent<T> {
     }
 
     /// Gather metadata about the system, node status provided by spec.
+    #[instrument(skip(self, state), err)]
     async fn gather_system_metadata(
         &self,
         state: BottlerocketNodeState,
     ) -> Result<BottlerocketNodeStatus> {
         let os_info = get_os_info()
             .await
-            .context(error::BottlerocketNodeStatusVersion)?;
+            .context(agentclient_error::BottlerocketNodeStatusVersion)?;
         let update_version = match get_chosen_update()
             .await
-            .context(error::BottlerocketNodeStatusChosenUpdate)?
+            .context(agentclient_error::BottlerocketNodeStatusChosenUpdate)?
         {
             Some(chosen_update) => chosen_update.version,
             // if chosen update is null which means current node already in latest version, assign current version value to it.
@@ -180,21 +186,22 @@ impl<T: APIServerClient> BrupopAgent<T> {
     }
 
     /// create the custom resource associated with this node
+    #[instrument(skip(self), err)]
     pub async fn create_metadata_custom_resource(&mut self) -> Result<()> {
         let selector = self.get_node_selector().await?;
-        let brn = self
+        let _brn = self
             .apiserver_client
             .create_bottlerocket_node(CreateBottlerocketNodeRequest {
-                node_selector: selector,
+                node_selector: selector.clone(),
             })
             .await
-            .context(error::CreateBottlerocketNodeResource)?;
-
-        log::info!("Created brn: '{:?}'", brn);
+            .context(agentclient_error::CreateBottlerocketNodeResource)?;
+        event!(Level::INFO, brn_name = ?selector.node_name, "Brn has been created.");
         Ok(())
     }
 
     /// update the custom resource associated with this node
+    #[instrument(skip(self, current_metadata), err)]
     async fn update_metadata_custom_resource(
         &self,
         current_metadata: BottlerocketNodeStatus,
@@ -203,13 +210,12 @@ impl<T: APIServerClient> BrupopAgent<T> {
         let brn_update = self
             .apiserver_client
             .update_bottlerocket_node(UpdateBottlerocketNodeRequest {
-                node_selector: selector,
+                node_selector: selector.clone(),
                 node_status: current_metadata,
             })
             .await
-            .context(error::UpdateBottlerocketNodeResource)?;
-
-        log::info!("Update brn status: '{:?}'", brn_update);
+            .context(agentclient_error::UpdateBottlerocketNodeResource)?;
+        event!(Level::INFO, brn_name = ?selector.node_name, brn_status = ?brn_update, "Brn status has been updated.");
         Ok(())
     }
 
@@ -224,6 +230,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
         Ok(())
     }
 
+    #[instrument(skip(self))]
     pub async fn run(&mut self) -> Result<()> {
         // A running agent has two responsibilities:
         // - Gather metadata about the system and update the custom resource associated with this node
@@ -245,20 +252,28 @@ impl<T: APIServerClient> BrupopAgent<T> {
 
             let bottlerocket_node_status = bottlerocket_node
                 .status
-                .context(error::MissingBottlerocketNodeStatus)?;
+                .context(agentclient_error::MissingBottlerocketNodeStatus)?;
             let bottlerocket_node_spec = bottlerocket_node.spec;
 
             // Determine if the spec on the system's custom resource demands the node take action. If so, begin taking that action.
             if bottlerocket_node_spec.state != bottlerocket_node_status.current_state {
-                log::info!("Detected drift between spec state and current state. Requesting node to take action: {:?}.", &bottlerocket_node_spec.state);
+                event!(
+                    Level::INFO,
+                    brn_name = ?bottlerocket_node.metadata.name,
+                    action = ?bottlerocket_node_spec.state,
+                    "Detected drift between spec state and current state. Requesting node to take action"
+                );
 
                 match bottlerocket_node_spec.state {
                     BottlerocketNodeState::Idle => {
-                        log::info!("Ready to finish monitoring and start update process")
+                        event!(
+                            Level::INFO,
+                            "Ready to finish monitoring and start update process"
+                        );
                     }
                     BottlerocketNodeState::StagedUpdate => {
-                        log::info!("Preparing update");
-                        prepare().await.context(error::UpdateActions {
+                        event!(Level::INFO, "Preparing update");
+                        prepare().await.context(agentclient_error::UpdateActions {
                             action: "Prepare".to_string(),
                         })?;
 
@@ -267,13 +282,13 @@ impl<T: APIServerClient> BrupopAgent<T> {
                         // to the next state.
                     }
                     BottlerocketNodeState::PerformedUpdate => {
-                        log::info!("Performing update");
-                        update().await.context(error::UpdateActions {
+                        event!(Level::INFO, "Performing update");
+                        update().await.context(agentclient_error::UpdateActions {
                             action: "Perform".to_string(),
                         })?;
                     }
                     BottlerocketNodeState::RebootedIntoUpdate => {
-                        log::info!("Rebooting node to complete update");
+                        event!(Level::INFO, "Rebooting node to complete update");
 
                         if running_desired_version(&bottlerocket_node_spec).await? {
                             // previous execution `reboot` exited loop and did not update the custom resource
@@ -285,19 +300,21 @@ impl<T: APIServerClient> BrupopAgent<T> {
                             self.update_metadata_custom_resource(update_node_status)
                                 .await?;
                         } else {
-                            boot_update().await.context(error::UpdateActions {
-                                action: "Reboot".to_string(),
-                            })?;
+                            boot_update()
+                                .await
+                                .context(agentclient_error::UpdateActions {
+                                    action: "Reboot".to_string(),
+                                })?;
                         }
                     }
                     BottlerocketNodeState::MonitoringUpdate => {
-                        log::info!("Monitoring node's healthy condition");
+                        event!(Level::INFO, "Monitoring node's healthy condition");
                         // TODO: we need add some criterias here by which we decide to transition
                         // from MonitoringUpdate to WaitingForUpdate.
                     }
                 }
             } else {
-                log::info!("Did not detect action demand.");
+                event!(Level::INFO, "Did not detect action demand.");
             }
 
             // update the custom resource associated with this node
@@ -307,10 +324,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
             self.update_metadata_custom_resource(update_node_status)
                 .await?;
 
-            log::debug!(
-                "Agent loop completed. Sleeping for {:?}.",
-                AGENT_SLEEP_DURATION
-            );
+            event!(Level::DEBUG, "Agent loop completed. Sleeping.....");
             sleep(AGENT_SLEEP_DURATION).await;
         }
     }
@@ -320,7 +334,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
 async fn running_desired_version(spec: &BottlerocketNodeSpec) -> Result<bool> {
     let os_info = get_os_info()
         .await
-        .context(error::BottlerocketNodeStatusVersion)?;
+        .context(agentclient_error::BottlerocketNodeStatusVersion)?;
     Ok(match spec.version() {
         Some(spec_version) => os_info.version_id == spec_version,
         None => false,
@@ -332,4 +346,71 @@ fn retry_strategy() -> impl Iterator<Item = Duration> {
         .max_delay(RETRY_MAX_DELAY)
         .map(jitter)
         .take(NUM_RETRIES)
+}
+
+pub mod agentclient_error {
+    use crate::apiclient::apiclient_error;
+    use snafu::Snafu;
+
+    #[derive(Debug, Snafu)]
+    #[snafu(visibility = "pub")]
+    pub enum Error {
+        #[snafu(display("Unable to gather system version metadata: {}", source))]
+        BottlerocketNodeStatusVersion { source: apiclient_error::Error },
+
+        #[snafu(display("Unable to gather system chosen update metadata: '{}'", source))]
+        BottlerocketNodeStatusChosenUpdate { source: apiclient_error::Error },
+
+        #[snafu(display(
+            "Unable to create the custom resource associated with this node: '{}'",
+            source
+        ))]
+        CreateBottlerocketNodeResource {
+            source: apiserver::client::ClientError,
+        },
+
+        #[snafu(display(
+            "ErrorResponse code '{}' when sending to fetch Bottlerocket Node",
+            code
+        ))]
+        FetchBottlerocketNodeErrorCode { code: u16 },
+
+        #[snafu(display(
+            "Unable to get Bottlerocket node 'status' because of missing 'status' value"
+        ))]
+        MissingBottlerocketNodeStatus,
+
+        #[snafu(display("Unable to get Node uid because of missing Node `uid` value"))]
+        MissingNodeUid {},
+
+        #[snafu(display(
+            "Unable to fetch {} store: Store unavailable: retries exhausted",
+            object
+        ))]
+        ReflectorUnavailable { object: String },
+
+        #[snafu(display("Unable to take action '{}': '{}'", action, source))]
+        UpdateActions {
+            action: String,
+            source: apiclient_error::Error,
+        },
+
+        #[snafu(display(
+            "Unable to update the custom resource associated with this node: '{}'",
+            source
+        ))]
+        UpdateBottlerocketNodeResource {
+            source: apiserver::client::ClientError,
+        },
+
+        #[snafu(display(
+            "Error {} when sending to fetch Bottlerocket Node {}",
+            source,
+            node_name
+        ))]
+        UnableFetchBottlerocketNode {
+            node_name: String,
+            source: kube::Error,
+        },
+    }
 }

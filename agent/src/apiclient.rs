@@ -11,6 +11,7 @@ use serde::Deserialize;
 use snafu::{ensure, ResultExt};
 use std::process::{Command, Output};
 use tokio::time::{sleep, Duration};
+use tracing::{event, Level};
 
 const API_CLIENT_BIN: &str = "apiclient";
 const UPDATES_STATUS_URI: &str = "/updates/status";
@@ -136,10 +137,7 @@ async fn invoke_apiclient(args: Vec<String>) -> Result<Output> {
 
         match error_statuscode {
             UPDATE_API_BUSY_STATUSCODE => {
-                log::info!(
-                    "API server busy, retrying in {:?} seconds ...",
-                    UPDATE_API_SLEEP_DURATION
-                );
+                event!(Level::INFO, "API server busy, retrying later ...");
                 // Retry after ten seconds if we get a 423 Locked response (update API busy)
                 sleep(UPDATE_API_SLEEP_DURATION).await;
                 attempts += 1;

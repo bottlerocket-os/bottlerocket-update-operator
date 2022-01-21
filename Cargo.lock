@@ -224,12 +224,11 @@ dependencies = [
  "apiserver",
  "chrono",
  "dotenv",
- "env_logger",
  "futures",
  "k8s-openapi",
  "kube",
- "log",
  "models",
+ "opentelemetry",
  "reqwest",
  "semver 1.0.4",
  "serde",
@@ -237,6 +236,10 @@ dependencies = [
  "snafu",
  "tokio",
  "tokio-retry",
+ "tracing",
+ "tracing-bunyan-formatter",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
 ]
 
 [[package]]
