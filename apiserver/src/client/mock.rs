@@ -1,7 +1,7 @@
 /// This module contains client implementations that are useful for testing purposes.
 use super::{error::Result, APIServerClient};
 use crate::{
-    CreateBottlerocketNodeRequest, DrainAndCordonBottlerocketNodeRequest,
+    CordonAndDrainBottlerocketNodeRequest, CreateBottlerocketNodeRequest,
     UncordonBottlerocketNodeRequest, UpdateBottlerocketNodeRequest,
 };
 use models::node::{BottlerocketNode, BottlerocketNodeStatus};
@@ -23,7 +23,7 @@ mock! {
             &self,
             req: UpdateBottlerocketNodeRequest,
         ) -> Result<BottlerocketNodeStatus>;
-        async fn drain_and_cordon_node(&self, req: DrainAndCordonBottlerocketNodeRequest)
+        async fn cordon_and_drain_node(&self, req: CordonAndDrainBottlerocketNodeRequest)
             -> Result<()>;
         async fn uncordon_node(&self, req: UncordonBottlerocketNodeRequest) -> Result<()>;
     }

@@ -1,9 +1,10 @@
 mod client;
+mod drain;
 mod error;
 
 pub use self::client::*;
 pub use self::error::Error as BottlerocketNodeError;
-use self::error::{Error, Result};
+use self::error::Error;
 
 use chrono::{DateTime, Utc};
 use kube::CustomResource;
@@ -137,7 +138,7 @@ pub struct BottlerocketNodeSpec {
 
 impl BottlerocketNode {
     /// Creates a `BottlerocketNodeSelector` from this `BottlerocketNode`.
-    pub fn selector(&self) -> Result<BottlerocketNodeSelector> {
+    pub fn selector(&self) -> error::Result<BottlerocketNodeSelector> {
         BottlerocketNodeSelector::from_bottlerocket_node(self)
     }
 
@@ -171,7 +172,7 @@ impl BottlerocketNodeSpec {
 
     /// JsonSchema cannot appropriately handle DateTime objects. This accessor returns the transition timestamp
     /// as a DateTime.
-    pub fn state_timestamp(&self) -> Result<Option<DateTime<Utc>>> {
+    pub fn state_timestamp(&self) -> error::Result<Option<DateTime<Utc>>> {
         self.state_transition_timestamp
             .as_ref()
             .map(|ts_str| {
@@ -234,7 +235,7 @@ pub struct BottlerocketNodeSelector {
 }
 
 impl BottlerocketNodeSelector {
-    pub fn from_bottlerocket_node(brn: &BottlerocketNode) -> Result<Self> {
+    pub fn from_bottlerocket_node(brn: &BottlerocketNode) -> error::Result<Self> {
         let node_owner = brn
             .metadata
             .owner_references

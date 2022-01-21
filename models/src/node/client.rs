@@ -1,4 +1,7 @@
-use super::error::{self, Result};
+use super::{
+    drain,
+    error::{self, Result},
+};
 use super::{
     BottlerocketNode, BottlerocketNodeSelector, BottlerocketNodeSpec, BottlerocketNodeStatus,
     K8S_NODE_KIND,
@@ -6,7 +9,7 @@ use super::{
 use crate::constants;
 
 use async_trait::async_trait;
-use k8s_openapi::apimachinery::pkg::apis::meta::v1::OwnerReference;
+use k8s_openapi::{api::core::v1::Node, apimachinery::pkg::apis::meta::v1::OwnerReference};
 use kube::api::{Api, ObjectMeta, Patch, PatchParams, PostParams};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
@@ -30,12 +33,17 @@ pub trait BottlerocketNodeClient: Clone + Sized + Send + Sync {
         status: &BottlerocketNodeStatus,
     ) -> Result<()>;
     /// Update the `.spec` of a BottlerocketNode object.
-    // TODO: Does this need to provide helpers for Patching semantics?
     async fn update_node_spec(
         &self,
         selector: &BottlerocketNodeSelector,
         spec: &BottlerocketNodeSpec,
     ) -> Result<()>;
+    // Marks the given node as unschedulable, preventing Pods from being deployed onto it.
+    async fn cordon_node(&self, selector: &BottlerocketNodeSelector) -> Result<()>;
+    // Evicts all pods on the given node.
+    async fn drain_node(&self, selector: &BottlerocketNodeSelector) -> Result<()>;
+    // Marks the given node as scheduleable, allowing Pods to be deployed onto it.
+    async fn uncordon_node(&self, selector: &BottlerocketNodeSelector) -> Result<()>;
 }
 
 #[cfg(feature = "mockall")]
@@ -58,6 +66,9 @@ mock! {
             selector: &BottlerocketNodeSelector,
             spec: &BottlerocketNodeSpec,
         ) -> Result<()>;
+        async fn cordon_node(&self, selector: &BottlerocketNodeSelector) -> Result<()>;
+        async fn drain_node(&self, selector: &BottlerocketNodeSelector) -> Result<()>;
+        async fn uncordon_node(&self, selector: &BottlerocketNodeSelector) -> Result<()>;
     }
 
     impl Clone for BottlerocketNodeClient {
@@ -87,6 +98,18 @@ where
         spec: &BottlerocketNodeSpec,
     ) -> Result<()> {
         (**self).update_node_spec(selector, spec).await
+    }
+
+    async fn cordon_node(&self, selector: &BottlerocketNodeSelector) -> Result<()> {
+        (**self).cordon_node(selector).await
+    }
+
+    async fn drain_node(&self, selector: &BottlerocketNodeSelector) -> Result<()> {
+        (**self).drain_node(selector).await
+    }
+
+    async fn uncordon_node(&self, selector: &BottlerocketNodeSelector) -> Result<()> {
+        (**self).uncordon_node(selector).await
     }
 }
 
@@ -123,17 +146,17 @@ impl Default for BottlerocketNodeStatusPatch {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-/// A helper struct used to serialize and send patches to the k8s API to modify the spec of a BottlerocketNode.
-struct BottlerocketNodeSpecPatch {
+/// A helper struct used to serialize and send patches to the k8s API to modify the entire spec of a BottlerocketNode.
+struct BottlerocketNodeSpecOverwrite {
     #[serde(rename = "apiVersion")]
     api_version: String,
     kind: String,
     spec: BottlerocketNodeSpec,
 }
 
-impl Default for BottlerocketNodeSpecPatch {
+impl Default for BottlerocketNodeSpecOverwrite {
     fn default() -> Self {
-        BottlerocketNodeSpecPatch {
+        BottlerocketNodeSpecOverwrite {
             api_version: constants::API_VERSION.to_string(),
             kind: K8S_NODE_KIND.to_string(),
             spec: BottlerocketNodeSpec::default(),
@@ -206,7 +229,7 @@ impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
         selector: &BottlerocketNodeSelector,
         spec: &BottlerocketNodeSpec,
     ) -> Result<()> {
-        let br_node_spec_patch = BottlerocketNodeSpecPatch {
+        let br_node_spec_patch = BottlerocketNodeSpecOverwrite {
             spec: spec.clone(),
             ..Default::default()
         };
@@ -226,6 +249,48 @@ impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
         .context(error::UpdateBottlerocketNodeSpec {
             selector: selector.clone(),
         })?;
+        Ok(())
+    }
+
+    /// Marks the given node as unschedulable, preventing Pods from being deployed onto it.
+    #[instrument(skip(self), err)]
+    async fn cordon_node(&self, selector: &BottlerocketNodeSelector) -> Result<()> {
+        let nodes: Api<Node> = Api::all(self.k8s_client.clone());
+        nodes
+            .cordon(&selector.node_name)
+            .await
+            .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+            .context(error::UpdateBottlerocketNodeSpec {
+                selector: selector.clone(),
+            })?;
+
+        Ok(())
+    }
+
+    /// Evicts all pods on the given node.
+    #[instrument(skip(self), err)]
+    async fn drain_node(&self, selector: &BottlerocketNodeSelector) -> Result<()> {
+        drain::drain_node(&self.k8s_client, &selector.node_name)
+            .await
+            .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+            .context(error::DrainBottlerocketNode {
+                selector: selector.clone(),
+            })?;
+        Ok(())
+    }
+
+    /// Marks the given node as scheduleable, allowing Pods to be deployed onto it.
+    #[instrument(skip(self), err)]
+    async fn uncordon_node(&self, selector: &BottlerocketNodeSelector) -> Result<()> {
+        let nodes: Api<Node> = Api::all(self.k8s_client.clone());
+        nodes
+            .uncordon(&selector.node_name)
+            .await
+            .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+            .context(error::UncordonBottlerocketNode {
+                selector: selector.clone(),
+            })?;
+
         Ok(())
     }
 }

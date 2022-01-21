@@ -41,6 +41,46 @@ pub enum Error {
         selector: BottlerocketNodeSelector,
     },
 
+    #[snafu(display(
+        "Unable to cordon BottlerocketNode ({}, {}): '{}'",
+        selector.node_name,
+        selector.node_uid,
+        source
+    ))]
+    CordonBottlerocketNode {
+        source: Box<dyn std::error::Error>,
+        selector: BottlerocketNodeSelector,
+    },
+
+    #[snafu(display(
+        "Unable to drain BottlerocketNode ({}, {}): '{}'",
+        selector.node_name,
+        selector.node_uid,
+        source
+    ))]
+    DrainBottlerocketNode {
+        source: Box<dyn std::error::Error>,
+        selector: BottlerocketNodeSelector,
+    },
+
+    #[snafu(display(
+        "Unable to uncordon BottlerocketNode ({}, {}): '{}'",
+        selector.node_name,
+        selector.node_uid,
+        source
+    ))]
+    UncordonBottlerocketNode {
+        source: Box<dyn std::error::Error>,
+        selector: BottlerocketNodeSelector,
+    },
+
+    #[snafu(display(
+        "BottlerocketNode does not have a k8s spec ({}, {}).'",
+        selector.node_name,
+        selector.node_uid
+    ))]
+    NodeWithoutSpec { selector: BottlerocketNodeSelector },
+
     #[snafu(display("Unable to create patch to send to Kubernetes API: '{}'", source))]
     CreateK8SPatch { source: serde_json::error::Error },
 
