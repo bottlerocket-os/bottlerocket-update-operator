@@ -40,22 +40,16 @@ fn main() {
 
     let path = PathBuf::from(YAMLGEN_DIR)
         .join("deploy")
-        .join("bottlerocket-node-crd.yaml");
-    let mut bottlerocket_node_crd = File::create(&path).unwrap();
-
-    let path = PathBuf::from(YAMLGEN_DIR)
-        .join("deploy")
-        .join("brupop-resources.yaml");
+        .join("bottlerocket-update-operator.yaml");
     let mut brupop_resources = File::create(&path).unwrap();
 
     // testsys-crd related K8S manifest
-    bottlerocket_node_crd.write_all(HEADER.as_bytes()).unwrap();
-    serde_yaml::to_writer(&bottlerocket_node_crd, &BottlerocketNode::crd()).unwrap();
+    brupop_resources.write_all(HEADER.as_bytes()).unwrap();
+    serde_yaml::to_writer(&brupop_resources, &BottlerocketNode::crd()).unwrap();
 
     let brupop_image = env::var("BRUPOP_CONTAINER_IMAGE").ok().unwrap();
     let brupop_image_pull_secrets = env::var("BRUPOP_CONTAINER_IMAGE_PULL_SECRET").ok();
 
-    brupop_resources.write_all(HEADER.as_bytes()).unwrap();
     serde_yaml::to_writer(&brupop_resources, &brupop_namespace()).unwrap();
 
     // apiserver resources
