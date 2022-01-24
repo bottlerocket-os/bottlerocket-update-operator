@@ -75,24 +75,11 @@ pub async fn label_node(node_names: Vec<String>, kube_config_path: &str) -> Upda
 
 // installing brupop on EKS cluster
 pub async fn run_brupop(kube_config_path: &str) -> UpdaterResult<()> {
-    let brn_status = Command::new("kubectl")
-        .args([
-            "apply",
-            "-f",
-            "yamlgen/deploy/bottlerocket-node-crd.yaml",
-            "--kubeconfig",
-            kube_config_path,
-        ])
-        .status()
-        .context(update_error::BrupopProcess)?;
-
-    ensure!(brn_status.success(), update_error::BrupopRun);
-
     let brupop_resource_status = Command::new("kubectl")
         .args([
             "apply",
             "-f",
-            "yamlgen/deploy/brupop-resources.yaml",
+            "yamlgen/deploy/bottlerocket-update-operator.yaml",
             "--kubeconfig",
             kube_config_path,
         ])
