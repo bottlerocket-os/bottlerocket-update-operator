@@ -1,87 +1,39 @@
 # Bottlerocket Update Operator
 
 The Bottlerocket update operator is a [Kubernetes operator](https://Kubernetes.io/docs/concepts/extend-Kubernetes/operator/) that coordinates Bottlerocket updates on hosts in a cluster.
-When installed, the Bottlerocket update operator starts a controller deployment on one node and agent daemon set on every Bottleorocket node, which takes care of periodically querying updates, draining the node, and performing an update when asked by controller.
+When installed, the Bottlerocket update operator starts a controller deployment on one node, an agent daemon set on every Bottlerocket node, and an Update Operator API Server deployment.
+The controller orchestrates updates across your cluster, while the agent is responsible for periodically querying for Bottlerocket updates, draining the node, and performing the update when asked by the controller.
+The agent performs all cluster object mutation operations via the API Server, which performs additional authorization using the Kubernetes TokenReview API -- ensuring that any request associated with a node is being made by the agent pod running on that node.
 Updates to Bottlerocket are rolled out in [waves](https://github.com/bottlerocket-os/bottlerocket/tree/develop/sources/updater/waves) to reduce the impact of issues; the nodes in your cluster may not all see updates at the same time.
 
-## Installation
+## Getting Started
 
-To install the Bottlerocket update operator in a Kubernetes cluster, the following are required resources and configuration ([suggested deployment is defined in `update-operator.yaml`](./update-operator.yaml)):
+### Installation
 
-- **Update operator's container image**
+We can install the Bottlerocket update operator using the recommended configuration defined in [bottlerocket-update-operator.yaml](./bottlerocket-update-operator.yaml):
 
-  Holding the Operator's binaries and supporting environment (CA certificates).
+```sh
+kubectl apply -f ./bottlerocket-update-operator.yaml
+```
 
-- **Controller deployment**
+This will create the required namespace, custom resource definition, roles, deployments, etc., and use the latest update operator image available in [Amazon ECR Public](https://gallery.ecr.aws/bottlerocket/bottlerocket-update-operator).
 
-  Schedules a stop-restart-tolerant controller process on available nodes.
+### Label nodes
 
-- **Agent daemon set**
-
-  Schedules agent on Bottlerocket hosts
-
-- **Bottlerocket namespace**
-
-  Groups Bottlerocket related resources and roles.
-
-- **Service account for the agent**
-
-  Used for authenticating the agent process on Kubernetes APIs.
-
-- **Cluster privileged credentials with read-write access to nodes for the agent**
-
-  Grants the agent's service account permissions to update annotations for its node.
-
-- **Service account for the controller**
-
-  Used for authenticating the controller process on Kubernetes APIs.
-
-- **Cluster privileged credentials with access to pods and nodes for controller**
-
-  Grants the controller's service account permissions to update annotations and manage pods that are scheduled on nodes (to cordon & drain) before and after updating.
-
-Once the deployment's resources are in place, there is one more step needed to schedule and place the required pods on Bottlerocket nodes.
-By default - in the suggested deployment, each Workload resource constrains scheduling of the update operator by limiting pods to Bottlerocket nodes based on their labels.
+By default, each Workload resource constrains scheduling of the update operator by limiting pods to Bottlerocket nodes based on their labels.
 These labels are not applied on nodes automatically and will need to be set on each using `kubectl`.
 The agent relies on each node's updater components and schedules its pods based on their interface supported.
 The node indicates its updater interface version in a label called `bottlerocket.aws/updater-interface-version`.
 Agent deployments, respective to the interface version, are scheduled using this label and target only a single version in each.
 
-- For Bottlerocket OS versions >= v0.4.1, we recommend using `update-interface-version` 2.0.0 to leverage Bottlerocket's API to dispatch updates.
-- Bottlerocket OS versions < v0.4.1 are only compatible with `update-interface-version` 1.0.0.
-  - With this version, the agent needs to run in a privileged container with access to the root filesystem.
+For versions > `0.2.0` of the Bottlerocket update operator, only `update-interface-version` `2.0.0` is supported, which uses Bottlerocket's [update API](https://github.com/bottlerocket-os/bottlerocket/blob/develop/sources/updater/README.md#update-api) to dispatch updates.
+For this reason, only Bottlerocket OS versions > `v0.4.1` are supported.
 
 For the `2.0.0` `updater-interface-version`, this label looks like:
 
 ``` text
 bottlerocket.aws/updater-interface-version=2.0.0
 ```
-
-Each workload resource may have additional constraints or scheduling affinities based on each node's labels in addition to the `bottlerocket.aws/updater-interface-version` label scheduling constraint.
-
-Customized deployments may use the [suggested deployment](./update-operator.yaml) as a starting point, with customized container images specified if needed.
-
-## Scheduled Components
-
-The update operator system is deployed as set of a replica set (for the controller) and a daemon set (for the agent). 
-Each runs their respective process configured as either a `-controller` or an `-agent`:
-
-- `bottlerocket-update-operator -controller`
-
-  The coordinating process responsible for the handling update of Bottlerocket nodes
-  cooperatively with the cluster's workloads.
-
-- `bottlerocket-update-operator -agent`
-
-  The on-host process responsible for publishing update metadata and executing
-  update activities.
-
-## Getting Started
-
-### Label nodes
-
-To start Bottlerocket updater operator agent on your nodes, you will need to add the `bottlerocket.aws/updater-interface-version` label.
-We recommend using `update-interface-version` 2.0.0 for Bottlerocket OS version >=v0.4.1 which uses Bottlerocket's [update API](https://github.com/bottlerocket-os/bottlerocket/blob/develop/sources/updater/README.md#update-api) to dispatch updates.
 
 With [kubectl](https://kubernetes.io/docs/reference/kubectl/overview/) configured for the desired cluster, you can use the below command to get all nodes:
 
@@ -103,51 +55,94 @@ If all nodes in the cluster are running Bottlerocket and require the same `updat
 kubectl label node $(kubectl get nodes -o jsonpath='{.items[*].metadata.name}') bottlerocket.aws/updater-interface-version=2.0.0
 ```
 
-### Install
+If you must support `updater-interface-version` 1.0.0, please [open an issue](https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/new/choose) and tell us about your use case.
 
-Now we can install the Bottlerocket update operator using the recommended configuration defined [here](./update-operator.yaml):
+### A Note About Removing Labels
+
+Should you decide that the update operator should no longer manage a node, removing the `updater-interface-version` is not quite sufficient to remove the update operator components responsible for that node.
+The update operator associates a Kubernetes Custom Resource with each node. While the Custom Resource will be garbage collected if the node itself is deleted, you must manually clean up the Custom Resource if you choose to delete only the `updater-interface-version`. The Custom Resource can be deleted like so:
 
 ```sh
-kubectl apply -f ./update-operator.yaml
+# Set this to the name of the node you wish to stop managing with the update operator.
+NODE_NAME="my-node-name"
+kubectl delete brs brs-${NODE_NAME} --namespace brupop-bottlerocket-aws 
 ```
 
-## Coordination
+## Operation
 
-The update operator controller and agent processes communicate by updating the node's annotations as the node steps through an update.
-The node's annotations are used to communicate an `intent` which acts as a goal or target that is set by the controller.
-The controller uses internal policy checks to manage which `intent` should be communicated to an agent.
-This allows the controller to fully own and coordinate each step taken by agents throughout its cluster.
-No agent process will otherwise take any disruptive or intrusive action without being directed by the controller to do so (in fact the agent is limited to periodic metadata updates *only*).
+### Overview
 
-To handle and respond to `intent`s, the agent and controller processes subscribe to Kubernetes' node resource update events.
-These events are emitted whenever update is made on the subscribed to resource, including: heartbeats, other node status changes (pods, container image listing), and metadata changes (labels and annotations).
+The update operator controller and agent processes communicate using Kubernetes [Custom Resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/), with one being created for each node managed by the operator.
+The Custom Resource created by the update operator is called a BottlerocketShadow resource, or otherwise shortened to `brs`.
+The Custom Resource's Spec is configured by the controller to indicate a desired state, which guides the agent components.
+The update operator's agent component keeps the Custom Resource Status updated with the current state of the node.
+More about Spec and Status can be found in the [Kubernetes documentation](https://kubernetes.io/docs/concepts/overview/working-with-objects/kubernetes-objects/#object-spec-and-status).
 
+Additionally, the update operator's controller and apiserver components expose metrics which can be configured to be [collected by Prometheus](#monitoring-cluster-history-and-metrics-with-prometheus).
 
 ### Observing State
 
-The update operator's state can be closely monitored through the labels and annotations on node resources.
-The state and pending activity are updated as progress is being made.
-The following command requires `kubectl` to be configured for the development cluster to be monitored and `jq` to be available on `$PATH`.
+#### Monitoring Custom Resources
+
+The current state of the cluster from the perspective of the update operator can be summarized by querying the Kubernetes API for BottlerocketShadow objects.
+This view will inform you of the current Bottlerocket version of each node managed by the update operator, as well as the current ongoing update status of any node with an update in-progress.
+The following command requires `kubectl` to be configured for the development cluster to be monitored:
 
 ``` sh
-kubectl get nodes -o json \
-  | jq -C -S '.items | map(.metadata|{(.name): (.annotations*.labels|to_entries|map(select(.key|startswith("bottlerocket.aws")))|from_entries)}) | add'
+kubectl get bottlerocketshadows --namespace brupop-bottlerocket-aws 
 ```
 
-There is a `get-nodes-status` `Makefile` target provided for monitoring nodes during development.
-Note: the same dependencies and assumptions for the above command apply here.
+You can shorten this with:
+
+``` sh
+kubectl get brs --namespace brupop-bottlerocket-aws 
+```
+
+You should see output akin to the following:
+
+```
+$ kubectl get brs --namespace brupop-bottlerocket-aws 
+NAME                                               STATE   VERSION   TARGET STATE   TARGET VERSION
+brs-node-1                                         Idle    1.5.2     Idle           
+brs-node-2                                         Idle    1.5.1     StagedUpdate   1.5.2
+```
+
+#### Monitoring Cluster History and Metrics with Prometheus
+
+The update operator provides metrics endpoints which can be scraped into [Prometheus](https://prometheus.io/).
+This allows you to monitor the history of update operations using popular metrics analysis and visualization tools.
+
+We provide a [sample configuration](./yamlgen/telemetry/prometheus-resources.yaml) which demonstrates a Prometheus deployment into the cluster that is configured to gather metrics data from the update operator.
+
+To deploy the sample configuration, you can use `kubectl`:
 
 ```sh
-# get the current status:
-make get-nodes-status
-
-# or periodically (handy for watching closely):
-watch -c -- make get-nodes-status
+kubectl apply -f ./yamlgen/telemetry/prometheus-resources.yaml
 ```
+
+Now that Prometheus is running in the cluster, you can use the UI provided to visualize the cluster's history.
+Get the Prometheus pod name (e.g. `prometheus-deployment-5554fd6fb5-8rm25`):
+
+```sh
+kubectl get pods --namespace brupop-bottlerocket-aws 
+```
+
+Set up port forwarding to access Prometheus on the cluster:
+
+```sh
+kubectl port-forward $prometheus-pod-name 9090:9090 --namespace brupop-bottlerocket-aws 
+```
+
+Point your browser to `localhost:9090/graph` to access the sample Prometheus UI.
+
+Search for:
+* `brupop_hosts_state` to check how many hosts are in each state. 
+* `brupop_hosts_version` to check how many hosts are in each Bottlerocket version.
+
 
 ### Image Region
 
-`update-operator.yaml` pulls operator images from Amazon ECR Public.
+`bottlerocket-update-operator.yaml` pulls operator images from Amazon ECR Public.
 You may also choose to pull from regional Amazon ECR repositories such as the following.
 
   - 917644944286.dkr.ecr.af-south-1.amazonaws.com
@@ -173,21 +168,51 @@ You may also choose to pull from regional Amazon ECR repositories such as the fo
 
 ### Current Limitations
 
-- pod replication & healthy count is not taken into consideration (https://github.com/bottlerocket-os/bottlerocket/issues/502)
-- nodes update without pause between each node (https://github.com/bottlerocket-os/bottlerocket/issues/503)
+- Communication between the bottlerocket agents and API server does not currently use SSL, due to a requirement for a cert management solution.
+  We are considering an approach which uses [cert-manager](https://cert-manager.io) to that end.
+- Monitoring on newly-rebooted nodes is limited.
+  We are considering an approach in which custom health checks can be configured to run after reboots. (https://github.com/bottlerocket-os/bottlerocket/issues/503)
 - single node cluster degrades into unscheduleable on update (https://github.com/bottlerocket-os/bottlerocket/issues/501)
-- node labels are not automatically applied to allow scheduling (https://github.com/bottlerocket-os/bottlerocket/issues/504)
+- Node labels are not automatically applied to allow scheduling (https://github.com/bottlerocket-os/bottlerocket/issues/504)
 
 ## Troubleshooting
 
-When installed with the [suggested deployment](./update-operator.yaml), the logs can be fetched through Kubernetes deployment logs.
-To get logs run this with [kubectl](https://kubernetes.io/docs/reference/kubectl/overview/) configured to the desired cluster namespace:
+When installed with the [default deployment](./bottlerocket-update-operator.yaml), the logs can be fetched through Kubernetes deployment logs.
+Because mutations to a node are orchestrated through the API server component, searching those deployment logs for a node ID can be useful.
+To get logs for the API server, run the following:
 
 ```sh
-kubectl logs deployment/update-operator-controller
+kubectl logs deployment/brupop-apiserver --namespace brupop-bottlerocket-aws 
 ```
 
-Checking the logs is a good first step in understanding why something happened or didn't happen.
+The controller logs will usually not help troubleshoot issues about the state of updates in a cluster, but they can similarly be fetched:
+
+```sh
+kubectl logs deployment/brupop-controller-deployment --namespace brupop-bottlerocket-aws 
+```
+
+### Why are updates stuck in my cluster?
+The bottlerocket update operator only installs updates on one node at a time.
+If a node's update becomes stuck, it can prevent the operator from proceeding with updates across the cluster.
+
+The update operator uses the [Kubernetes Eviction API](https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node/) to safely drain pods from a node.
+The eviction API will respect [PodDisruptionBudgets](https://kubernetes.io/docs/tasks/run-application/configure-pdb/), refusing to remove a pod from a node if it would cause a PDB not to be satisfied.
+It is possible to mistakenly configure a Kubernetes cluster in such a way that a Pod can never be deleted while still maintaining the conditions of a PDB.
+In this case, the operator may become stuck waiting for the PDB to allow an eviction to proceed.
+
+Similarly, if the Node in question is repeatedly encountering issues while updating, it may cause updates across the cluster to become stuck.
+Such issues can be troubleshooted by requesting the update operator agent logs from the node.
+First, list the agent pods and select the pod residing on the node in question:
+
+```sh
+kubectl get pods --selector=brupop.bottlerocket.aws/component=agent -o wide --namespace brupop-bottlerocket-aws
+```
+
+Then fetch the logs for that agent:
+
+```sh
+kubectl logs brupop-agent-podname --namespace brupop-bottlerocket-aws 
+```
 
 ### Why do only some of my Bottlerocket instances have an update available?
 
@@ -202,40 +227,31 @@ If you use an [auto-scaling group](https://docs.aws.amazon.com/autoscaling/ec2/u
 
 ## How to Contribute and Develop Changes
 
-Working on the update operator requires a fully configured & working Kubernetes cluster.
-For the sake of development workflow, we suggest using a cluster that is containerized or virtualized.
-There are helpful tools available to manage these: [`kind`](https://github.com/Kubernetes-sigs/kind) for containerized clusters and [`minikube`](https://github.com/Kubernetes/minikube) for locally virtualized clusters.
-The `dev/` directory contains several resources that may be used for development and debugging purposes:
+Working on the update operator requires a fully configured and working Kubernetes cluster.
+Because the agent component relies on the Bottlerocket API to properly function, we suggest a cluster which is running Bottlerocket nodes.
+The `integ` crate can currently be used to launch Bottlerocket nodes into an [Amazon EKS](https://aws.amazon.com/eks/) cluster to observe update-operator behavior.
 
-- `dashboard.yaml` - **development** dashboard deployment (**using insecure settings, not a suitable production deployment**)
-- `deployment.yaml` - _template_ for Kubernetes resources that schedule a controller's `ReplicaSet` and agent's `DaemonSet`
-- `kind-cluster.yml` - `kind` cluster definition that may be used to stand up a local development cluster
+Have a look at the [design](./design/DESIGN.md) to learn more about how the update operator functions.
+Please feel free to open an issue with an questions!
 
-Much of the development workflow can be driven by the `Makefile` in the root of the repository.
-Each of the `Makefile`'s' targets use tools and environments that they're configured to access - for example: `kubectl`, as configured on a host, will be used.
-If `kubectl` is configured to configured with access to production, please take steps to configure `kubectl` to target a development cluster.
+### Building and Deploying a Development Image
 
-**Build targets**
+Targets in the `Makefile` can assist in creating an image.
+The following command will build and tag an image using the local Docker daemon:
 
-- `build` - build executable using go toolchain in `$PATH`
-- `test` - run `go test` for the operator using go toolchain in `$PATH`
-- `container` - build a container image for use in Kubernetes resources
-- `container-test` - run update operator's unit tests in a container
-- `check` - run checks for container image
-- `dist` - create a distribution archive of the container image
-- `clean` - remove cached build artifacts from workspace
+```sh
+make brupop-image
+```
 
-**Development targets**
+Once this image is pushed to a container registry, you can set environment variables to regenerate a `.yaml` file suitable for deploying the image to Kubernetes.
+Firstly, modify the `.env` file to contain the desired image name, as well as a secret for pulling the image if necessary.
+Then run the following to regenerate the `.yaml` resource definitions:
 
-- `dashboard` - create or update Kubernetes-dashboard (**not suitable for use in production**)
-- `deploy-dev` - create or update the operator's Kubernetes resources
-- `rollout` - reload and restart the operator's pods
+```sh
+cargo build -p yamlgen
+```
 
-**`kind` development targets**
-
-- `kind-cluster` - create a local [`kind`](https://github.com/Kubernetes-sigs/kind) cluster
-- `kind-load` - build and load container image for use in a `kind` cluster
-- `kind-rollout` - reload container image & config, then restart pods
+These can of course be deployed using `kubectl apply` or the `cargo run --bin integ` for the integration testing tool.
 
 ## Security
 
