@@ -20,6 +20,11 @@ use tokio_retry::{
 };
 use tracing::{event, instrument, Level};
 
+// Maximum number of Pods to evict concurrently. Waiting for Pods to be deleted is included in this limitation.
+// Eviction retries are slow under typical conditions, but we don't want to generate too many TPS to Kubernetes.
+// Keeping this relatively low is probably a good idea.
+const CONCURRENT_EVICTIONS: usize = 5;
+
 // When waiting for a PodDisruptionBudget to be satisfied, or if there is a server error, we stall for a fixed rate between eviction attempts.
 // `kubectl drain` similarly waits 5 seconds between eviction attempts.
 const EVICTION_RETRY_INTERVAL: Duration = Duration::from_secs(5);
@@ -81,7 +86,7 @@ pub(crate) async fn drain_node(
 
     // Perform the eviction for each pod simultaneously.
     stream::iter(target_pods)
-        .for_each(move |pod| {
+        .for_each_concurrent(CONCURRENT_EVICTIONS, move |pod| {
             let k8s_client = k8s_client.clone();
             let pod = pod.clone();
             async move {
