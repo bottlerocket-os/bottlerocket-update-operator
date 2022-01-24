@@ -23,7 +23,7 @@ UNAME_ARCH = $(shell uname -m)
 # ARCH is the target architecture which is being built for.
 ARCH = $(lastword $(subst :, ,$(filter $(UNAME_ARCH):%,x86_64:amd64 aarch64:arm64)))
 
-BOTTLEROCKET_SDK_VERSION = v0.23.0
+BOTTLEROCKET_SDK_VERSION = v0.25.1
 BOTTLEROCKET_SDK_ARCH = $(UNAME_ARCH)
 
 BUILDER_IMAGE = public.ecr.aws/bottlerocket/bottlerocket-sdk-$(BOTTLEROCKET_SDK_ARCH):$(BOTTLEROCKET_SDK_VERSION)
