@@ -16,7 +16,7 @@ use crate::{
 use models::constants::{
     AGENT, APISERVER_HEALTH_CHECK_ROUTE, APISERVER_SERVICE_NAME, LABEL_COMPONENT, NAMESPACE,
 };
-use models::node::{BottlerocketNodeClient, BottlerocketNodeSelector};
+use models::node::{BottlerocketShadowClient, BottlerocketShadowSelector};
 
 use actix_web::{
     dev::ServiceRequest,
@@ -44,7 +44,7 @@ pub const NO_TELEMETRY_ENDPOINTS: &[&str] = &[APISERVER_HEALTH_CHECK_ROUTE];
 
 /// A struct containing information intended to be passed to the apiserver via HTTP headers.
 pub(crate) struct ApiserverCommonHeaders {
-    pub node_selector: BottlerocketNodeSelector,
+    pub node_selector: BottlerocketShadowSelector,
     pub k8s_auth_token: String,
 }
 
@@ -71,7 +71,7 @@ impl TryFrom<&HeaderMap> for ApiserverCommonHeaders {
         let k8s_auth_token = extract_header_string(headers, HEADER_BRUPOP_K8S_AUTH_TOKEN)?;
 
         Ok(ApiserverCommonHeaders {
-            node_selector: BottlerocketNodeSelector {
+            node_selector: BottlerocketShadowSelector {
                 node_name,
                 node_uid,
             },
@@ -83,13 +83,13 @@ impl TryFrom<&HeaderMap> for ApiserverCommonHeaders {
 #[derive(Clone)]
 /// Settings that are applied to the apiserver. These settings are provided to each HTTP route
 /// via actix's application data system.
-pub struct APIServerSettings<T: BottlerocketNodeClient> {
+pub struct APIServerSettings<T: BottlerocketShadowClient> {
     pub node_client: T,
     pub server_port: u16,
 }
 
 /// Runs the apiserver using the given settings.
-pub async fn run_server<T: 'static + BottlerocketNodeClient>(
+pub async fn run_server<T: 'static + BottlerocketShadowClient>(
     settings: APIServerSettings<T>,
     k8s_client: kube::Client,
     prometheus_exporter: Option<opentelemetry_prometheus::PrometheusExporter>,
@@ -146,8 +146,8 @@ pub async fn run_server<T: 'static + BottlerocketNodeClient>(
             .app_data(Data::new(settings.clone()))
             .service(
                 web::resource(NODE_RESOURCE_ENDPOINT)
-                    .route(web::post().to(node::create_bottlerocket_node_resource::<T>))
-                    .route(web::put().to(node::update_bottlerocket_node_resource::<T>)),
+                    .route(web::post().to(node::create_bottlerocket_shadow_resource::<T>))
+                    .route(web::put().to(node::update_bottlerocket_shadow_resource::<T>)),
             )
             .service(
                 web::resource(NODE_CORDON_AND_DRAIN_ENDPOINT)
@@ -183,18 +183,18 @@ pub async fn run_server<T: 'static + BottlerocketNodeClient>(
 mod tests {
     use super::*;
     use models::constants::APISERVER_INTERNAL_PORT;
-    use models::node::MockBottlerocketNodeClient;
+    use models::node::MockBottlerocketShadowClient;
 
     use std::sync::Arc;
 
     /// Helper method for tests which can set mock expectations for an API server.
     pub(crate) fn test_settings<F>(
         mock_expectations: F,
-    ) -> APIServerSettings<Arc<MockBottlerocketNodeClient>>
+    ) -> APIServerSettings<Arc<MockBottlerocketShadowClient>>
     where
-        F: FnOnce(&mut MockBottlerocketNodeClient),
+        F: FnOnce(&mut MockBottlerocketShadowClient),
     {
-        let mut node_client = MockBottlerocketNodeClient::new();
+        let mut node_client = MockBottlerocketShadowClient::new();
         mock_expectations(&mut node_client);
 
         // Construct an Arc around node_client so that we can share a reference to the

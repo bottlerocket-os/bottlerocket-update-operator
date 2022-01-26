@@ -1,4 +1,4 @@
-use models::node::BottlerocketNodeSelector;
+use models::node::BottlerocketShadowSelector;
 
 use snafu::Snafu;
 
@@ -20,24 +20,24 @@ pub enum ClientError {
     },
 
     #[snafu(display(
-        "Unable to create BottlerocketNode ({}, {}): '{}'",
+        "Unable to create BottlerocketShadow ({}, {}): '{}'",
         selector.node_name,
         selector.node_uid,
         source
     ))]
-    CreateBottlerocketNodeResource {
+    CreateBottlerocketShadowResource {
         source: Box<dyn std::error::Error>,
-        selector: BottlerocketNodeSelector,
+        selector: BottlerocketShadowSelector,
     },
     #[snafu(display(
-        "Unable to update BottlerocketNode status ({}, {}): '{}'",
+        "Unable to update BottlerocketShadow status ({}, {}): '{}'",
         selector.node_name,
         selector.node_uid,
         source
     ))]
-    UpdateBottlerocketNodeResource {
+    UpdateBottlerocketShadowResource {
         source: Box<dyn std::error::Error>,
-        selector: BottlerocketNodeSelector,
+        selector: BottlerocketShadowSelector,
     },
 
     #[snafu(display(
@@ -48,7 +48,7 @@ pub enum ClientError {
     ))]
     CordonAndDrainNodeResource {
         source: Box<dyn std::error::Error>,
-        selector: BottlerocketNodeSelector,
+        selector: BottlerocketShadowSelector,
     },
 
     #[snafu(display(
@@ -59,7 +59,7 @@ pub enum ClientError {
     ))]
     UncordonNodeResource {
         source: Box<dyn std::error::Error>,
-        selector: BottlerocketNodeSelector,
+        selector: BottlerocketShadowSelector,
     },
 
     #[snafu(display(

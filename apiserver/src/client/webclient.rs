@@ -4,12 +4,12 @@ use crate::{
         HEADER_BRUPOP_K8S_AUTH_TOKEN, HEADER_BRUPOP_NODE_NAME, HEADER_BRUPOP_NODE_UID,
         NODE_CORDON_AND_DRAIN_ENDPOINT, NODE_RESOURCE_ENDPOINT, NODE_UNCORDON_ENDPOINT,
     },
-    CordonAndDrainBottlerocketNodeRequest, CreateBottlerocketNodeRequest,
-    UncordonBottlerocketNodeRequest, UpdateBottlerocketNodeRequest,
+    CordonAndDrainBottlerocketShadowRequest, CreateBottlerocketShadowRequest,
+    UncordonBottlerocketShadowRequest, UpdateBottlerocketShadowRequest,
 };
 use models::{
     constants::{APISERVER_SERVICE_NAME, APISERVER_SERVICE_PORT, NAMESPACE},
-    node::{BottlerocketNode, BottlerocketNodeSelector, BottlerocketNodeStatus},
+    node::{BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowStatus},
 };
 
 use async_trait::async_trait;
@@ -38,17 +38,19 @@ fn retry_strategy() -> impl Iterator<Item = Duration> {
 
 #[async_trait]
 pub trait APIServerClient {
-    async fn create_bottlerocket_node(
+    async fn create_bottlerocket_shadow(
         &self,
-        req: CreateBottlerocketNodeRequest,
-    ) -> Result<BottlerocketNode>;
-    async fn update_bottlerocket_node(
+        req: CreateBottlerocketShadowRequest,
+    ) -> Result<BottlerocketShadow>;
+    async fn update_bottlerocket_shadow(
         &self,
-        req: UpdateBottlerocketNodeRequest,
-    ) -> Result<BottlerocketNodeStatus>;
-    async fn cordon_and_drain_node(&self, req: CordonAndDrainBottlerocketNodeRequest)
-        -> Result<()>;
-    async fn uncordon_node(&self, req: UncordonBottlerocketNodeRequest) -> Result<()>;
+        req: UpdateBottlerocketShadowRequest,
+    ) -> Result<BottlerocketShadowStatus>;
+    async fn cordon_and_drain_node(
+        &self,
+        req: CordonAndDrainBottlerocketShadowRequest,
+    ) -> Result<()>;
+    async fn uncordon_node(&self, req: UncordonBottlerocketShadowRequest) -> Result<()>;
 }
 
 #[derive(Debug, Clone)]
@@ -86,7 +88,7 @@ impl K8SAPIServerClient {
     fn add_common_request_headers(
         &self,
         req: reqwest::RequestBuilder,
-        node_selector: &BottlerocketNodeSelector,
+        node_selector: &BottlerocketShadowSelector,
     ) -> Result<reqwest::RequestBuilder> {
         Ok(req
             .header(HEADER_BRUPOP_NODE_UID, &node_selector.node_uid)
@@ -98,10 +100,10 @@ impl K8SAPIServerClient {
 #[async_trait]
 impl APIServerClient for K8SAPIServerClient {
     #[instrument]
-    async fn create_bottlerocket_node(
+    async fn create_bottlerocket_shadow(
         &self,
-        req: CreateBottlerocketNodeRequest,
-    ) -> Result<BottlerocketNode> {
+        req: CreateBottlerocketShadowRequest,
+    ) -> Result<BottlerocketShadow> {
         Retry::spawn(retry_strategy(), || async {
             let http_client = reqwest::Client::new();
 
@@ -120,17 +122,17 @@ impl APIServerClient for K8SAPIServerClient {
                 .send()
                 .await
                 .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-                .context(error::CreateBottlerocketNodeResource {
+                .context(error::CreateBottlerocketShadowResource {
                     selector: req.node_selector.clone(),
                 })?;
 
             let status = response.status();
             if status.is_success() {
                 let node = response
-                    .json::<BottlerocketNode>()
+                    .json::<BottlerocketShadow>()
                     .await
                     .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-                    .context(error::CreateBottlerocketNodeResource {
+                    .context(error::CreateBottlerocketShadowResource {
                         selector: req.node_selector.clone(),
                     })?;
                 Ok(node)
@@ -142,7 +144,7 @@ impl APIServerClient for K8SAPIServerClient {
                         .await
                         .unwrap_or("<empty response>".to_string()),
                 }) as Box<dyn std::error::Error>)
-                .context(error::CreateBottlerocketNodeResource {
+                .context(error::CreateBottlerocketShadowResource {
                     selector: req.node_selector.clone(),
                 })
             }
@@ -151,10 +153,10 @@ impl APIServerClient for K8SAPIServerClient {
     }
 
     #[instrument]
-    async fn update_bottlerocket_node(
+    async fn update_bottlerocket_shadow(
         &self,
-        req: UpdateBottlerocketNodeRequest,
-    ) -> Result<BottlerocketNodeStatus> {
+        req: UpdateBottlerocketShadowRequest,
+    ) -> Result<BottlerocketShadowStatus> {
         Retry::spawn(retry_strategy(), || async {
             let http_client = reqwest::Client::new();
 
@@ -173,17 +175,17 @@ impl APIServerClient for K8SAPIServerClient {
                 .send()
                 .await
                 .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-                .context(error::UpdateBottlerocketNodeResource {
+                .context(error::UpdateBottlerocketShadowResource {
                     selector: req.node_selector.clone(),
                 })?;
 
             let status = response.status();
             if status.is_success() {
                 let node_status = response
-                    .json::<BottlerocketNodeStatus>()
+                    .json::<BottlerocketShadowStatus>()
                     .await
                     .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-                    .context(error::UpdateBottlerocketNodeResource {
+                    .context(error::UpdateBottlerocketShadowResource {
                         selector: req.node_selector.clone(),
                     })?;
 
@@ -196,7 +198,7 @@ impl APIServerClient for K8SAPIServerClient {
                         .await
                         .unwrap_or("<empty response>".to_string()),
                 }) as Box<dyn std::error::Error>)
-                .context(error::UpdateBottlerocketNodeResource {
+                .context(error::UpdateBottlerocketShadowResource {
                     selector: req.node_selector.clone(),
                 })
             }
@@ -207,7 +209,7 @@ impl APIServerClient for K8SAPIServerClient {
     #[instrument]
     async fn cordon_and_drain_node(
         &self,
-        req: CordonAndDrainBottlerocketNodeRequest,
+        req: CordonAndDrainBottlerocketShadowRequest,
     ) -> Result<()> {
         Retry::spawn(retry_strategy(), || async {
             let http_client = reqwest::Client::new();
@@ -250,7 +252,7 @@ impl APIServerClient for K8SAPIServerClient {
     }
 
     #[instrument]
-    async fn uncordon_node(&self, req: UncordonBottlerocketNodeRequest) -> Result<()> {
+    async fn uncordon_node(&self, req: UncordonBottlerocketShadowRequest) -> Result<()> {
         Retry::spawn(retry_strategy(), || async {
             let http_client = reqwest::Client::new();
 

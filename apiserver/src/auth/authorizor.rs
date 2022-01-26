@@ -1,7 +1,7 @@
 //! This module provides abstractions for authenticating and authorizing requests from brupop agents to make changes to
-//! the underlying Node's resources (including BottlerocketNode custom resources, or draining the host Nodes of Pods.)
+//! the underlying Node's resources (including BottlerocketShadow custom resources, or draining the host Nodes of Pods.)
 use super::error::*;
-use models::node::BottlerocketNodeSelector;
+use models::node::BottlerocketShadowSelector;
 
 use async_trait::async_trait;
 use k8s_openapi::api::{
@@ -23,7 +23,7 @@ pub trait TokenAuthorizor: Clone {
     /// Determine if the identity represented by the provided auth token has access to the provided node.
     async fn check_request_authorized(
         &self,
-        node_selector: &BottlerocketNodeSelector,
+        node_selector: &BottlerocketShadowSelector,
         auth_token: &str,
     ) -> Result<(), AuthorizationError>;
 }
@@ -49,7 +49,7 @@ impl<T: TokenReviewer> TokenAuthorizor for K8STokenAuthorizor<T> {
     #[instrument(skip(self, auth_token))]
     async fn check_request_authorized(
         &self,
-        node_selector: &BottlerocketNodeSelector,
+        node_selector: &BottlerocketShadowSelector,
         auth_token: &str,
     ) -> Result<(), AuthorizationError> {
         let token_review_req = TokenReview {
@@ -137,7 +137,7 @@ impl<T: TokenReviewer> K8STokenAuthorizor<T> {
     async fn check_requester_is_from_correct_node(
         &self,
         token_review_status: &TokenReviewStatus,
-        node_selector: &BottlerocketNodeSelector,
+        node_selector: &BottlerocketShadowSelector,
     ) -> Result<(), AuthorizationError> {
         let pod_name = token_review_status
             .user
@@ -239,7 +239,7 @@ pub mod mock {
         impl TokenAuthorizor for TokenAuthorizor {
             async fn check_request_authorized(
                 &self,
-                node_selector: &BottlerocketNodeSelector,
+                node_selector: &BottlerocketShadowSelector,
                 auth_token: &str,
             ) -> Result<(), AuthorizationError>;
         }
@@ -400,8 +400,8 @@ pub(crate) mod test {
         }
     }
 
-    fn selector_with_name(name: &str) -> BottlerocketNodeSelector {
-        BottlerocketNodeSelector {
+    fn selector_with_name(name: &str) -> BottlerocketShadowSelector {
+        BottlerocketShadowSelector {
             node_name: name.to_string(),
             node_uid: "fake".to_string(),
         }

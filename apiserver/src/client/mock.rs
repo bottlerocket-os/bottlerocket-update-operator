@@ -1,10 +1,10 @@
 /// This module contains client implementations that are useful for testing purposes.
 use super::{error::Result, APIServerClient};
 use crate::{
-    CordonAndDrainBottlerocketNodeRequest, CreateBottlerocketNodeRequest,
-    UncordonBottlerocketNodeRequest, UpdateBottlerocketNodeRequest,
+    CordonAndDrainBottlerocketShadowRequest, CreateBottlerocketShadowRequest,
+    UncordonBottlerocketShadowRequest, UpdateBottlerocketShadowRequest,
 };
-use models::node::{BottlerocketNode, BottlerocketNodeStatus};
+use models::node::{BottlerocketShadow, BottlerocketShadowStatus};
 
 use async_trait::async_trait;
 
@@ -15,16 +15,16 @@ mock! {
     pub APIServerClient {}
     #[async_trait]
     impl APIServerClient for APIServerClient {
-        async fn create_bottlerocket_node(
+        async fn create_bottlerocket_shadow(
             &self,
-            req: CreateBottlerocketNodeRequest,
-        ) -> Result<BottlerocketNode>;
-        async fn update_bottlerocket_node(
+            req: CreateBottlerocketShadowRequest,
+        ) -> Result<BottlerocketShadow>;
+        async fn update_bottlerocket_shadow(
             &self,
-            req: UpdateBottlerocketNodeRequest,
-        ) -> Result<BottlerocketNodeStatus>;
-        async fn cordon_and_drain_node(&self, req: CordonAndDrainBottlerocketNodeRequest)
+            req: UpdateBottlerocketShadowRequest,
+        ) -> Result<BottlerocketShadowStatus>;
+        async fn cordon_and_drain_node(&self, req: CordonAndDrainBottlerocketShadowRequest)
             -> Result<()>;
-        async fn uncordon_node(&self, req: UncordonBottlerocketNodeRequest) -> Result<()>;
+        async fn uncordon_node(&self, req: UncordonBottlerocketShadowRequest) -> Result<()>;
     }
 }

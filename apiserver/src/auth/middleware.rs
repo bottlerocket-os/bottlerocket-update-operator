@@ -1,5 +1,5 @@
 //! This module provides middleware for authenticating and authorizing requests from brupop agents to make changes to
-//! their Node's resources (including BottlerocketNode custom resources, or Draining their host Nodes of Pods.)
+//! their Node's resources (including BottlerocketShadow custom resources, or Draining their host Nodes of Pods.)
 use super::TokenAuthorizor;
 use crate::api::ApiserverCommonHeaders;
 

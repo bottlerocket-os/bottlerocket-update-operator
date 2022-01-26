@@ -1,4 +1,4 @@
-use models::node::BottlerocketNodeError;
+use models::node::BottlerocketShadowError;
 
 use snafu::Snafu;
 
@@ -24,13 +24,13 @@ pub enum Error {
         "Cannot determine the next node spec based on the current node state: '{}'",
         source
     ))]
-    NodeSpecCannotBeDetermined { source: BottlerocketNodeError },
+    NodeSpecCannotBeDetermined { source: BottlerocketShadowError },
 
     #[snafu(display("Failed to update node spec via kubernetes API: '{}'", source))]
-    UpdateNodeSpec { source: BottlerocketNodeError },
+    UpdateNodeSpec { source: BottlerocketShadowError },
 
     #[snafu(display("Could not determine selector for node: '{}'", source))]
-    NodeSelectorCreation { source: BottlerocketNodeError },
+    NodeSelectorCreation { source: BottlerocketShadowError },
 
     #[snafu(display("Error running prometheus HTTP server: '{}'", source))]
     PrometheusServerError { source: std::io::Error },

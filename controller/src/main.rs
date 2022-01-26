@@ -5,7 +5,7 @@ use controller::{
 };
 use models::{
     constants::{CONTROLLER, CONTROLLER_INTERNAL_PORT, NAMESPACE},
-    node::{BottlerocketNode, K8SBottlerocketNodeClient},
+    node::{BottlerocketShadow, K8SBottlerocketShadowClient},
 };
 
 use actix_web::{web::Data, App, HttpServer};
@@ -34,29 +34,29 @@ async fn main() -> Result<()> {
 
     // The `BrupopController` needs a `reflector::Store`, which is updated by a reflector
     // that runs concurrently. We'll create the store and run the reflector here.
-    let brns = Api::<BottlerocketNode>::namespaced(k8s_client.clone(), NAMESPACE);
-    let brn_store = reflector::store::Writer::<BottlerocketNode>::default();
-    let brn_reader = brn_store.as_reader();
+    let brss = Api::<BottlerocketShadow>::namespaced(k8s_client.clone(), NAMESPACE);
+    let brs_store = reflector::store::Writer::<BottlerocketShadow>::default();
+    let brs_reader = brs_store.as_reader();
 
-    let node_client = K8SBottlerocketNodeClient::new(k8s_client.clone());
+    let node_client = K8SBottlerocketShadowClient::new(k8s_client.clone());
 
     // Exporter has to be initialized before BrupopController
     // in order to setup global meter provider properly
     let exporter = opentelemetry_prometheus::exporter().init();
 
     // Setup and run the controller.
-    let controller = BrupopController::new(node_client, brn_reader);
+    let controller = BrupopController::new(node_client, brs_reader);
     let controller_runner = controller.run();
 
-    // Setup and run a reflector, ensuring that `BottlerocketNode` updates are reflected to the controller.
-    let brn_reflector = reflector::reflector(brn_store, watcher(brns, ListParams::default()));
-    let drainer = try_flatten_touched(brn_reflector)
+    // Setup and run a reflector, ensuring that `BottlerocketShadow` updates are reflected to the controller.
+    let brs_reflector = reflector::reflector(brs_store, watcher(brss, ListParams::default()));
+    let drainer = try_flatten_touched(brs_reflector)
         .filter_map(|x| async move { std::result::Result::ok(x) })
-        .for_each(|brn| {
+        .for_each(|brs| {
             event!(
                 Level::TRACE,
-                brn_name = %brn.name(),
-                "Processed a k8s event for a BottlerocketNode object."
+                brs_name = %brs.name(),
+                "Processed a k8s event for a BottlerocketShadow object."
             );
             futures::future::ready(())
         });

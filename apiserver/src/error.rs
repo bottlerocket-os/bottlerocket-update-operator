@@ -1,4 +1,4 @@
-use models::node::BottlerocketNodeError;
+use models::node::BottlerocketShadowError;
 
 use actix_web::error::ResponseError;
 use snafu::Snafu;
@@ -16,11 +16,11 @@ pub enum Error {
     #[snafu(display("Unable to parse HTTP header. Missing '{}'", missing_header))]
     HTTPHeaderParse { missing_header: &'static str },
 
-    #[snafu(display("Error creating BottlerocketNode: '{}'", source))]
-    BottlerocketNodeCreate { source: BottlerocketNodeError },
+    #[snafu(display("Error creating BottlerocketShadow: '{}'", source))]
+    BottlerocketShadowCreate { source: BottlerocketShadowError },
 
-    #[snafu(display("Error patching BottlerocketNode: '{}'", source))]
-    BottlerocketNodeUpdate { source: BottlerocketNodeError },
+    #[snafu(display("Error patching BottlerocketShadow: '{}'", source))]
+    BottlerocketShadowUpdate { source: BottlerocketShadowError },
 
     #[snafu(display("Error running HTTP server: '{}'", source))]
     HttpServerError { source: std::io::Error },
@@ -34,10 +34,10 @@ pub enum Error {
     KubernetesWatcherFailed {},
 
     #[snafu(display("Failed to cordon Node: '{}'", source))]
-    BottlerocketNodeCordon { source: BottlerocketNodeError },
+    BottlerocketShadowCordon { source: BottlerocketShadowError },
 
     #[snafu(display("Failed to drain Node: '{}'", source))]
-    BottlerocketNodeDrain { source: BottlerocketNodeError },
+    BottlerocketShadowDrain { source: BottlerocketShadowError },
 }
 
 impl ResponseError for Error {}

@@ -38,25 +38,25 @@ class:
 
 ---
 
-## `BottlerocketNode` Custom Resource
+## `BottlerocketShadow` Custom Resource
 * k8s uses a declarative API
     * Create objects describing state and add them to the cluster
 * Custom Resources -- Manage your own objects with k8s APIs!
 * Update status of each k8s `Node` running Bottlerocket is tracked in a "shadow" custom resource
-* `BottlerocketNode` or `brn` for short
+* `BottlerocketShadow` or `brs` for short
 
 ---
 
-### `BottlerocketNode` Custom Resource
+### `BottlerocketShadow` Custom Resource
 
-![bg 90% 60%](./brn-resource.png)
+![bg 90% 60%](./brs-resource.png)
 
 ---
 
 ## *`controller`* Component
 * All state derived from k8s API during each loop
-* Uses the `status` of all `brn`s to determine state
-* Sets `spec` of `brn`s to drive updates
+* Uses the `status` of all `brs`s to determine state
+* Sets `spec` of `brs`s to drive updates
 * One update at a time (for now)
 
 ---
@@ -65,24 +65,24 @@ class:
 * k8s `watch` functionality
     * Long-polling to get all updates to an object or list of objects
     * Controller runtimes (like `kube-rs`) provide abstractions to squash `watch` events into a cache
-* The controller uses a `watch` + `Store<BottlerocketNode>`
-    * Efficiently keep a up-to-date reference to all `brn` in memory
+* The controller uses a `watch` + `Store<BottlerocketShadow>`
+    * Efficiently keep a up-to-date reference to all `brs` in memory
 
 ---
 
 ## *`controller`* Component
 * Control Loop:
-    * Use in-memory cache to determine *active* `brn` set
-    * Check to see if active `brn` have reached desired state
+    * Use in-memory cache to determine *active* `brs` set
+    * Check to see if active `brs` have reached desired state
     * Any that have get the next state in `spec`
-    * If no active `brn`, check inactive for any which are ready to update and *activate* one by pushing it forward
+    * If no active `brs`, check inactive for any which are ready to update and *activate* one by pushing it forward
 
 ---
 
 ## *`agent`* Component
 * All state derived from k8s & Bottlerocket APIs
-* Gathers OS info & updates `brn.status`
-* Uses `brn.spec` to decide when to update
+* Gathers OS info & updates `brs.status`
+* Uses `brs.spec` to decide when to update
 * Drain k8s Pods & cordon Node prior to reboot
 
 ![](./state-diagram.png)
@@ -91,11 +91,11 @@ class:
 
 ## *`agent`* Component
 * Control Loop
-    * Create shadow `brn` object if needed
+    * Create shadow `brs` object if needed
     * Check current `spec` and `status`
     * If they differ, perform needed action to move forward
     * Gather update information from Bottlerocket API
-    * Update `brn` object with current `status`
+    * Update `brs` object with current `status`
 
 
 ---
@@ -103,7 +103,7 @@ class:
 ## *`apiserver`* Component
 * k8s uses role-based authN/authZ
 * All brupop `agent`s have the same role
-    * This means they can modify `brn` objects for other nodes!
-* Solution: channel `brn` writes through a priveleged web API
+    * This means they can modify `brs` objects for other nodes!
+* Solution: channel `brs` writes through a priveleged web API
 * guarantees requests are coming from the associated k8s `Node` using k8s `token` API
 * Only the `agent`s consume the `apiserver`

@@ -1,4 +1,4 @@
-use super::{BottlerocketNode, BottlerocketNodeSelector, BottlerocketNodeState};
+use super::{BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowState};
 
 use kube::ResourceExt;
 use snafu::Snafu;
@@ -9,98 +9,100 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[snafu(visibility = "pub")]
 pub enum Error {
     #[snafu(display(
-        "Unable to create BottlerocketNode ({}, {}): '{}'",
+        "Unable to create BottlerocketShadow ({}, {}): '{}'",
         selector.node_name,
         selector.node_uid,
         source
     ))]
-    CreateBottlerocketNode {
+    CreateBottlerocketShadow {
         source: Box<dyn std::error::Error>,
-        selector: BottlerocketNodeSelector,
+        selector: BottlerocketShadowSelector,
     },
 
     #[snafu(display(
-        "Unable to update BottlerocketNode status ({}, {}): '{}'",
+        "Unable to update BottlerocketShadow status ({}, {}): '{}'",
         selector.node_name,
         selector.node_uid,
         source
     ))]
-    UpdateBottlerocketNodeStatus {
+    UpdateBottlerocketShadowStatus {
         source: Box<dyn std::error::Error>,
-        selector: BottlerocketNodeSelector,
+        selector: BottlerocketShadowSelector,
     },
 
     #[snafu(display(
-        "Unable to update BottlerocketNode spec ({}, {}): '{}'",
+        "Unable to update BottlerocketShadow spec ({}, {}): '{}'",
         selector.node_name,
         selector.node_uid,
         source
     ))]
-    UpdateBottlerocketNodeSpec {
+    UpdateBottlerocketShadowSpec {
         source: Box<dyn std::error::Error>,
-        selector: BottlerocketNodeSelector,
+        selector: BottlerocketShadowSelector,
     },
 
     #[snafu(display(
-        "Unable to cordon BottlerocketNode ({}, {}): '{}'",
+        "Unable to cordon BottlerocketShadow ({}, {}): '{}'",
         selector.node_name,
         selector.node_uid,
         source
     ))]
-    CordonBottlerocketNode {
+    CordonBottlerocketShadow {
         source: Box<dyn std::error::Error>,
-        selector: BottlerocketNodeSelector,
+        selector: BottlerocketShadowSelector,
     },
 
     #[snafu(display(
-        "Unable to drain BottlerocketNode ({}, {}): '{}'",
+        "Unable to drain BottlerocketShadow ({}, {}): '{}'",
         selector.node_name,
         selector.node_uid,
         source
     ))]
-    DrainBottlerocketNode {
+    DrainBottlerocketShadow {
         source: Box<dyn std::error::Error>,
-        selector: BottlerocketNodeSelector,
+        selector: BottlerocketShadowSelector,
     },
 
     #[snafu(display(
-        "Unable to uncordon BottlerocketNode ({}, {}): '{}'",
+        "Unable to uncordon BottlerocketShadow ({}, {}): '{}'",
         selector.node_name,
         selector.node_uid,
         source
     ))]
-    UncordonBottlerocketNode {
+    UncordonBottlerocketShadow {
         source: Box<dyn std::error::Error>,
-        selector: BottlerocketNodeSelector,
+        selector: BottlerocketShadowSelector,
     },
 
     #[snafu(display(
-        "BottlerocketNode does not have a k8s spec ({}, {}).'",
+        "BottlerocketShadow does not have a k8s spec ({}, {}).'",
         selector.node_name,
         selector.node_uid
     ))]
-    NodeWithoutSpec { selector: BottlerocketNodeSelector },
+    NodeWithoutSpec {
+        selector: BottlerocketShadowSelector,
+    },
 
     #[snafu(display("Unable to create patch to send to Kubernetes API: '{}'", source))]
     CreateK8SPatch { source: serde_json::error::Error },
 
     #[snafu(display("Attempted to progress node state machine without achieving current desired state. Current state: '{:?}'. Desired state: '{:?}'", current_state, desired_state))]
     NodeSpecNotAchieved {
-        current_state: BottlerocketNodeState,
-        desired_state: BottlerocketNodeState,
+        current_state: BottlerocketShadowState,
+        desired_state: BottlerocketShadowState,
     },
 
     #[snafu(display(
         "Attempted to perform an operation on a statusless node ({}) which requires a status.",
-        brn.metadata.name.as_ref().unwrap_or(&"<no name set>".to_string())
+        brs.metadata.name.as_ref().unwrap_or(&"<no name set>".to_string())
     ))]
-    NodeWithoutStatus { brn: BottlerocketNode },
+    NodeWithoutStatus { brs: BottlerocketShadow },
 
-    #[snafu(display("BottlerocketNode object ('{}') is missing a reference to the owning Node.", brn.name()))]
-    MissingOwnerReference { brn: BottlerocketNode },
+    #[snafu(display("BottlerocketShadow object ('{}') is missing a reference to the owning Node.", brs.name()))]
+    MissingOwnerReference { brs: BottlerocketShadow },
 
     #[snafu(display(
-        "BottlerocketNode object must have valid rfc3339 timestamp: '{}'",
+        "BottlerocketShadow object must have valid rfc3339 timestamp: '{}'",
         source
     ))]
     TimestampFormat { source: chrono::ParseError },

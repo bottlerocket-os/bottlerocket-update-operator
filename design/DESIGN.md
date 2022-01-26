@@ -32,9 +32,9 @@ Customers with disruption-sensitive workloads should utilize [PodDisruptionBudge
 
 Brupop will continue to utilize a DaemonSet of agents on each Bottlerocket node.
 Each of these nodes will also behave as a control loop, operating solely on the target node.
-Instead of having the independent controller and agent cooperate and pass messages via RPC, we will associate a [Custom Resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) (called BottlerocketNode) with each Bottlerocket node containing status information about the node, as well as a desired state.
-The `controller` will utilize state information in the `BottlerocketNode` resource to determine what the desired state of the node should be, setting that desired state back into the `spec` of the `BottlerocketNode` resource.
-The agent on each host will be responsible for updating the `BottlerocketNode` metadata, and driving the local system towards the desired spec set by the controller.
+Instead of having the independent controller and agent cooperate and pass messages via RPC, we will associate a [Custom Resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) (called BottlerocketShadow) with each Bottlerocket node containing status information about the node, as well as a desired state.
+The `controller` will utilize state information in the `BottlerocketShadow` resource to determine what the desired state of the node should be, setting that desired state back into the `spec` of the `BottlerocketShadow` resource.
+The agent on each host will be responsible for updating the `BottlerocketShadow` metadata, and driving the local system towards the desired spec set by the controller.
 
 So, as before, each node in the system flows through a state machine.
 The brupop controller can page through relevant nodes and determine its next action or check on the status of ongoing actions.
@@ -132,9 +132,9 @@ metadata:
 Kubernetes will garbage collect these custom resources when the associated node is removed from the cluster.
 
 ### Appendix C. Authorization of Bottlerocket Node Behavior
-Usage of the usual kubernetes [rbac](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) system for authorization will lead to a situation in which any Bottlerocket node will have sufficient permissions to modify the BottlerocketNode custom resource for any other node, as a role would be shared by all pods.
+Usage of the usual kubernetes [rbac](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) system for authorization will lead to a situation in which any Bottlerocket node will have sufficient permissions to modify the BottlerocketShadow custom resource for any other node, as a role would be shared by all pods.
 In order to authorize custom resource updates, each DaemonSet pod will utilize [Service Account Token Volume Projection](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#service-account-token-volume-projection) to receive a token which uniquely identifies that pod.
-Update requests for BottlerocketNode custom resources will be sent to the Brupop controller via a web API, in which the kubernetes TokenReview will be used to validate the token.
+Update requests for BottlerocketShadow custom resources will be sent to the Brupop controller via a web API, in which the kubernetes TokenReview will be used to validate the token.
 The controller will check that the calling pod resides on the node associated with the target custom resource before making the requested update.
 
 In order to handle requests from each Bottlerocket node with high availability, the Brupop controller will need to run with multiple replicas, using leader election to determine which node will be responsible for orchestrating node updates.

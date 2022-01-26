@@ -1,6 +1,6 @@
 use super::{APIServerSettings, ApiserverCommonHeaders};
 use crate::error::{self, Result};
-use models::node::BottlerocketNodeClient;
+use models::node::BottlerocketShadowClient;
 
 use actix_web::{
     web::{self},
@@ -11,7 +11,7 @@ use snafu::ResultExt;
 use std::convert::TryFrom;
 
 /// HTTP endpoint which prevents work from being scheduled to a node, and drains all pods currently running.
-pub(crate) async fn cordon_and_drain<T: BottlerocketNodeClient>(
+pub(crate) async fn cordon_and_drain<T: BottlerocketShadowClient>(
     settings: web::Data<APIServerSettings<T>>,
     http_req: HttpRequest,
 ) -> Result<impl Responder> {
@@ -20,19 +20,19 @@ pub(crate) async fn cordon_and_drain<T: BottlerocketNodeClient>(
         .node_client
         .cordon_node(&headers.node_selector)
         .await
-        .context(error::BottlerocketNodeCordon)?;
+        .context(error::BottlerocketShadowCordon)?;
 
     settings
         .node_client
         .drain_node(&headers.node_selector)
         .await
-        .context(error::BottlerocketNodeDrain)?;
+        .context(error::BottlerocketShadowDrain)?;
 
     Ok(HttpResponse::Ok())
 }
 
 /// HTTP endpoint which re-allows work to be scheduled on a node that has been cordoned.
-pub(crate) async fn uncordon<T: BottlerocketNodeClient>(
+pub(crate) async fn uncordon<T: BottlerocketShadowClient>(
     settings: web::Data<APIServerSettings<T>>,
     http_req: HttpRequest,
 ) -> Result<impl Responder> {
@@ -41,7 +41,7 @@ pub(crate) async fn uncordon<T: BottlerocketNodeClient>(
         .node_client
         .uncordon_node(&headers.node_selector)
         .await
-        .context(error::BottlerocketNodeCordon)?;
+        .context(error::BottlerocketShadowCordon)?;
 
     Ok(HttpResponse::Ok())
 }

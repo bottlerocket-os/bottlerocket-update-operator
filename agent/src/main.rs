@@ -11,7 +11,7 @@ use kube::Api;
 use models::agent::{AGENT_TOKEN_PATH, TOKEN_PROJECTION_MOUNT_PATH};
 use models::constants::{AGENT, NAMESPACE};
 
-use models::node::BottlerocketNode;
+use models::node::{brs_name_from_node_name, BottlerocketShadow};
 
 use opentelemetry::sdk::propagation::TraceContextPropagator;
 use snafu::{OptionExt, ResultExt};
@@ -51,21 +51,21 @@ async fn run_agent() -> Result<()> {
     })?;
     let apiserver_client = K8SAPIServerClient::new(token_path.to_string());
 
-    // Get node and bottlerocketnode names
+    // Get node and BottlerocketShadow names
     let associated_node_name = env::var("MY_NODE_NAME").context(error::GetNodeName)?;
-    let associated_bottlerocketnode_name = format!("brn-{}", associated_node_name);
+    let associated_bottlerocketshadow_name = brs_name_from_node_name(&associated_node_name);
 
-    // Generate reflector to watch and cache BottlerocketNodes
-    let brns = Api::<BottlerocketNode>::namespaced(k8s_client.clone(), NAMESPACE);
-    let brn_lp = ListParams::default()
-        .fields(format!("metadata.name={}", associated_bottlerocketnode_name).as_str());
-    let brn_store = reflector::store::Writer::<BottlerocketNode>::default();
-    let brn_reader = brn_store.as_reader();
-    let brn_reflector = reflector::reflector(brn_store, watcher(brns, brn_lp));
-    let brn_drainer = try_flatten_touched(brn_reflector)
+    // Generate reflector to watch and cache BottlerocketShadow
+    let brss = Api::<BottlerocketShadow>::namespaced(k8s_client.clone(), NAMESPACE);
+    let brs_lp = ListParams::default()
+        .fields(format!("metadata.name={}", associated_bottlerocketshadow_name).as_str());
+    let brs_store = reflector::store::Writer::<BottlerocketShadow>::default();
+    let brs_reader = brs_store.as_reader();
+    let brs_reflector = reflector::reflector(brs_store, watcher(brss, brs_lp));
+    let brs_drainer = try_flatten_touched(brs_reflector)
         .filter_map(|x| async move { std::result::Result::ok(x) })
-        .for_each(|_brn| {
-            event!(Level::DEBUG, "Processed event for BottlerocketNodes");
+        .for_each(|_brs| {
+            event!(Level::DEBUG, "Processed event for BottlerocketShadows");
             futures::future::ready(())
         });
 
@@ -86,18 +86,18 @@ async fn run_agent() -> Result<()> {
     let mut agent = BrupopAgent::new(
         k8s_client.clone(),
         apiserver_client,
-        brn_reader,
+        brs_reader,
         node_reader,
         associated_node_name,
-        associated_bottlerocketnode_name,
+        associated_bottlerocketshadow_name,
     );
 
     let agent_runner = agent.run();
 
     tokio::select! {
-        _ = brn_drainer => {
-            event!(Level::ERROR, "Processed event for brn");
-            return Err(error::Error::KubernetesWatcherFailed {object: "brn".to_string()});
+        _ = brs_drainer => {
+            event!(Level::ERROR, "Processed event for brs");
+            return Err(error::Error::KubernetesWatcherFailed {object: "brs".to_string()});
         },
         _ = node_drainer => {
             event!(Level::ERROR, "Processed event for node");
