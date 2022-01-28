@@ -3,7 +3,7 @@ mod drain;
 mod error;
 
 pub use self::client::*;
-pub use self::error::Error as BottlerocketNodeError;
+pub use self::error::Error as BottlerocketShadowError;
 use self::error::Error;
 
 use chrono::{DateTime, Utc};
@@ -31,11 +31,11 @@ lazy_static! {
 }
 
 #[cfg(feature = "mockall")]
-pub use self::client::MockBottlerocketNodeClient;
+pub use self::client::MockBottlerocketShadowClient;
 
-/// BottlerocketNodeState represents a node's state in the update state machine.
+/// BottlerocketShadowState represents a node's state in the update state machine.
 #[derive(Copy, Clone, Serialize, Deserialize, Debug, Eq, PartialEq, JsonSchema)]
-pub enum BottlerocketNodeState {
+pub enum BottlerocketShadowState {
     /// Nodes in this state are waiting for new updates to become available. This is both the starting and terminal state
     /// in the update process.
     Idle,
@@ -52,9 +52,9 @@ pub enum BottlerocketNodeState {
     MonitoringUpdate,
 }
 
-impl Default for BottlerocketNodeState {
+impl Default for BottlerocketShadowState {
     fn default() -> Self {
-        BottlerocketNodeState::Idle
+        BottlerocketShadowState::Idle
     }
 }
 
@@ -65,7 +65,7 @@ const REBOOTED_INTO_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(
 const MONITORING_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(300));
 const IDLE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(120));
 
-impl BottlerocketNodeState {
+impl BottlerocketShadowState {
     /// Returns the next state in the state machine if the current state has been reached successfully.
     pub fn on_success(&self) -> Self {
         match self {
@@ -90,14 +90,14 @@ impl BottlerocketNodeState {
 }
 
 // We can't use these consts inside macros, but we do provide constants for use in generating kubernetes objects.
-pub const K8S_NODE_KIND: &str = "BottlerocketNode";
-pub const K8S_NODE_PLURAL: &str = "bottlerocketnodes";
-pub const K8S_NODE_STATUS: &str = "bottlerocketnodes/status";
-pub const K8S_NODE_SHORTNAME: &str = "brn";
+pub const K8S_NODE_KIND: &str = "BottlerocketShadow";
+pub const K8S_NODE_PLURAL: &str = "bottlerocketshadows";
+pub const K8S_NODE_STATUS: &str = "bottlerocketshadows/status";
+pub const K8S_NODE_SHORTNAME: &str = "brs";
 
-/// The `BottlerocketNodeSpec` can be used to drive a node through the update state machine. A node
+/// The `BottlerocketShadowSpec` can be used to drive a node through the update state machine. A node
 /// linearly drives towards the desired state. The brupop controller updates the spec to specify a node's desired state,
-/// and the host agent drives state changes forward and updates the `BottlerocketNodeStatus`.
+/// and the host agent drives state changes forward and updates the `BottlerocketShadowStatus`.
 #[derive(
     Clone,
     CustomResource,
@@ -114,21 +114,21 @@ pub const K8S_NODE_SHORTNAME: &str = "brn";
     derive = "Default",
     derive = "PartialEq",
     group = "brupop.bottlerocket.aws",
-    kind = "BottlerocketNode",
+    kind = "BottlerocketShadow",
     namespaced,
-    plural = "bottlerocketnodes",
-    shortname = "brn",
-    singular = "bottlerocketnode",
-    status = "BottlerocketNodeStatus",
+    plural = "bottlerocketshadows",
+    shortname = "brs",
+    singular = "bottlerocketshadow",
+    status = "BottlerocketShadowStatus",
     version = "v1",
     printcolumn = r#"{"name":"State", "type":"string", "jsonPath":".status.current_state"}"#,
     printcolumn = r#"{"name":"Version", "type":"string", "jsonPath":".status.current_version"}"#,
     printcolumn = r#"{"name":"Target State", "type":"string", "jsonPath":".spec.state"}"#,
     printcolumn = r#"{"name":"Target Version", "type":"string", "jsonPath":".spec.version"}"#
 )]
-pub struct BottlerocketNodeSpec {
-    /// Records the desired state of the `BottlerocketNode`
-    pub state: BottlerocketNodeState,
+pub struct BottlerocketShadowSpec {
+    /// Records the desired state of the `BottlerocketShadow`
+    pub state: BottlerocketShadowState,
     /// The time at which the most recent state was set as the desired state.
     state_transition_timestamp: Option<String>,
     /// The desired update version, if any.
@@ -136,10 +136,10 @@ pub struct BottlerocketNodeSpec {
     version: Option<String>,
 }
 
-impl BottlerocketNode {
-    /// Creates a `BottlerocketNodeSelector` from this `BottlerocketNode`.
-    pub fn selector(&self) -> error::Result<BottlerocketNodeSelector> {
-        BottlerocketNodeSelector::from_bottlerocket_node(self)
+impl BottlerocketShadow {
+    /// Creates a `BottlerocketShadowSelector` from this `BottlerocketShadow`.
+    pub fn selector(&self) -> error::Result<BottlerocketShadowSelector> {
+        BottlerocketShadowSelector::from_bottlerocket_shadow(self)
     }
 
     /// Returns whether or not a node has reached the state requested by its spec.
@@ -150,23 +150,23 @@ impl BottlerocketNode {
     }
 }
 
-impl BottlerocketNodeSpec {
+impl BottlerocketShadowSpec {
     pub fn new(
-        state: BottlerocketNodeState,
+        state: BottlerocketShadowState,
         state_transition_timestamp: Option<DateTime<Utc>>,
         version: Option<Version>,
     ) -> Self {
         let state_transition_timestamp = state_transition_timestamp.map(|ts| ts.to_rfc3339());
         let version = version.map(|v| v.to_string());
-        BottlerocketNodeSpec {
+        BottlerocketShadowSpec {
             state,
             state_transition_timestamp,
             version,
         }
     }
 
-    /// Creates a new BottlerocketNodeSpec, using the current time as the timestamp for timeout purposes.
-    pub fn new_starting_now(state: BottlerocketNodeState, version: Option<Version>) -> Self {
+    /// Creates a new BottlerocketShadowSpec, using the current time as the timestamp for timeout purposes.
+    pub fn new_starting_now(state: BottlerocketShadowState, version: Option<Version>) -> Self {
         Self::new(state, Some(Utc::now()), version)
     }
 
@@ -184,31 +184,31 @@ impl BottlerocketNodeSpec {
             .transpose()
     }
 
-    /// Returns the desired version for this BottlerocketNode.
+    /// Returns the desired version for this BottlerocketShadow.
     pub fn version(&self) -> Option<Version> {
         // We know this won't panic because we have a regex requirement on this attribute, which is enforced by the k8s schema.
         self.version.as_ref().map(|v| Version::from_str(v).unwrap())
     }
 }
 
-/// `BottlerocketNodeStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent,
+/// `BottlerocketShadowStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent,
 /// while the spec is updated by the brupop controller.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, PartialEq, JsonSchema)]
-pub struct BottlerocketNodeStatus {
+pub struct BottlerocketShadowStatus {
     #[validate(regex = "SEMVER_RE")]
     current_version: String,
     #[validate(regex = "SEMVER_RE")]
     target_version: String,
-    pub current_state: BottlerocketNodeState,
+    pub current_state: BottlerocketShadowState,
 }
 
-impl BottlerocketNodeStatus {
+impl BottlerocketShadowStatus {
     pub fn new(
         current_version: Version,
         target_version: Version,
-        current_state: BottlerocketNodeState,
+        current_state: BottlerocketShadowState,
     ) -> Self {
-        BottlerocketNodeStatus {
+        BottlerocketShadowStatus {
             current_version: current_version.to_string(),
             target_version: target_version.to_string(),
             current_state,
@@ -221,42 +221,46 @@ impl BottlerocketNodeStatus {
     }
 
     pub fn target_version(&self) -> Version {
-        // TODO This could panic if a custom `brn` is created with improperly specified versions; however, we are removing this
+        // TODO This could panic if a custom `brs` is created with improperly specified versions; however, we are removing this
         // attribute in an impending iteration, so we won't fix it.
         Version::from_str(&self.target_version).unwrap()
     }
 }
 
-/// Indicates the specific k8s node that BottlerocketNode object is associated with.
+/// Indicates the specific k8s node that BottlerocketShadow object is associated with.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BottlerocketNodeSelector {
+pub struct BottlerocketShadowSelector {
     pub node_name: String,
     pub node_uid: String,
 }
 
-impl BottlerocketNodeSelector {
-    pub fn from_bottlerocket_node(brn: &BottlerocketNode) -> error::Result<Self> {
-        let node_owner = brn
+impl BottlerocketShadowSelector {
+    pub fn from_bottlerocket_shadow(brs: &BottlerocketShadow) -> error::Result<Self> {
+        let node_owner = brs
             .metadata
             .owner_references
             .as_ref()
-            .ok_or(Error::MissingOwnerReference { brn: brn.clone() })?
+            .ok_or(Error::MissingOwnerReference { brs: brs.clone() })?
             .first()
-            .ok_or(Error::MissingOwnerReference { brn: brn.clone() })?;
+            .ok_or(Error::MissingOwnerReference { brs: brs.clone() })?;
 
-        Ok(BottlerocketNodeSelector {
+        Ok(BottlerocketShadowSelector {
             node_name: node_owner.name.clone(),
             node_uid: node_owner.uid.clone(),
         })
     }
 
-    pub fn brn_resource_name(&self) -> String {
-        format!("brn-{}", self.node_name)
+    pub fn brs_resource_name(&self) -> String {
+        brs_name_from_node_name(&self.node_name)
     }
 }
 
-impl fmt::Display for BottlerocketNodeSelector {
+impl fmt::Display for BottlerocketShadowSelector {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "({}, {})", self.node_name, self.node_uid)
     }
+}
+
+pub fn brs_name_from_node_name(node_name: &str) -> String {
+    format!("brs-{}", node_name)
 }

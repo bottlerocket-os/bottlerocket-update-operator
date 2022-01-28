@@ -3,8 +3,8 @@ use super::{
     error::{self, Result},
 };
 use super::{
-    BottlerocketNode, BottlerocketNodeSelector, BottlerocketNodeSpec, BottlerocketNodeStatus,
-    K8S_NODE_KIND,
+    BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowSpec,
+    BottlerocketShadowStatus, K8S_NODE_KIND,
 };
 use crate::constants;
 
@@ -20,157 +20,166 @@ use tracing::instrument;
 use mockall::{mock, predicate::*};
 
 #[async_trait]
-/// A trait providing an interface to interact with BottlerocketNode objects. This is provided as a trait
+/// A trait providing an interface to interact with BottlerocketShadow objects. This is provided as a trait
 /// in order to allow mocks to be used for testing purposes.
-pub trait BottlerocketNodeClient: Clone + Sized + Send + Sync {
-    /// Create a BottlerocketNode object for the specified node.
-    async fn create_node(&self, selector: &BottlerocketNodeSelector) -> Result<BottlerocketNode>;
-    /// Update the `.status` of a BottlerocketNode object. Because the single daemon running on each node
-    /// uniquely owns its brn object, we allow wholesale overwrites rather than patching.
+pub trait BottlerocketShadowClient: Clone + Sized + Send + Sync {
+    /// Create a BottlerocketShadow object for the specified node.
+    async fn create_node(
+        &self,
+        selector: &BottlerocketShadowSelector,
+    ) -> Result<BottlerocketShadow>;
+    /// Update the `.status` of a BottlerocketShadow object. Because the single daemon running on each node
+    /// uniquely owns its brs object, we allow wholesale overwrites rather than patching.
     async fn update_node_status(
         &self,
-        selector: &BottlerocketNodeSelector,
-        status: &BottlerocketNodeStatus,
+        selector: &BottlerocketShadowSelector,
+        status: &BottlerocketShadowStatus,
     ) -> Result<()>;
-    /// Update the `.spec` of a BottlerocketNode object.
+    /// Update the `.spec` of a BottlerocketShadow object.
     async fn update_node_spec(
         &self,
-        selector: &BottlerocketNodeSelector,
-        spec: &BottlerocketNodeSpec,
+        selector: &BottlerocketShadowSelector,
+        spec: &BottlerocketShadowSpec,
     ) -> Result<()>;
     // Marks the given node as unschedulable, preventing Pods from being deployed onto it.
-    async fn cordon_node(&self, selector: &BottlerocketNodeSelector) -> Result<()>;
+    async fn cordon_node(&self, selector: &BottlerocketShadowSelector) -> Result<()>;
     // Evicts all pods on the given node.
-    async fn drain_node(&self, selector: &BottlerocketNodeSelector) -> Result<()>;
+    async fn drain_node(&self, selector: &BottlerocketShadowSelector) -> Result<()>;
     // Marks the given node as scheduleable, allowing Pods to be deployed onto it.
-    async fn uncordon_node(&self, selector: &BottlerocketNodeSelector) -> Result<()>;
+    async fn uncordon_node(&self, selector: &BottlerocketShadowSelector) -> Result<()>;
 }
 
 #[cfg(feature = "mockall")]
 mock! {
-    /// A Mock BottlerocketNodeClient for use in tests.
-    pub BottlerocketNodeClient {}
+    /// A Mock BottlerocketShadowClient for use in tests.
+    pub BottlerocketShadowClient {}
     #[async_trait]
-    impl BottlerocketNodeClient for BottlerocketNodeClient {
+    impl BottlerocketShadowClient for BottlerocketShadowClient {
         async fn create_node(
             &self,
-            selector: &BottlerocketNodeSelector,
-        ) -> Result<BottlerocketNode>;
+            selector: &BottlerocketShadowSelector,
+        ) -> Result<BottlerocketShadow>;
         async fn update_node_status(
             &self,
-            selector: &BottlerocketNodeSelector,
-            status: &BottlerocketNodeStatus,
+            selector: &BottlerocketShadowSelector,
+            status: &BottlerocketShadowStatus,
         ) -> Result<()>;
         async fn update_node_spec(
             &self,
-            selector: &BottlerocketNodeSelector,
-            spec: &BottlerocketNodeSpec,
+            selector: &BottlerocketShadowSelector,
+            spec: &BottlerocketShadowSpec,
         ) -> Result<()>;
-        async fn cordon_node(&self, selector: &BottlerocketNodeSelector) -> Result<()>;
-        async fn drain_node(&self, selector: &BottlerocketNodeSelector) -> Result<()>;
-        async fn uncordon_node(&self, selector: &BottlerocketNodeSelector) -> Result<()>;
+        async fn cordon_node(&self, selector: &BottlerocketShadowSelector) -> Result<()>;
+        async fn drain_node(&self, selector: &BottlerocketShadowSelector) -> Result<()>;
+        async fn uncordon_node(&self, selector: &BottlerocketShadowSelector) -> Result<()>;
     }
 
-    impl Clone for BottlerocketNodeClient {
+    impl Clone for BottlerocketShadowClient {
         fn clone(&self) -> Self;
     }
 }
 
 #[async_trait]
-impl<T> BottlerocketNodeClient for Arc<T>
+impl<T> BottlerocketShadowClient for Arc<T>
 where
-    T: BottlerocketNodeClient,
+    T: BottlerocketShadowClient,
 {
-    async fn create_node(&self, selector: &BottlerocketNodeSelector) -> Result<BottlerocketNode> {
+    async fn create_node(
+        &self,
+        selector: &BottlerocketShadowSelector,
+    ) -> Result<BottlerocketShadow> {
         (**self).create_node(selector).await
     }
     async fn update_node_status(
         &self,
-        selector: &BottlerocketNodeSelector,
-        status: &BottlerocketNodeStatus,
+        selector: &BottlerocketShadowSelector,
+        status: &BottlerocketShadowStatus,
     ) -> Result<()> {
         (**self).update_node_status(selector, status).await
     }
 
     async fn update_node_spec(
         &self,
-        selector: &BottlerocketNodeSelector,
-        spec: &BottlerocketNodeSpec,
+        selector: &BottlerocketShadowSelector,
+        spec: &BottlerocketShadowSpec,
     ) -> Result<()> {
         (**self).update_node_spec(selector, spec).await
     }
 
-    async fn cordon_node(&self, selector: &BottlerocketNodeSelector) -> Result<()> {
+    async fn cordon_node(&self, selector: &BottlerocketShadowSelector) -> Result<()> {
         (**self).cordon_node(selector).await
     }
 
-    async fn drain_node(&self, selector: &BottlerocketNodeSelector) -> Result<()> {
+    async fn drain_node(&self, selector: &BottlerocketShadowSelector) -> Result<()> {
         (**self).drain_node(selector).await
     }
 
-    async fn uncordon_node(&self, selector: &BottlerocketNodeSelector) -> Result<()> {
+    async fn uncordon_node(&self, selector: &BottlerocketShadowSelector) -> Result<()> {
         (**self).uncordon_node(selector).await
     }
 }
 
 #[derive(Clone)]
-/// Concrete implementation of the `BottlerocketNodeClient` trait. This implementation will almost
+/// Concrete implementation of the `BottlerocketShadowClient` trait. This implementation will almost
 /// certainly be used in any case that isn't a unit test.
-pub struct K8SBottlerocketNodeClient {
+pub struct K8SBottlerocketShadowClient {
     k8s_client: kube::client::Client,
 }
 
-impl K8SBottlerocketNodeClient {
+impl K8SBottlerocketShadowClient {
     pub fn new(k8s_client: kube::client::Client) -> Self {
-        K8SBottlerocketNodeClient { k8s_client }
+        K8SBottlerocketShadowClient { k8s_client }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-/// A helper struct used to serialize and send patches to the k8s API to modify the status of a BottlerocketNode.
-struct BottlerocketNodeStatusPatch {
+/// A helper struct used to serialize and send patches to the k8s API to modify the status of a BottlerocketShadow.
+struct BottlerocketShadowStatusPatch {
     #[serde(rename = "apiVersion")]
     api_version: String,
     kind: String,
-    status: BottlerocketNodeStatus,
+    status: BottlerocketShadowStatus,
 }
 
-impl Default for BottlerocketNodeStatusPatch {
+impl Default for BottlerocketShadowStatusPatch {
     fn default() -> Self {
-        BottlerocketNodeStatusPatch {
+        BottlerocketShadowStatusPatch {
             api_version: constants::API_VERSION.to_string(),
             kind: K8S_NODE_KIND.to_string(),
-            status: BottlerocketNodeStatus::default(),
+            status: BottlerocketShadowStatus::default(),
         }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-/// A helper struct used to serialize and send patches to the k8s API to modify the entire spec of a BottlerocketNode.
-struct BottlerocketNodeSpecOverwrite {
+/// A helper struct used to serialize and send patches to the k8s API to modify the entire spec of a BottlerocketShadow.
+struct BottlerocketShadowSpecOverwrite {
     #[serde(rename = "apiVersion")]
     api_version: String,
     kind: String,
-    spec: BottlerocketNodeSpec,
+    spec: BottlerocketShadowSpec,
 }
 
-impl Default for BottlerocketNodeSpecOverwrite {
+impl Default for BottlerocketShadowSpecOverwrite {
     fn default() -> Self {
-        BottlerocketNodeSpecOverwrite {
+        BottlerocketShadowSpecOverwrite {
             api_version: constants::API_VERSION.to_string(),
             kind: K8S_NODE_KIND.to_string(),
-            spec: BottlerocketNodeSpec::default(),
+            spec: BottlerocketShadowSpec::default(),
         }
     }
 }
 
 #[async_trait]
-impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
+impl BottlerocketShadowClient for K8SBottlerocketShadowClient {
     #[instrument(skip(self), err)]
-    async fn create_node(&self, selector: &BottlerocketNodeSelector) -> Result<BottlerocketNode> {
-        let br_node = BottlerocketNode {
+    async fn create_node(
+        &self,
+        selector: &BottlerocketShadowSelector,
+    ) -> Result<BottlerocketShadow> {
+        let br_node = BottlerocketShadow {
             metadata: ObjectMeta {
-                name: Some(selector.brn_resource_name()),
+                name: Some(selector.brs_resource_name()),
                 owner_references: Some(vec![OwnerReference {
                     api_version: "v1".to_string(),
                     kind: "Node".to_string(),
@@ -180,7 +189,7 @@ impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
                 }]),
                 ..Default::default()
             },
-            spec: BottlerocketNodeSpec::default(),
+            spec: BottlerocketShadowSpec::default(),
             ..Default::default()
         };
 
@@ -188,7 +197,7 @@ impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
             .create(&PostParams::default(), &br_node)
             .await
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-            .context(error::CreateBottlerocketNode {
+            .context(error::CreateBottlerocketShadow {
                 selector: selector.clone(),
             })?;
 
@@ -198,25 +207,25 @@ impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
     #[instrument(skip(self), err)]
     async fn update_node_status(
         &self,
-        selector: &BottlerocketNodeSelector,
-        status: &BottlerocketNodeStatus,
+        selector: &BottlerocketShadowSelector,
+        status: &BottlerocketShadowStatus,
     ) -> Result<()> {
-        let br_node_status_patch = BottlerocketNodeStatusPatch {
+        let br_node_status_patch = BottlerocketShadowStatusPatch {
             status: status.clone(),
             ..Default::default()
         };
 
-        let api: Api<BottlerocketNode> =
+        let api: Api<BottlerocketShadow> =
             Api::namespaced(self.k8s_client.clone(), constants::NAMESPACE);
 
         api.patch_status(
-            &selector.brn_resource_name(),
+            &selector.brs_resource_name(),
             &PatchParams::default(),
             &Patch::Merge(&br_node_status_patch),
         )
         .await
         .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-        .context(error::UpdateBottlerocketNodeStatus {
+        .context(error::UpdateBottlerocketShadowStatus {
             selector: selector.clone(),
         })?;
 
@@ -226,27 +235,27 @@ impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
     #[instrument(skip(self), err)]
     async fn update_node_spec(
         &self,
-        selector: &BottlerocketNodeSelector,
-        spec: &BottlerocketNodeSpec,
+        selector: &BottlerocketShadowSelector,
+        spec: &BottlerocketShadowSpec,
     ) -> Result<()> {
-        let br_node_spec_patch = BottlerocketNodeSpecOverwrite {
+        let br_node_spec_patch = BottlerocketShadowSpecOverwrite {
             spec: spec.clone(),
             ..Default::default()
         };
         let br_node_spec_patch =
             serde_json::to_value(br_node_spec_patch).context(error::CreateK8SPatch)?;
 
-        let api: Api<BottlerocketNode> =
+        let api: Api<BottlerocketShadow> =
             Api::namespaced(self.k8s_client.clone(), constants::NAMESPACE);
 
         api.patch(
-            &selector.brn_resource_name(),
+            &selector.brs_resource_name(),
             &PatchParams::default(),
             &Patch::Merge(&br_node_spec_patch),
         )
         .await
         .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-        .context(error::UpdateBottlerocketNodeSpec {
+        .context(error::UpdateBottlerocketShadowSpec {
             selector: selector.clone(),
         })?;
         Ok(())
@@ -254,13 +263,13 @@ impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
 
     /// Marks the given node as unschedulable, preventing Pods from being deployed onto it.
     #[instrument(skip(self), err)]
-    async fn cordon_node(&self, selector: &BottlerocketNodeSelector) -> Result<()> {
+    async fn cordon_node(&self, selector: &BottlerocketShadowSelector) -> Result<()> {
         let nodes: Api<Node> = Api::all(self.k8s_client.clone());
         nodes
             .cordon(&selector.node_name)
             .await
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-            .context(error::UpdateBottlerocketNodeSpec {
+            .context(error::UpdateBottlerocketShadowSpec {
                 selector: selector.clone(),
             })?;
 
@@ -269,11 +278,11 @@ impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
 
     /// Evicts all pods on the given node.
     #[instrument(skip(self), err)]
-    async fn drain_node(&self, selector: &BottlerocketNodeSelector) -> Result<()> {
+    async fn drain_node(&self, selector: &BottlerocketShadowSelector) -> Result<()> {
         drain::drain_node(&self.k8s_client, &selector.node_name)
             .await
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-            .context(error::DrainBottlerocketNode {
+            .context(error::DrainBottlerocketShadow {
                 selector: selector.clone(),
             })?;
         Ok(())
@@ -281,13 +290,13 @@ impl BottlerocketNodeClient for K8SBottlerocketNodeClient {
 
     /// Marks the given node as scheduleable, allowing Pods to be deployed onto it.
     #[instrument(skip(self), err)]
-    async fn uncordon_node(&self, selector: &BottlerocketNodeSelector) -> Result<()> {
+    async fn uncordon_node(&self, selector: &BottlerocketShadowSelector) -> Result<()> {
         let nodes: Api<Node> = Api::all(self.k8s_client.clone());
         nodes
             .uncordon(&selector.node_name)
             .await
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-            .context(error::UncordonBottlerocketNode {
+            .context(error::UncordonBottlerocketShadow {
                 selector: selector.clone(),
             })?;
 

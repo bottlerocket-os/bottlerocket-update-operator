@@ -20,7 +20,7 @@ use models::{
         controller_service, controller_service_account,
     },
     namespace::brupop_namespace,
-    node::BottlerocketNode,
+    node::BottlerocketShadow,
 };
 use std::env;
 use std::fs::File;
@@ -45,7 +45,7 @@ fn main() {
 
     // testsys-crd related K8S manifest
     brupop_resources.write_all(HEADER.as_bytes()).unwrap();
-    serde_yaml::to_writer(&brupop_resources, &BottlerocketNode::crd()).unwrap();
+    serde_yaml::to_writer(&brupop_resources, &BottlerocketShadow::crd()).unwrap();
 
     let brupop_image = env::var("BRUPOP_CONTAINER_IMAGE").ok().unwrap();
     let brupop_image_pull_secrets = env::var("BRUPOP_CONTAINER_IMAGE_PULL_SECRET").ok();

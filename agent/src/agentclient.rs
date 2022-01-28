@@ -13,14 +13,14 @@ use kube::runtime::reflector::Store;
 use crate::apiclient::{boot_update, get_chosen_update, get_os_info, prepare, update};
 use apiserver::{
     client::APIServerClient,
-    CordonAndDrainBottlerocketNodeRequest, UncordonBottlerocketNodeRequest,
-    {CreateBottlerocketNodeRequest, UpdateBottlerocketNodeRequest},
+    CordonAndDrainBottlerocketShadowRequest, UncordonBottlerocketShadowRequest,
+    {CreateBottlerocketShadowRequest, UpdateBottlerocketShadowRequest},
 };
 use models::{
     constants::NAMESPACE,
     node::{
-        BottlerocketNode, BottlerocketNodeSelector, BottlerocketNodeSpec, BottlerocketNodeState,
-        BottlerocketNodeStatus,
+        BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowSpec,
+        BottlerocketShadowState, BottlerocketShadowStatus,
     },
 };
 
@@ -39,28 +39,28 @@ pub type Result<T> = std::result::Result<T, agentclient_error::Error>;
 pub struct BrupopAgent<T: APIServerClient> {
     k8s_client: kube::client::Client,
     apiserver_client: T,
-    brn_reader: Store<BottlerocketNode>,
+    brs_reader: Store<BottlerocketShadow>,
     node_reader: Store<Node>,
     associated_node_name: String,
-    associated_bottlerocketnode_name: String,
+    associated_bottlerocketshadow_name: String,
 }
 
 impl<T: APIServerClient> BrupopAgent<T> {
     pub fn new(
         k8s_client: kube::client::Client,
         apiserver_client: T,
-        brn_reader: Store<BottlerocketNode>,
+        brs_reader: Store<BottlerocketShadow>,
         node_reader: Store<Node>,
         associated_node_name: String,
-        associated_bottlerocketnode_name: String,
+        associated_bottlerocketshadow_name: String,
     ) -> Self {
         BrupopAgent {
             k8s_client,
             apiserver_client,
-            brn_reader,
+            brs_reader,
             node_reader,
             associated_node_name,
-            associated_bottlerocketnode_name,
+            associated_bottlerocketshadow_name,
         }
     }
 
@@ -69,16 +69,16 @@ impl<T: APIServerClient> BrupopAgent<T> {
         // try to check if node custom resource exist in the store first. If it's not present in the
         // store(either node custom resource doesn't exist or store data delays), make the API call for second round check.
 
-        let associated_bottlerocketnode = self.brn_reader.state().clone();
-        if associated_bottlerocketnode.len() != 0 {
+        let associated_bottlerocketshadow = self.brs_reader.state().clone();
+        if associated_bottlerocketshadow.len() != 0 {
             Ok(true)
         } else {
-            let bottlerocket_nodes: Api<BottlerocketNode> =
+            let bottlerocket_shadows: Api<BottlerocketShadow> =
                 Api::namespaced(self.k8s_client.clone(), NAMESPACE);
 
             // handle the special case which custom resource does exist but communication with the k8s API fails for other errors.
-            if let Err(e) = bottlerocket_nodes
-                .get(&self.associated_bottlerocketnode_name.clone())
+            if let Err(e) = bottlerocket_shadows
+                .get(&self.associated_bottlerocketshadow_name.clone())
                 .await
             {
                 match e {
@@ -87,7 +87,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                         if error_response.code == 404 {
                             return Ok(false);
                         } else {
-                            return agentclient_error::FetchBottlerocketNodeErrorCode {
+                            return agentclient_error::FetchBottlerocketShadowErrorCode {
                                 code: error_response.code,
                             }
                             .fail();
@@ -95,8 +95,8 @@ impl<T: APIServerClient> BrupopAgent<T> {
                     }
                     // Any other type of errors can not present that custom resource doesn't exist, need return error
                     _ => {
-                        return Err(e).context(agentclient_error::UnableFetchBottlerocketNode {
-                            node_name: &self.associated_bottlerocketnode_name.clone(),
+                        return Err(e).context(agentclient_error::UnableFetchBottlerocketShadow {
+                            node_name: &self.associated_bottlerocketshadow_name.clone(),
                         });
                     }
                 }
@@ -111,7 +111,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
     }
 
     #[instrument(skip(self), err)]
-    async fn get_node_selector(&self) -> Result<BottlerocketNodeSelector> {
+    async fn get_node_selector(&self) -> Result<BottlerocketShadowSelector> {
         Retry::spawn(retry_strategy(), || async {
             // Agent specifies node reflector only watch and cache the node that agent pod currently lives on,
             // so vector of nodes_reader only have one object. Therefore, get_node_selector uses index 0 to extract node object.
@@ -122,7 +122,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                     .uid
                     .as_ref()
                     .context(agentclient_error::MissingNodeUid)?;
-                return Ok(BottlerocketNodeSelector {
+                return Ok(BottlerocketShadowSelector {
                     node_name: self.associated_node_name.clone(),
                     node_uid: associated_node_uid.to_string(),
                 });
@@ -136,23 +136,23 @@ impl<T: APIServerClient> BrupopAgent<T> {
         .await
     }
 
-    // fetch associated bottlerocketnode (custom resource) and help to get node `metadata`, `spec`, and  `status`.
+    // fetch associated BottlerocketShadow (custom resource) and help to get node `metadata`, `spec`, and  `status`.
     #[instrument(skip(self), err)]
-    async fn fetch_custom_resource(&self) -> Result<BottlerocketNode> {
-        // get associated bottlerocketnode (custom resource) name, and we can use this
-        // bottlerocketnode name to fetch targeted bottlerocketnode (custom resource) and get node `metadata`, `spec`, and  `status`.
+    async fn fetch_custom_resource(&self) -> Result<BottlerocketShadow> {
+        // get associated BottlerocketShadow (custom resource) name, and we can use this
+        // BottlerocketShadow name to fetch targeted BottlerocketShadow (custom resource) and get node `metadata`, `spec`, and  `status`.
 
         Retry::spawn(retry_strategy(), || async {
-            // Agent specifies node reflector only watch and cache the bottlerocketnode which is associated with the node that agent pod currently lives on,
-            // so vector of brn_reader only have one object. Therefore, fetch_custom_resource uses index 0 to extract bottlerocketnode object.
-            let associated_bottlerocketnode = self.brn_reader.state().clone();
-            if associated_bottlerocketnode.len() != 0 {
-                return Ok(associated_bottlerocketnode[0].clone());
+            // Agent specifies node reflector only watch and cache the BottlerocketShadow which is associated with the node that agent pod currently lives on,
+            // so vector of brs_reader only have one object. Therefore, fetch_custom_resource uses index 0 to extract BottlerocketShadow object.
+            let associated_bottlerocketshadow = self.brs_reader.state().clone();
+            if associated_bottlerocketshadow.len() != 0 {
+                return Ok(associated_bottlerocketshadow[0].clone());
             }
 
             // reflector store is currently unavailable, bail out
             Err(agentclient_error::Error::ReflectorUnavailable {
-                object: "BottlerocketNode".to_string(),
+                object: "BottlerocketShadow".to_string(),
             })
         })
         .await
@@ -162,21 +162,21 @@ impl<T: APIServerClient> BrupopAgent<T> {
     #[instrument(skip(self, state), err)]
     async fn gather_system_metadata(
         &self,
-        state: BottlerocketNodeState,
-    ) -> Result<BottlerocketNodeStatus> {
+        state: BottlerocketShadowState,
+    ) -> Result<BottlerocketShadowStatus> {
         let os_info = get_os_info()
             .await
-            .context(agentclient_error::BottlerocketNodeStatusVersion)?;
+            .context(agentclient_error::BottlerocketShadowStatusVersion)?;
         let update_version = match get_chosen_update()
             .await
-            .context(agentclient_error::BottlerocketNodeStatusChosenUpdate)?
+            .context(agentclient_error::BottlerocketShadowStatusChosenUpdate)?
         {
             Some(chosen_update) => chosen_update.version,
             // if chosen update is null which means current node already in latest version, assign current version value to it.
             _ => os_info.version_id.clone(),
         };
 
-        Ok(BottlerocketNodeStatus::new(
+        Ok(BottlerocketShadowStatus::new(
             os_info.version_id.clone(),
             update_version,
             state,
@@ -187,14 +187,14 @@ impl<T: APIServerClient> BrupopAgent<T> {
     #[instrument(skip(self), err)]
     pub async fn create_metadata_custom_resource(&mut self) -> Result<()> {
         let selector = self.get_node_selector().await?;
-        let _brn = self
+        let _brs = self
             .apiserver_client
-            .create_bottlerocket_node(CreateBottlerocketNodeRequest {
+            .create_bottlerocket_shadow(CreateBottlerocketShadowRequest {
                 node_selector: selector.clone(),
             })
             .await
-            .context(agentclient_error::CreateBottlerocketNodeResource)?;
-        event!(Level::INFO, brn_name = ?selector.node_name, "Brn has been created.");
+            .context(agentclient_error::CreateBottlerocketShadowResource)?;
+        event!(Level::INFO, brs_name = ?selector.node_name, "Brs has been created.");
         Ok(())
     }
 
@@ -202,26 +202,26 @@ impl<T: APIServerClient> BrupopAgent<T> {
     #[instrument(skip(self, current_metadata), err)]
     async fn update_metadata_custom_resource(
         &self,
-        current_metadata: BottlerocketNodeStatus,
+        current_metadata: BottlerocketShadowStatus,
     ) -> Result<()> {
         let selector = self.get_node_selector().await?;
-        let brn_update = self
+        let brs_update = self
             .apiserver_client
-            .update_bottlerocket_node(UpdateBottlerocketNodeRequest {
+            .update_bottlerocket_shadow(UpdateBottlerocketShadowRequest {
                 node_selector: selector.clone(),
                 node_status: current_metadata,
             })
             .await
-            .context(agentclient_error::UpdateBottlerocketNodeResource)?;
-        event!(Level::INFO, brn_name = ?selector.node_name, brn_status = ?brn_update, "Brn status has been updated.");
+            .context(agentclient_error::UpdateBottlerocketShadowResource)?;
+        event!(Level::INFO, brs_name = ?selector.node_name, brs_status = ?brs_update, "Brs status has been updated.");
         Ok(())
     }
 
-    /// initialize bottlerocketnode (custom resource) `status` when create new bottlerocketnode
+    /// initialize BottlerocketShadow (custom resource) `status` when create new BottlerocketShadow
     #[instrument(skip(self), err)]
     pub async fn initialize_metadata_custom_resource(&self) -> Result<()> {
         let update_node_status = self
-            .gather_system_metadata(BottlerocketNodeState::Idle)
+            .gather_system_metadata(BottlerocketShadowState::Idle)
             .await?;
 
         self.update_metadata_custom_resource(update_node_status)
@@ -234,7 +234,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
         let selector = self.get_node_selector().await?;
 
         self.apiserver_client
-            .cordon_and_drain_node(CordonAndDrainBottlerocketNodeRequest {
+            .cordon_and_drain_node(CordonAndDrainBottlerocketShadowRequest {
                 node_selector: selector,
             })
             .await
@@ -248,7 +248,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
         let selector = self.get_node_selector().await?;
 
         self.apiserver_client
-            .uncordon_node(UncordonBottlerocketNodeRequest {
+            .uncordon_node(UncordonBottlerocketShadowRequest {
                 node_selector: selector,
             })
             .await
@@ -264,76 +264,76 @@ impl<T: APIServerClient> BrupopAgent<T> {
         // - Determine if the spec on the system's custom resource demands the node take action. If so, begin taking that action.
 
         loop {
-            // Create a bottlerocketnode (custom resource) if associated bottlerocketnode does not exist
+            // Create a BottlerocketShadow (custom resource) if associated BottlerocketShadow does not exist
             if self.check_node_custom_resource_exists().await.is_err() {
-                // Errors checking if brn exists are ignored (and also logged by `check_node_custom_resource_exists()`).
-                event!(Level::WARN, "An error occurred when checking if BottlerocketNode exists. Restarting event loop");
+                // Errors checking if brs exists are ignored (and also logged by `check_node_custom_resource_exists()`).
+                event!(Level::WARN, "An error occurred when checking if BottlerocketShadow exists. Restarting event loop");
                 sleep(AGENT_SLEEP_DURATION).await;
                 continue;
             } else {
                 if !self.check_node_custom_resource_exists().await? {
                     if self.create_metadata_custom_resource().await.is_err() {
-                        // Errors creating brn are ignored (and also logged by `create_metadata_custom_resource()`).
-                        event!(Level::WARN, "An error occurred when creating BottlerocketNode. Restarting event loop");
+                        // Errors creating brs are ignored (and also logged by `create_metadata_custom_resource()`).
+                        event!(Level::WARN, "An error occurred when creating BottlerocketShadow. Restarting event loop");
                         sleep(AGENT_SLEEP_DURATION).await;
                         continue;
                     }
                 }
             }
 
-            // Initialize bottlerocketnode (custom resource) `status` if associated bottlerocketnode does not have `status`
+            // Initialize BottlerocketShadow (custom resource) `status` if associated BottlerocketShadow does not have `status`
             if self.check_custom_resource_status_exists().await.is_err() {
-                // Errors checking if brn status exists are ignored (and also logged by `check_custom_resource_status_exists()`).
-                event!(Level::WARN, "An error occurred when checking if BottlerocketNode status exists. Restarting event loop");
+                // Errors checking if brs status exists are ignored (and also logged by `check_custom_resource_status_exists()`).
+                event!(Level::WARN, "An error occurred when checking if BottlerocketShadow status exists. Restarting event loop");
                 sleep(AGENT_SLEEP_DURATION).await;
                 continue;
             } else {
                 if !self.check_custom_resource_status_exists().await? {
                     if self.initialize_metadata_custom_resource().await.is_err() {
-                        // Errors initializing brn are ignored (and also logged by `initialize_metadata_custom_resource()`).
-                        event!(Level::WARN, "An error occurred when initializing BottlerocketNode. Restarting event loop");
+                        // Errors initializing brs are ignored (and also logged by `initialize_metadata_custom_resource()`).
+                        event!(Level::WARN, "An error occurred when initializing BottlerocketShadow. Restarting event loop");
                         sleep(AGENT_SLEEP_DURATION).await;
                         continue;
                     }
                 }
             }
 
-            // Requests metadata 'status' and 'spec' for the current BottlerocketNode
-            let bottlerocket_node = match self.fetch_custom_resource().await {
-                Ok(bottlerocket_node) => bottlerocket_node,
+            // Requests metadata 'status' and 'spec' for the current BottlerocketShadow
+            let bottlerocket_shadow = match self.fetch_custom_resource().await {
+                Ok(bottlerocket_shadow) => bottlerocket_shadow,
                 Err(_) => {
-                    // Errors fetching brn are ignored (and also logged by `fetch_custom_resource()`).
+                    // Errors fetching brs are ignored (and also logged by `fetch_custom_resource()`).
                     event!(
                         Level::WARN,
-                        "An error occurred when fetching BottlerocketNode. Restarting event loop"
+                        "An error occurred when fetching BottlerocketShadow. Restarting event loop"
                     );
                     sleep(AGENT_SLEEP_DURATION).await;
                     continue;
                 }
             };
 
-            let bottlerocket_node_status = bottlerocket_node
+            let bottlerocket_shadow_status = bottlerocket_shadow
                 .status
-                .context(agentclient_error::MissingBottlerocketNodeStatus)?;
-            let bottlerocket_node_spec = bottlerocket_node.spec;
+                .context(agentclient_error::MissingBottlerocketShadowStatus)?;
+            let bottlerocket_shadow_spec = bottlerocket_shadow.spec;
 
             // Determine if the spec on the system's custom resource demands the node take action. If so, begin taking that action.
-            if bottlerocket_node_spec.state != bottlerocket_node_status.current_state {
+            if bottlerocket_shadow_spec.state != bottlerocket_shadow_status.current_state {
                 event!(
                     Level::INFO,
-                    brn_name = ?bottlerocket_node.metadata.name,
-                    action = ?bottlerocket_node_spec.state,
+                    brs_name = ?bottlerocket_shadow.metadata.name,
+                    action = ?bottlerocket_shadow_spec.state,
                     "Detected drift between spec state and current state. Requesting node to take action"
                 );
 
-                match bottlerocket_node_spec.state {
-                    BottlerocketNodeState::Idle => {
+                match bottlerocket_shadow_spec.state {
+                    BottlerocketShadowState::Idle => {
                         event!(
                             Level::INFO,
                             "Ready to finish monitoring and start update process"
                         );
                     }
-                    BottlerocketNodeState::StagedUpdate => {
+                    BottlerocketShadowState::StagedUpdate => {
                         event!(Level::INFO, "Preparing update");
                         prepare().await.context(agentclient_error::UpdateActions {
                             action: "Prepare".to_string(),
@@ -341,21 +341,21 @@ impl<T: APIServerClient> BrupopAgent<T> {
 
                         self.cordon_and_drain().await?;
                     }
-                    BottlerocketNodeState::PerformedUpdate => {
+                    BottlerocketShadowState::PerformedUpdate => {
                         event!(Level::INFO, "Performing update");
                         update().await.context(agentclient_error::UpdateActions {
                             action: "Perform".to_string(),
                         })?;
                     }
-                    BottlerocketNodeState::RebootedIntoUpdate => {
+                    BottlerocketShadowState::RebootedIntoUpdate => {
                         event!(Level::INFO, "Rebooting node to complete update");
 
-                        if running_desired_version(&bottlerocket_node_spec).await? {
+                        if running_desired_version(&bottlerocket_shadow_spec).await? {
                             // previous execution `reboot` exited loop and did not update the custom resource
                             // associated with this node. When re-enter loop and finished reboot,
                             // try to update the custom resource.
                             let update_node_status = match self
-                                .gather_system_metadata(bottlerocket_node_spec.state.clone())
+                                .gather_system_metadata(bottlerocket_shadow_spec.state.clone())
                                 .await
                             {
                                 Ok(update_node_status) => update_node_status,
@@ -371,8 +371,8 @@ impl<T: APIServerClient> BrupopAgent<T> {
                                 .await
                                 .is_err()
                             {
-                                // Errors updating BottlerocketNode are ignored (and also logged by `update_metadata_custom_resource()`).
-                                event!(Level::WARN, "An error occurred when updating BottlerocketNode. Restarting event loop");
+                                // Errors updating BottlerocketShadow are ignored (and also logged by `update_metadata_custom_resource()`).
+                                event!(Level::WARN, "An error occurred when updating BottlerocketShadow. Restarting event loop");
                                 sleep(AGENT_SLEEP_DURATION).await;
                                 continue;
                             };
@@ -384,7 +384,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                                 })?;
                         }
                     }
-                    BottlerocketNodeState::MonitoringUpdate => {
+                    BottlerocketShadowState::MonitoringUpdate => {
                         event!(Level::INFO, "Monitoring node's healthy condition");
                         self.uncordon().await?;
                         // TODO: we need add some criterias here by which we decide to transition
@@ -397,7 +397,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
 
             // update the custom resource associated with this node
             let updated_node_status = match self
-                .gather_system_metadata(bottlerocket_node_spec.state.clone())
+                .gather_system_metadata(bottlerocket_shadow_spec.state.clone())
                 .await
             {
                 Ok(updated_node_status) => updated_node_status,
@@ -411,16 +411,16 @@ impl<T: APIServerClient> BrupopAgent<T> {
                     continue;
                 }
             };
-            if updated_node_status != bottlerocket_node_status {
+            if updated_node_status != bottlerocket_shadow_status {
                 if self
                     .update_metadata_custom_resource(updated_node_status)
                     .await
                     .is_err()
                 {
-                    // Errors updating BottlerocketNode are ignored (and also logged by `update_metadata_custom_resource()`).
+                    // Errors updating BottlerocketShadow are ignored (and also logged by `update_metadata_custom_resource()`).
                     event!(
                         Level::WARN,
-                        "An error occurred when updating BottlerocketNode. Restarting event loop"
+                        "An error occurred when updating BottlerocketShadow. Restarting event loop"
                     );
                     sleep(AGENT_SLEEP_DURATION).await;
                     continue;
@@ -434,10 +434,10 @@ impl<T: APIServerClient> BrupopAgent<T> {
 }
 
 /// Check that the currently running version is the one requested by the controller.
-async fn running_desired_version(spec: &BottlerocketNodeSpec) -> Result<bool> {
+async fn running_desired_version(spec: &BottlerocketShadowSpec) -> Result<bool> {
     let os_info = get_os_info()
         .await
-        .context(agentclient_error::BottlerocketNodeStatusVersion)?;
+        .context(agentclient_error::BottlerocketShadowStatusVersion)?;
     Ok(match spec.version() {
         Some(spec_version) => os_info.version_id == spec_version,
         None => false,
@@ -459,10 +459,10 @@ pub mod agentclient_error {
     #[snafu(visibility = "pub")]
     pub enum Error {
         #[snafu(display("Unable to gather system version metadata: {}", source))]
-        BottlerocketNodeStatusVersion { source: apiclient_error::Error },
+        BottlerocketShadowStatusVersion { source: apiclient_error::Error },
 
         #[snafu(display("Unable to gather system chosen update metadata: '{}'", source))]
-        BottlerocketNodeStatusChosenUpdate { source: apiclient_error::Error },
+        BottlerocketShadowStatusChosenUpdate { source: apiclient_error::Error },
 
         #[snafu(display("Unable to drain and cordon this node: '{}'", source))]
         CordonAndDrainNode {
@@ -473,7 +473,7 @@ pub mod agentclient_error {
             "Unable to create the custom resource associated with this node: '{}'",
             source
         ))]
-        CreateBottlerocketNodeResource {
+        CreateBottlerocketShadowResource {
             source: apiserver::client::ClientError,
         },
 
@@ -481,12 +481,12 @@ pub mod agentclient_error {
             "ErrorResponse code '{}' when sending to fetch Bottlerocket Node",
             code
         ))]
-        FetchBottlerocketNodeErrorCode { code: u16 },
+        FetchBottlerocketShadowErrorCode { code: u16 },
 
         #[snafu(display(
             "Unable to get Bottlerocket node 'status' because of missing 'status' value"
         ))]
-        MissingBottlerocketNodeStatus,
+        MissingBottlerocketShadowStatus,
 
         #[snafu(display("Unable to get Node uid because of missing Node `uid` value"))]
         MissingNodeUid {},
@@ -512,7 +512,7 @@ pub mod agentclient_error {
             "Unable to update the custom resource associated with this node: '{}'",
             source
         ))]
-        UpdateBottlerocketNodeResource {
+        UpdateBottlerocketShadowResource {
             source: apiserver::client::ClientError,
         },
 
@@ -521,7 +521,7 @@ pub mod agentclient_error {
             source,
             node_name
         ))]
-        UnableFetchBottlerocketNode {
+        UnableFetchBottlerocketShadow {
             node_name: String,
             source: kube::Error,
         },

@@ -57,8 +57,8 @@ pub fn agent_cluster_role() -> ClusterRole {
             PolicyRule {
                 api_groups: Some(vec!["brupop.bottlerocket.aws".to_string()]),
                 resources: Some(vec![
-                    "bottlerocketnodes".to_string(),
-                    "bottlerocketnodes/status".to_string(),
+                    "bottlerocketshadows".to_string(),
+                    "bottlerocketshadows/status".to_string(),
                 ]),
                 verbs: vec!["get", "list", "watch"]
                     .iter()

@@ -1,6 +1,6 @@
 use super::{APIServerSettings, ApiserverCommonHeaders};
 use crate::error::{self, Result};
-use models::node::{BottlerocketNodeClient, BottlerocketNodeStatus};
+use models::node::{BottlerocketShadowClient, BottlerocketShadowStatus};
 
 use actix_web::{
     web::{self},
@@ -11,8 +11,8 @@ use snafu::ResultExt;
 
 use std::convert::TryFrom;
 
-/// HTTP endpoint which creates BottlerocketNode custom resources on behalf of the caller.
-pub(crate) async fn create_bottlerocket_node_resource<T: BottlerocketNodeClient>(
+/// HTTP endpoint which creates BottlerocketShadow custom resources on behalf of the caller.
+pub(crate) async fn create_bottlerocket_shadow_resource<T: BottlerocketShadowClient>(
     settings: web::Data<APIServerSettings<T>>,
     http_req: HttpRequest,
 ) -> Result<impl Responder> {
@@ -21,23 +21,23 @@ pub(crate) async fn create_bottlerocket_node_resource<T: BottlerocketNodeClient>
         .node_client
         .create_node(&headers.node_selector)
         .await
-        .context(error::BottlerocketNodeCreate)?;
+        .context(error::BottlerocketShadowCreate)?;
 
     Ok(HttpResponse::Ok().body(format!("{}", json!(&br_node))))
 }
 
-/// HTTP endpoint which updates the `status` of a BottlerocketNode custom resource on behalf of the caller.
-pub(crate) async fn update_bottlerocket_node_resource<T: BottlerocketNodeClient>(
+/// HTTP endpoint which updates the `status` of a BottlerocketShadow custom resource on behalf of the caller.
+pub(crate) async fn update_bottlerocket_shadow_resource<T: BottlerocketShadowClient>(
     settings: web::Data<APIServerSettings<T>>,
     http_req: HttpRequest,
-    node_status: web::Json<BottlerocketNodeStatus>,
+    node_status: web::Json<BottlerocketShadowStatus>,
 ) -> Result<impl Responder> {
     let headers = ApiserverCommonHeaders::try_from(http_req.headers())?;
     settings
         .node_client
         .update_node_status(&headers.node_selector, &node_status)
         .await
-        .context(error::BottlerocketNodeUpdate)?;
+        .context(error::BottlerocketShadowUpdate)?;
 
     Ok(HttpResponse::Ok().body(format!("{}", json!(&node_status))))
 }
@@ -51,8 +51,8 @@ mod tests {
         NODE_RESOURCE_ENDPOINT,
     };
     use models::node::{
-        BottlerocketNode, BottlerocketNodeSelector, BottlerocketNodeSpec, BottlerocketNodeState,
-        MockBottlerocketNodeClient, Version,
+        BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowSpec,
+        BottlerocketShadowState, MockBottlerocketShadowClient, Version,
     };
 
     use actix_web::{
@@ -70,13 +70,13 @@ mod tests {
         let node_name = "test-node-name";
         let node_uid = "test-node-uid";
 
-        let node_selector = BottlerocketNodeSelector {
+        let node_selector = BottlerocketShadowSelector {
             node_name: node_name.to_string(),
             node_uid: node_uid.to_string(),
         };
 
         let return_value =
-            BottlerocketNode::new("brn-test-node-name", BottlerocketNodeSpec::default());
+            BottlerocketShadow::new("brs-test-node-name", BottlerocketShadowSpec::default());
         let expected_return_value = return_value.clone();
 
         let settings = test_settings(|node_client| {
@@ -98,8 +98,9 @@ mod tests {
             App::new()
                 .route(
                     NODE_RESOURCE_ENDPOINT,
-                    web::post()
-                        .to(create_bottlerocket_node_resource::<Arc<MockBottlerocketNodeClient>>),
+                    web::post().to(create_bottlerocket_shadow_resource::<
+                        Arc<MockBottlerocketShadowClient>,
+                    >),
                 )
                 .app_data(Data::new(settings)),
         )
@@ -110,9 +111,9 @@ mod tests {
         // The call returns a JSON-ified copy of the created node on success.
         assert!(resp.status().is_success());
         if let AnyBody::Bytes(b) = resp.into_body() {
-            let brn: BottlerocketNode =
+            let brs: BottlerocketShadow =
                 serde_json::from_slice(&b).expect("Could not parse JSON response.");
-            assert_eq!(brn, expected_return_value);
+            assert_eq!(brs, expected_return_value);
         } else {
             panic!("Response did not return a body.");
         }
@@ -123,14 +124,14 @@ mod tests {
         let node_name = "test-node-name";
         let node_uid = "test-node-uid";
 
-        let node_selector = BottlerocketNodeSelector {
+        let node_selector = BottlerocketShadowSelector {
             node_name: node_name.to_string(),
             node_uid: node_uid.to_string(),
         };
-        let node_status = BottlerocketNodeStatus::new(
+        let node_status = BottlerocketShadowStatus::new(
             Version::new(1, 2, 1),
             Version::new(1, 3, 0),
-            BottlerocketNodeState::default(),
+            BottlerocketShadowState::default(),
         );
 
         let settings = test_settings(|node_client| {
@@ -140,7 +141,8 @@ mod tests {
                 .expect_update_node_status()
                 .returning(|_, _| Ok(()))
                 .withf(
-                    move |selector: &BottlerocketNodeSelector, status: &BottlerocketNodeStatus| {
+                    move |selector: &BottlerocketShadowSelector,
+                          status: &BottlerocketShadowStatus| {
                         my_selector == selector.clone() && my_status == status.clone()
                     },
                 )
@@ -159,8 +161,9 @@ mod tests {
             App::new()
                 .route(
                     NODE_RESOURCE_ENDPOINT,
-                    web::put()
-                        .to(update_bottlerocket_node_resource::<Arc<MockBottlerocketNodeClient>>),
+                    web::put().to(update_bottlerocket_shadow_resource::<
+                        Arc<MockBottlerocketShadowClient>,
+                    >),
                 )
                 .app_data(Data::new(settings)),
         )
@@ -170,7 +173,7 @@ mod tests {
 
         assert!(resp.status().is_success());
         if let AnyBody::Bytes(b) = resp.into_body() {
-            let return_status: BottlerocketNodeStatus =
+            let return_status: BottlerocketShadowStatus =
                 serde_json::from_slice(&b).expect("Could not parse JSON response.");
             assert_eq!(return_status, node_status);
         } else {

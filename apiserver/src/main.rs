@@ -1,7 +1,7 @@
 use apiserver::api::{self, APIServerSettings};
 use apiserver::error::{self, Result};
 use apiserver::telemetry::init_telemetry;
-use models::node::K8SBottlerocketNodeClient;
+use models::node::K8SBottlerocketShadowClient;
 use tracing::{event, Level};
 
 use snafu::ResultExt;
@@ -39,7 +39,7 @@ async fn run_server() -> Result<()> {
         .context(error::ClientCreate)?;
 
     let settings = APIServerSettings {
-        node_client: K8SBottlerocketNodeClient::new(k8s_client.clone()),
+        node_client: K8SBottlerocketShadowClient::new(k8s_client.clone()),
         server_port: 8080,
     };
 

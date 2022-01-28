@@ -36,7 +36,7 @@ pub enum AuthorizationError {
     NoSuchPod { pod_name: String },
 
     #[snafu(display(
-        "Requesting pod's node ('{}') does not match brn selector ('{}')",
+        "Requesting pod's node ('{}') does not match brs selector ('{}')",
         requesting_node,
         target_node
     ))]
