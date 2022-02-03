@@ -227,7 +227,7 @@ spec:
       containers:
         - command:
             - "./apiserver"
-          image: "109276217309.dkr.ecr.us-west-2.amazonaws.com/brupop:latest"
+          image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v0.2.0"
           livenessProbe:
             httpGet:
               path: /ping
@@ -241,8 +241,6 @@ spec:
               path: /ping
               port: 8080
             initialDelaySeconds: 5
-      imagePullSecrets:
-        - name: brupop
       serviceAccountName: brupop-apiserver-service-account
 ---
 apiVersion: v1
@@ -354,7 +352,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-          image: "109276217309.dkr.ecr.us-west-2.amazonaws.com/brupop:latest"
+          image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v0.2.0"
           name: brupop
           resources:
             limits:
@@ -371,8 +369,6 @@ spec:
               name: bottlerocket-apiclient
             - mountPath: /var/run/secrets/tokens/
               name: bottlerocket-agent-service-account-token
-      imagePullSecrets:
-        - name: brupop
       serviceAccountName: brupop-agent-service-account
       volumes:
         - hostPath:
@@ -488,10 +484,8 @@ spec:
       containers:
         - command:
             - "./controller"
-          image: "109276217309.dkr.ecr.us-west-2.amazonaws.com/brupop:latest"
+          image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v0.2.0"
           name: brupop
-      imagePullSecrets:
-        - name: brupop
       serviceAccountName: brupop-controller-service-account
 ---
 apiVersion: v1
