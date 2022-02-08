@@ -5,3 +5,69 @@ expression = "MIT AND BSD-3-Clause"
 license-files = [
     { path = "LICENSE", hash = 0xcdf3ae00 },
 ]
+
+[clarify.crossbeam-channel]
+expression = "(MIT OR Apache-2.0) AND BSD-2-Clause AND CC-BY-3.0"
+license-files = [
+    { path = "LICENSE-APACHE", hash = 0x24b54f4b },
+    { path = "LICENSE-MIT", hash = 0xbc436f08 },
+    { path = "LICENSE-THIRD-PARTY", hash =0x847bf39 },
+]
+
+[clarify.regex]
+expression = "MIT OR Apache-2.0"
+license-files = [
+    { path = "LICENSE-APACHE", hash = 0x24b54f4b },
+    { path = "LICENSE-MIT", hash = 0xb755395b },
+]
+skip-files = [
+    "src/testdata/LICENSE", # we aren't using the test data
+]
+
+[clarify.regex-automata]
+expression = "Unlicense OR MIT"
+license-files = [
+    { path = "LICENSE-MIT", hash = 0x616d8a83 },
+    { path = "UNLICENSE", hash = 0x87b84020 },
+]
+skip-files = [
+    # these licenses apply to the test data, which we don't distribute,
+    "data/tests/fowler/LICENSE",
+    "data/fowler-tests/LICENSE",
+    # this file describes what licenses apply to the sources, and when they apply
+    "COPYING"
+]
+
+[clarify.regex-syntax]
+expression = "(MIT OR Apache-2.0) AND Unicode-DFS-2016"
+license-files = [
+    { path = "LICENSE-APACHE", hash = 0x24b54f4b },
+    { path = "LICENSE-MIT", hash = 0xb755395b },
+    { path = "src/unicode_tables/LICENSE-UNICODE", hash = 0xa7f28b93 },
+]
+
+[clarify.typenum]
+expression = "MIT OR Apache-2.0"
+license-files = [
+    { path = "LICENSE-APACHE", hash = 0x91d5a0a7 },
+    { path = "LICENSE-MIT", hash = 0xb9f15462 },
+    { path = "LICENSE", hash = 0xa4618a29 },
+]
+
+[clarify.zstd-sys]
+# The zstd-sys crate's license is listed as MIT or Apache2
+#
+# zstd-sys compiles zstd as a static library.
+#
+# zstd's README file states:
+# "Zstandard is dual-licensed under BSD and GPLv2."
+expression = "(MIT OR Apache-2.0) AND (BSD-2-Clause OR GPL-2.0)"
+license-files = [
+    { path = "LICENSE", hash = 0xa237d234 },
+    { path = "zstd/COPYING", hash = 0x96841aa4 },
+    { path = "zstd/LICENSE", hash = 0x79cda15 },
+]
+skip-files = [
+    # Files under zstd/build are for IDE integrations, and are unused.
+    "zstd/build/LICENSE"
+]

@@ -1,0 +1,23 @@
+[target.x86_64-bottlerocket-linux-musl]
+linker = "/usr/bin/x86_64-bottlerocket-linux-musl-gcc"
+ar = "/usr/bin/x86_64-bottlerocket-linux-musl-gcc-ar"
+
+rustflags = [
+  "-Ctarget-feature=+crt-static",
+  "-Clink-arg=-Wl,-Bstatic",
+  "-Clink-arg=-lc",
+  "-Clink-arg=-lgcc",
+  "-Clink-arg=-Wl,-z,relro,-z,now",
+]
+
+[target.aarch64-bottlerocket-linux-musl]
+linker = "/usr/bin/aarch64-bottlerocket-linux-musl-gcc"
+ar = "/usr/bin/aarch64-bottlerocket-linux-musl-gcc-ar"
+
+rustflags = [
+  "-Ctarget-feature=+crt-static",
+  "-Clink-arg=-Wl,-Bstatic",
+  "-Clink-arg=-lc",
+  "-Clink-arg=-lgcc",
+  "-Clink-arg=-Wl,-z,relro,-z,now",
+]
