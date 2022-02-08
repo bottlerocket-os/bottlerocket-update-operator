@@ -2,8 +2,8 @@
 dev/
 *.nix
 .envrc
+.env
 *.el
 *.tar*
-bin/
-vendor/
-bottlerocket-update-operator
+target/
+design/

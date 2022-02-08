@@ -1,3 +1,41 @@
+# 0.2.0
+
+Bottlerocket Update Operator (Brupop) 0.2.0 is a complete overhaul and rewrite of the update operator.
+It will, by default, continue to rely on Bottlerocket’s client-side update API to determine when to perform an update on any given node — foregoing any complex deployment velocity controls, and instead relying on the wave system built-in to update Bottlerocket.
+Compared to Brupop 0.1.0, Brupop 0.2.0 not only improves performance, but also increases observability while scoping down permissions required by the update operator agent.
+
+When installed, the Bottlerocket update operator starts a controller deployment on one node, an agent daemon set on every Bottlerocket node, and an Update Operator API Server deployment.
+The controller orchestrates updates across your cluster, while the agent is responsible for periodically querying for Bottlerocket updates, draining the node, and performing the update when asked by the controller.
+Instead of having the independent controller and agent cooperate and pass messages via RPC, Brupop 0.2.0 associates a [Custom Resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) (called BottlerocketShadow) with each Bottlerocket node containing status information about the node, as well as a desired state.
+The agent performs all cluster object mutation operations via the API Server.
+[Service Account Token Volume Projection](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#service-account-token-volume-projection) is used in API Server instead of the usual Kubernetes [rbac](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) system for authorization to limit sufficient permissions for any node being able to modify any other nodes.
+
+Brupop 0.2.0 also integrates with [Prometheus](https://prometheus.io/docs/instrumenting/clientlibs/) by exposing an HTTP endpoint from which Prometheus can gather metrics, allowing customers insight into the actions that the operator is taking. 
+
+
+Fixed:
+
+* Fixed a bug preventing nodes from being drained of certain pod deployments ([#74])
+* Add more detailed context handling ([#71])
+* Increased the amount of logging across the entirety of the operator ([#68])
+* Added Prometheus metrics support ([#132])
+* Added the ability to monitor cluster state by querying custom resources with kubectl ([#101]), ([#85])
+* Simplified license scan and build process to use a single Dockerfile  ([#147])
+
+
+Removed:
+
+* Deprecated updog platform integration in favor of Bottlerocket API ([#60])
+
+[#74]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/74
+[#71]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/71 
+[#68]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/68 
+[#60]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/60
+[#132]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/132
+[#147]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/147
+[#101]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/101
+[#85]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/85 
+
 # 0.1.5
 
 * Use ECR Public image instead of region-specific image ([#65])

@@ -1,52 +1,48 @@
-# syntax=docker/dockerfile:experimental
+ARG BUILDER_IMAGE
+FROM ${BUILDER_IMAGE} as build
 
-# LICENSES_IMAGE is a container image that contains license files for the source
-# and its dependencies. When building with `make container`, the licenses
-# container image is built and provided as LICENSE_IMAGE.
-ARG LICENSES_IMAGE=scratch
-
-# GOLANG_IMAGE is the go toolchain container image used to build the update
-# operator.
-ARG GOLANG_IMAGE=golang:1.16.5
-
-FROM $LICENSES_IMAGE as licenses
-# Set WORKDIR to create /licenses/ if the directory is missing.
-#
-# Having an image with /licenses/ lets scratch be substituted in when
-# LICENSES_IMAGE isn't provided. For example, a user can manually run `docker
-# build -t neio:latest .` to build a working image without providing an expected
-# LICENSES_IMAGE.
-WORKDIR /licenses/
-
-FROM $GOLANG_IMAGE as build
+ARG UNAME_ARCH
 USER root
-ENV GOPROXY=direct
-WORKDIR /src
-COPY go.mod go.sum /src/
-RUN go mod download
-ARG GO_LDFLAGS=
-ARG GOARCH=
-ARG SHORT_SHA=
-COPY ./ /src/
-RUN make -e build GOBIN=/ CGO_ENABLED=0
 
-# This stage provides certificates (to be copied) from Amazon Linux 2.
-FROM amazonlinux:2 as al2
+# We need these environment variables set for building the `openssl-sys` crate
+ENV PKG_CONFIG_PATH=/${UNAME_ARCH}-bottlerocket-linux-musl/sys-root/usr/lib/pkgconfig
+ENV PKG_CONFIG_ALLOW_CROSS=1
+ENV CARGO_HOME=/src/.cargo
+ENV OPENSSL_STATIC=true
 
-# Build minimal container with a static build of the update operator executable.
-FROM scratch as update-operator
-COPY --from=al2 /etc/ssl /etc/ssl
-COPY --from=al2 /etc/pki /etc/pki
-COPY --from=build /src/COPYRIGHT /src/LICENSE-* /usr/share/licenses/bottlerocket-update-operator/
-COPY --from=licenses /licenses/ /usr/share/licenses/bottlerocket-update-operator/vendor/
-COPY --from=build /bottlerocket-update-operator /
-ENTRYPOINT ["/bottlerocket-update-operator"]
-CMD ["-help"]
+ADD ./ /src/
+RUN cargo install --offline --locked --target ${UNAME_ARCH}-bottlerocket-linux-musl --path /src/agent --root /src/agent && \
+    cargo install --offline --locked --target ${UNAME_ARCH}-bottlerocket-linux-musl --path /src/apiserver --root /src/apiserver && \
+    cargo install --offline --locked --target ${UNAME_ARCH}-bottlerocket-linux-musl --path /src/controller --root /src/controller
 
-FROM build as test
-# Accept a cache-busting value to explicitly run tests.
-ARG NOCACHE=
-RUN make -e test
+# Gather licenses of dependencies
+RUN /usr/libexec/tools/bottlerocket-license-scan \
+    --clarify /src/clarify.toml \
+    --spdx-data /usr/libexec/tools/spdx-data \
+    --out-dir /licenses \
+    cargo --offline --locked /src/Cargo.toml
 
-# Make container the output of a plain 'docker build'.
-FROM update-operator
+
+FROM scratch
+# Copy CA certificates store
+COPY --from=build /etc/ssl /etc/ssl
+COPY --from=build /etc/pki /etc/pki
+
+# Copy rust binaries into resulting image
+COPY --from=build /src/apiserver/bin/apiserver ./
+COPY --from=build /src/agent/bin/agent ./
+COPY --from=build /src/controller/bin/controller ./
+
+# Copy license data
+COPY --from=build /src/COPYRIGHT /src/LICENSE-MIT /src/LICENSE-APACHE /licenses/bottlerocket-update-operator/
+# Direct rust dependencies of the update-operator
+COPY --from=build /licenses /licenses
+# Build dependencies from the Bottlerocket SDK
+COPY --from=build \
+    /usr/share/licenses/bottlerocket-sdk-musl \
+    /usr/share/licenses/rust \
+    /usr/share/licenses/openssl \
+    /licenses/bottlerocket-sdk/
+
+# Expose apiserver port
+EXPOSE 8080

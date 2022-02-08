@@ -1,0 +1,49 @@
+[package]
+name = "apiserver"
+version = "0.1.0"
+edition = "2018"
+publish = false
+license = "Apache-2.0 OR MIT"
+
+[features]
+default = ["client", "server"]
+client = []
+server = []
+
+
+[dependencies]
+models = { path = "../models", version = "0.1.0" }
+
+# tracing-actix-web version must align with actix-web version
+actix-web = { version = "4.0.0-beta.9", default-features = false }
+actix-web-opentelemetry = { version = "0.11.0-beta.5", features = ["metrics"] }
+opentelemetry = { version = "0.16", features = ["rt-tokio-current-thread"]}
+opentelemetry-prometheus = "0.9"
+tracing = "0.1"
+tracing-actix-web = "0.4.0-beta.14"
+tracing-bunyan-formatter = "0.3"
+tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
+tracing-opentelemetry = "0.16"
+
+# k8s-openapi must match the version required by kube and enable a k8s version feature
+k8s-openapi = { version = "0.13.1", default-features = false, features = ["v1_20"] }
+kube = { version = "0.66.0", default-features = true, features = [ "derive", "runtime" ] }
+
+async-trait = "0.1"
+futures = "0.3"
+lazy_static = "1.4"
+log = "0.4"
+mockall = { version = "0.10", optional = true }
+reqwest = { version = "0.11", features =  [ "json", "native-tls" ] }
+schemars = "0.8"
+serde = { version = "1", features = [ "derive" ] }
+serde_json = "1"
+snafu = "0.6"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+tokio-retry = "0.3"
+
+[dev-dependencies]
+http = "0.2"
+maplit = "1.0"
+mockall = "0.10"
+models = { path = "../models", version = "0.1.0", features = [ "mockall" ] }
