@@ -42,6 +42,7 @@ pub(crate) struct Arguments {
     region: String,
 
     #[structopt(
+        global = true,
         long = "--kube-config-path",
         default_value = DEFAULT_KUBECONFIG_FILE_NAME
     )]
@@ -64,26 +65,54 @@ struct IntegrationTestArgs {
     instance_ami_id: String,
 }
 
-async fn generate_kube_config_path(args_kube_config_path: &str) -> Result<String> {
-    // default kube config path is /temp/kubeconfig.yaml
-    let kube_config_path = match args_kube_config_path {
-        DEFAULT_KUBECONFIG_FILE_NAME => format!(
-            "{}/{}",
-            temp_dir().to_str().context(error::FindTmpDir)?,
-            DEFAULT_KUBECONFIG_FILE_NAME
-        ),
-        res => res.to_string(),
-    };
+async fn generate_kubeconfig(arguments: &Arguments) -> Result<String> {
+    // default kube config path is /temp/{CLUSTER_NAME}-{REGION}/kubeconfig.yaml
+    let kube_config_path = generate_kubeconfig_file_path(&arguments).await?;
+
+    // decode and write kubeconfig
+    info!("decoding and writing kubeconfig ...");
+
+    write_kubeconfig(
+        &arguments.cluster_name,
+        &arguments.region,
+        &kube_config_path,
+    )
+    .context(error::WriteKubeconfig)?;
+    info!(
+        "kubeconfig has been written and store at {:?}",
+        &kube_config_path
+    );
 
     Ok(kube_config_path)
+}
+
+async fn generate_kubeconfig_file_path(arguments: &Arguments) -> Result<String> {
+    let unique_kube_config_temp_dir = get_kube_config_temp_dir_path(&arguments)?;
+
+    fs::create_dir_all(&unique_kube_config_temp_dir).context(error::CreateDir)?;
+
+    let kube_config_path = format!(
+        "{}/{}",
+        &unique_kube_config_temp_dir, DEFAULT_KUBECONFIG_FILE_NAME
+    );
+
+    Ok(kube_config_path)
+}
+
+fn get_kube_config_temp_dir_path(arguments: &Arguments) -> Result<String> {
+    let unique_tmp_dir_name = format!("{}-{}", arguments.cluster_name, arguments.region);
+    let unique_kube_config_temp_dir = format!(
+        "{}/{}",
+        temp_dir().to_str().context(error::FindTmpDir)?,
+        unique_tmp_dir_name
+    );
+
+    Ok(unique_kube_config_temp_dir)
 }
 
 async fn run() -> Result<()> {
     // Parse and store the args passed to the program
     let args = Arguments::from_args();
-
-    // generate kube config path if no input value for argument `kube_config_path`
-    let kube_config_path = generate_kube_config_path(&args.kube_config_path).await?;
 
     let cluster_info = get_cluster_info(&args.cluster_name, &args.region)
         .await
@@ -99,15 +128,11 @@ async fn run() -> Result<()> {
                     .context(error::CreateEc2Instances)?;
             info!("EC2 instances have been created");
 
-            // decode and write kubeconfig
-            info!("decoding and writing kubeconfig ...");
-
-            write_kubeconfig(&args.cluster_name, &DEFAULT_REGION, &kube_config_path)
-                .context(error::WriteKubeconfig)?;
-            info!(
-                "kubeconfig has been written and store at {:?}",
-                kube_config_path
-            );
+            // generate kubeconfig if no input value for argument `kube_config_path`
+            let kube_config_path: String = match args.kube_config_path.as_str() {
+                DEFAULT_KUBECONFIG_FILE_NAME => generate_kubeconfig(&args).await?,
+                res => res.to_string(),
+            };
 
             info!("Sleeping 60 secs to wait Nodes be ready ...");
             sleep(INTEGRATION_TEST_DELAY).await;
@@ -130,6 +155,12 @@ async fn run() -> Result<()> {
                 .context(error::RunBrupop)?;
         }
         SubCommand::Clean => {
+            // generate kubeconfig path if no input value for argument `kube_config_path`
+            let kube_config_path: String = match args.kube_config_path.as_str() {
+                DEFAULT_KUBECONFIG_FILE_NAME => generate_kubeconfig_file_path(&args).await?,
+                res => res.to_string(),
+            };
+
             // terminate all instances which created by integration test.
             info!("Terminating EC2 instance ...");
             terminate_ec2_instance(cluster_info)
@@ -142,9 +173,12 @@ async fn run() -> Result<()> {
                 .await
                 .context(error::DeleteClusterResources)?;
 
-            // delete tmp directory and kubeconfig.yaml
-            info!("Deleting tmp directory and kubeconfig.yaml ...");
-            fs::remove_file(kube_config_path).context(error::DeleteTmpDir)?;
+            // delete tmp directory and kubeconfig.yaml if no input value for argument `kube_config_path`
+            if &args.kube_config_path == DEFAULT_KUBECONFIG_FILE_NAME {
+                info!("Deleting tmp directory and kubeconfig.yaml ...");
+                fs::remove_dir_all(get_kube_config_temp_dir_path(&args)?)
+                    .context(error::DeleteTmpDir)?;
+            }
         }
     }
     Ok({})
@@ -160,6 +194,9 @@ mod error {
     pub(super) enum Error {
         #[snafu(display("Failed to get eks cluster info: {}", source))]
         GetClusterInfo { source: ProviderError },
+
+        #[snafu(display("Unable to create directory for storing kubeconfig file: {}", source))]
+        CreateDir { source: std::io::Error },
 
         #[snafu(display("Failed to create ec2 instances: {}", source))]
         CreateEc2Instances { source: ProviderError },
