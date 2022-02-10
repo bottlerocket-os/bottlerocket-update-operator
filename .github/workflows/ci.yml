@@ -8,7 +8,7 @@ on:
       - 'COPYRIGHT'
       - 'LICENSE**'
       - 'design/**'
-    branches: [0.2.0]
+    branches: [develop]
 
   push:
     paths-ignore:
@@ -16,7 +16,7 @@ on:
       - 'COPYRIGHT'
       - 'LICENSE**'
       - 'design/**'
-    branches: [0.2.0]
+    branches: [develop]
 
 jobs:
 
