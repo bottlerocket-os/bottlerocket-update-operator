@@ -83,7 +83,7 @@ async fn run_agent() -> Result<()> {
             futures::future::ready(())
         });
 
-    let mut agent = BrupopAgent::new(
+    let agent = BrupopAgent::new(
         k8s_client.clone(),
         apiserver_client,
         brs_reader,
