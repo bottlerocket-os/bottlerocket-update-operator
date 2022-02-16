@@ -168,6 +168,11 @@ You may also choose to pull from regional Amazon ECR repositories such as the fo
   - 388230364387.dkr.ecr.us-gov-east-1.amazonaws.com
   - 347163068887.dkr.ecr.us-gov-west-1.amazonaws.com
 
+Example regional image URI:
+```
+328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-update-operator:v0.2.0
+```
+
 ### Current Limitations
 
 - Communication between the bottlerocket agents and API server does not currently use SSL, due to a requirement for a cert management solution.
