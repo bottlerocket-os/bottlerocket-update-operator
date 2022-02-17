@@ -16,6 +16,7 @@ use snafu::ResultExt;
 use tokio::time::Duration;
 use validator::Validate;
 
+use std::cmp::Ordering;
 use std::fmt;
 use std::str::FromStr;
 
@@ -36,7 +37,7 @@ pub use self::client::MockBottlerocketShadowClient;
 /// BottlerocketShadowState represents a node's state in the update state machine.
 #[derive(Copy, Clone, Serialize, Deserialize, Debug, Eq, PartialEq, JsonSchema)]
 pub enum BottlerocketShadowState {
-    /// Nodes in this state are waiting for new updates to become available. This is both the starting and terminal state
+    /// Nodes in this state are waiting for new updates to become available. This is both the starting, terminal and recovery state
     /// in the update process.
     Idle,
     /// Nodes in this state have staged a new update image and used the kubernetes cordon and drain APIs to remove
@@ -50,6 +51,9 @@ pub enum BottlerocketShadowState {
     /// Nodes in this state have un-cordoned the node to allow work to be scheduled, and are monitoring to ensure that
     /// the node seems healthy before marking the udpate as complete.
     MonitoringUpdate,
+
+    /// Nodes in this state have crashed due to Bottlerocket Update API call failure.
+    ErrorReset,
 }
 
 impl Default for BottlerocketShadowState {
@@ -64,6 +68,7 @@ const PERFORMED_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(120)
 const REBOOTED_INTO_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(600));
 const MONITORING_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(300));
 const IDLE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(120));
+const ERROR_RESET_TIMEOUT: Option<Duration> = Some(Duration::from_secs(u64::MAX));
 
 impl BottlerocketShadowState {
     /// Returns the next state in the state machine if the current state has been reached successfully.
@@ -74,6 +79,7 @@ impl BottlerocketShadowState {
             Self::PerformedUpdate => Self::RebootedIntoUpdate,
             Self::RebootedIntoUpdate => Self::MonitoringUpdate,
             Self::MonitoringUpdate => Self::Idle,
+            Self::ErrorReset => Self::Idle,
         }
     }
 
@@ -85,6 +91,7 @@ impl BottlerocketShadowState {
             Self::PerformedUpdate => PERFORMED_UPDATE_TIMEOUT,
             Self::RebootedIntoUpdate => REBOOTED_INTO_UPDATE_TIMEOUT,
             Self::MonitoringUpdate => MONITORING_UPDATE_TIMEOUT,
+            Self::ErrorReset => ERROR_RESET_TIMEOUT,
         }
     }
 }
@@ -124,7 +131,8 @@ pub const K8S_NODE_SHORTNAME: &str = "brs";
     printcolumn = r#"{"name":"State", "type":"string", "jsonPath":".status.current_state"}"#,
     printcolumn = r#"{"name":"Version", "type":"string", "jsonPath":".status.current_version"}"#,
     printcolumn = r#"{"name":"Target State", "type":"string", "jsonPath":".spec.state"}"#,
-    printcolumn = r#"{"name":"Target Version", "type":"string", "jsonPath":".spec.version"}"#
+    printcolumn = r#"{"name":"Target Version", "type":"string", "jsonPath":".spec.version"}"#,
+    printcolumn = r#"{"name":"Crash Count", "type":"string", "jsonPath":".status.crash_count"}"#
 )]
 pub struct BottlerocketShadowSpec {
     /// Records the desired state of the `BottlerocketShadow`
@@ -147,6 +155,25 @@ impl BottlerocketShadow {
         self.status.as_ref().map_or(false, |node_status| {
             node_status.current_state == self.spec.state
         })
+    }
+
+    /// Returns whether or not a node has crashed.
+    pub fn has_crashed(&self) -> bool {
+        self.status.as_ref().map_or(false, |node_status| {
+            node_status.current_state == BottlerocketShadowState::ErrorReset
+        })
+    }
+
+    /// Order BottleRocketShadow based on crash_count in status
+    /// to determine the priority to be handled by the controller.
+    /// Uninitialized status should be considered as lowest priority.
+    pub fn compare_crash_count(&self, other: &Self) -> Ordering {
+        match (self.status.as_ref(), other.status.as_ref()) {
+            (None, None) => Ordering::Equal,
+            (Some(_), None) => Ordering::Less,
+            (None, Some(_)) => Ordering::Greater,
+            (Some(s1), Some(s2)) => s1.crash_count().cmp(&s2.crash_count()),
+        }
     }
 }
 
@@ -200,6 +227,8 @@ pub struct BottlerocketShadowStatus {
     #[validate(regex = "SEMVER_RE")]
     target_version: String,
     pub current_state: BottlerocketShadowState,
+    crash_count: u32,
+    state_transition_failure_timestamp: Option<String>,
 }
 
 impl BottlerocketShadowStatus {
@@ -207,11 +236,17 @@ impl BottlerocketShadowStatus {
         current_version: Version,
         target_version: Version,
         current_state: BottlerocketShadowState,
+        crash_count: u32,
+        state_transition_failure_timestamp: Option<DateTime<Utc>>,
     ) -> Self {
+        let state_transition_failure_timestamp =
+            state_transition_failure_timestamp.map(|ts| ts.to_rfc3339());
         BottlerocketShadowStatus {
             current_version: current_version.to_string(),
             target_version: target_version.to_string(),
             current_state,
+            crash_count,
+            state_transition_failure_timestamp,
         }
     }
 
@@ -224,6 +259,24 @@ impl BottlerocketShadowStatus {
         // TODO This could panic if a custom `brs` is created with improperly specified versions; however, we are removing this
         // attribute in an impending iteration, so we won't fix it.
         Version::from_str(&self.target_version).unwrap()
+    }
+
+    pub fn crash_count(&self) -> u32 {
+        self.crash_count
+    }
+
+    /// JsonSchema cannot appropriately handle DateTime objects. This accessor returns the failure transition timestamp
+    /// as a DateTime.
+    pub fn failure_timestamp(&self) -> error::Result<Option<DateTime<Utc>>> {
+        self.state_transition_failure_timestamp
+            .as_ref()
+            .map(|ts_str| {
+                DateTime::parse_from_rfc3339(ts_str)
+                    // Convert `DateTime<FixedOffset>` into `DateTime<Utc>`
+                    .map(|ts| ts.into())
+                    .context(error::TimestampFormat)
+            })
+            .transpose()
     }
 }
 

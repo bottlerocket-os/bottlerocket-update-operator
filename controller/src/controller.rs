@@ -67,7 +67,7 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
     /// This could include modifying the `spec` of a brs to indicate a new desired state, or handling timeouts.
     #[instrument(skip(self), err)]
     async fn progress_node(&self, node: BottlerocketShadow) -> Result<()> {
-        if node.has_reached_desired_state() {
+        if node.has_reached_desired_state() || node.has_crashed() {
             // Emit metrics to show the existing status
             self.emit_metrics()?;
 
@@ -99,7 +99,10 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
     /// set during the next iteration of the controller's event loop.
     #[instrument(skip(self))]
     async fn find_and_update_ready_node(&self) -> Option<BottlerocketShadow> {
-        for brs in self.all_nodes() {
+        let mut shadows: Vec<BottlerocketShadow> = self.all_nodes();
+
+        shadows.sort_by(|a, b| a.compare_crash_count(b));
+        for brs in shadows {
             // If we determine that the spec should change, this node is a candidate to begin updating.
             let next_spec = determine_next_node_spec(&brs);
             if next_spec != brs.spec {

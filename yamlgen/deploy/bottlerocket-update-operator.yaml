@@ -28,6 +28,9 @@ spec:
         - jsonPath: ".spec.version"
           name: Target Version
           type: string
+        - jsonPath: ".status.crash_count"
+          name: Crash Count
+          type: string
       name: v1
       schema:
         openAPIV3Schema:
@@ -44,6 +47,7 @@ spec:
                     - PerformedUpdate
                     - RebootedIntoUpdate
                     - MonitoringUpdate
+                    - ErrorReset
                   type: string
                 state_transition_timestamp:
                   description: The time at which the most recent state was set as the desired state.
@@ -61,6 +65,10 @@ spec:
               description: "`BottlerocketShadowStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent, while the spec is updated by the brupop controller."
               nullable: true
               properties:
+                crash_count:
+                  format: uint32
+                  minimum: 0.0
+                  type: integer
                 current_state:
                   description: "BottlerocketShadowState represents a node's state in the update state machine."
                   enum:
@@ -69,14 +77,19 @@ spec:
                     - PerformedUpdate
                     - RebootedIntoUpdate
                     - MonitoringUpdate
+                    - ErrorReset
                   type: string
                 current_version:
                   pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+                  type: string
+                state_transition_failure_timestamp:
+                  nullable: true
                   type: string
                 target_version:
                   pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
                   type: string
               required:
+                - crash_count
                 - current_state
                 - current_version
                 - target_version
