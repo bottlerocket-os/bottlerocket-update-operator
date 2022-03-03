@@ -1,6 +1,7 @@
 use lazy_static::lazy_static;
 use log::info;
 use snafu::{ensure, OptionExt, ResultExt};
+use std::convert::TryFrom;
 use std::env::temp_dir;
 use std::fs;
 use std::process;
@@ -9,9 +10,12 @@ use tokio::time::{sleep, Duration};
 
 use aws_sdk_ec2::model::ArchitectureValues;
 
+use kube::config::{Config, KubeConfigOptions, Kubeconfig};
+
 use integ::ec2_provider::{create_ec2_instance, terminate_ec2_instance};
 use integ::eks_provider::{get_cluster_info, write_kubeconfig};
 use integ::error::ProviderError;
+use integ::monitor::{BrupopMonitor, IntegBrupopClient, Monitor};
 use integ::updater::{delete_brupop_resources, label_node, process_pods_test, run_brupop, Action};
 
 type Result<T> = std::result::Result<T, error::Error>;
@@ -66,6 +70,7 @@ pub(crate) struct Arguments {
 #[derive(StructOpt, Debug)]
 enum SubCommand {
     IntegrationTest(IntegrationTestArgs),
+    Monitor,
     Clean,
 }
 
@@ -200,6 +205,32 @@ async fn run() -> Result<()> {
                 .await
                 .context(error::RunBrupop)?;
         }
+        SubCommand::Monitor => {
+            // generate kubeconfig path if no input value for argument `kube_config_path`
+            let kube_config_path: String = match args.kube_config_path.as_str() {
+                DEFAULT_KUBECONFIG_FILE_NAME => generate_kubeconfig_file_path(&args).await?,
+                res => res.to_string(),
+            };
+
+            // create k8s client
+            let kubeconfig =
+                Kubeconfig::read_from(kube_config_path).context(error::ReadKubeConfig)?;
+            let config = Config::from_custom_kubeconfig(
+                kubeconfig.to_owned(),
+                &KubeConfigOptions::default(),
+            )
+            .await
+            .context(error::LoadKubeConfig)?;
+            let k8s_client =
+                kube::client::Client::try_from(config).context(error::CreateK8sClient)?;
+
+            info!("monitoring brupop");
+            let monitor_client = BrupopMonitor::new(IntegBrupopClient::new(k8s_client));
+            monitor_client
+                .run_monitor()
+                .await
+                .context(error::MonitorBrupop)?;
+        }
         SubCommand::Clean => {
             // generate kubeconfig path if no input value for argument `kube_config_path`
             let kube_config_path: String = match args.kube_config_path.as_str() {
@@ -241,6 +272,7 @@ async fn run() -> Result<()> {
 
 mod error {
     use crate::ProviderError;
+    use integ::monitor::monitor_error;
     use integ::updater::update_error;
     use snafu::Snafu;
 
@@ -265,11 +297,27 @@ mod error {
         #[snafu(display("Invalid Arch input: {}", input))]
         InvalidArchInput { input: String },
 
+        #[snafu(display("Unable create K8s client from kubeconfig: {}", source))]
+        CreateK8sClient { source: kube::Error },
+
         #[snafu(display("Failed to label ec2 instances: {}", source))]
         LabelNode { source: update_error::Error },
 
+        #[snafu(display("Unable load kubeconfig: {}", source))]
+        LoadKubeConfig {
+            source: kube::config::KubeconfigError,
+        },
+
+        #[snafu(display("Unable to read kubeconfig: {}", source))]
+        ReadKubeConfig {
+            source: kube::config::KubeconfigError,
+        },
+
         #[snafu(display("Failed to install brupop on eks cluster: {}", source))]
         RunBrupop { source: update_error::Error },
+
+        #[snafu(display("Failed to monitor brupop on eks cluster: {}", source))]
+        MonitorBrupop { source: monitor_error::Error },
 
         #[snafu(display("Failed to terminate ec2 instances: {}", source))]
         TerminateEc2Instance { source: ProviderError },

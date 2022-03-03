@@ -21,7 +21,7 @@ use std::iter::FromIterator;
 use std::time::Duration;
 
 /// The default number of instances to spin up.
-const DEFAULT_INSTANCE_COUNT: i32 = 3;
+pub const DEFAULT_INSTANCE_COUNT: i32 = 3;
 /// The tag name used to create instances.
 const INSTANCE_TAG_NAME: &str = "brupop";
 const INSTANCE_TAG_VALUE: &str = "integration-test";
