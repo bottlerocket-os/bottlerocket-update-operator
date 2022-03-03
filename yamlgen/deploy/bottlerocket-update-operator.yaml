@@ -361,7 +361,11 @@ spec:
               cpu: 10m
               memory: 50Mi
           securityContext:
-            privileged: true
+            seLinuxOptions:
+              level: s0
+              role: system_r
+              type: super_t
+              user: system_u
           volumeMounts:
             - mountPath: /run/api.sock
               name: bottlerocket-api-socket
