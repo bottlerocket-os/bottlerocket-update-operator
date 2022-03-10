@@ -16,6 +16,7 @@ use std::process::Command;
 pub struct ClusterInfo {
     pub name: String,
     pub region: String,
+    pub version: String,
     pub endpoint: String,
     pub certificate: String,
     pub public_subnet_ids: Vec<String>,
@@ -60,6 +61,7 @@ pub async fn get_cluster_info(cluster_name: &str, region: &str) -> ProviderResul
     let ec2_client = aws_sdk_ec2::Client::new(&shared_config);
     let iam_client = aws_sdk_iam::Client::new(&shared_config);
 
+    let eks_version = eks_version(&eks_client, cluster_name).await?;
     let eks_subnet_ids = eks_subnet_ids(&eks_client, cluster_name).await?;
     let endpoint = endpoint(&eks_client, cluster_name).await?;
     let certificate = certificate(&eks_client, cluster_name).await?;
@@ -113,6 +115,7 @@ pub async fn get_cluster_info(cluster_name: &str, region: &str) -> ProviderResul
     Ok(ClusterInfo {
         name: cluster_name.to_string(),
         region: region.to_string(),
+        version: eks_version,
         endpoint,
         certificate,
         public_subnet_ids,
@@ -122,6 +125,28 @@ pub async fn get_cluster_info(cluster_name: &str, region: &str) -> ProviderResul
         clustershared_sg,
         iam_instance_profile_arn,
     })
+}
+
+async fn eks_version(
+    eks_client: &aws_sdk_eks::Client,
+    cluster_name: &str,
+) -> ProviderResult<String> {
+    let describe_results = eks_client
+        .describe_cluster()
+        .name(cluster_name)
+        .send()
+        .await
+        .context("Unable to get eks describe cluster")?;
+
+    // Extract the eks version from the cluster.
+    describe_results
+        .cluster
+        .as_ref()
+        .context("Response missing cluster field")?
+        .version
+        .as_ref()
+        .context("Cluster missing version field")
+        .map(|ids| ids.clone())
 }
 
 async fn eks_subnet_ids(
