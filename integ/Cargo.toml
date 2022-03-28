@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 aws-config = "0.0.26-alpha"
-aws-sdk-ec2 = "0.0.26-alpha"
+aws-sdk-ec2 = "0.3.0"
 aws-sdk-eks = "0.0.26-alpha"
 aws-sdk-iam = "0.0.26-alpha"
 aws-sdk-ssm = "0.0.26-alpha"
