@@ -1,15 +1,3 @@
-use k8s_openapi::api::core::v1::Node;
-use kube::Api;
-use snafu::{OptionExt, ResultExt};
-use tokio::time::{sleep, Duration};
-use tokio_retry::{
-    strategy::{jitter, ExponentialBackoff},
-    Retry,
-};
-use tracing::{event, instrument, Level};
-
-use kube::runtime::reflector::Store;
-
 use crate::apiclient::{boot_update, get_chosen_update, get_os_info, prepare, update};
 use apiserver::{
     client::APIServerClient,
@@ -24,6 +12,18 @@ use models::{
     },
 };
 
+use chrono::{DateTime, Utc};
+use k8s_openapi::api::core::v1::Node;
+use kube::runtime::reflector::Store;
+use kube::Api;
+use snafu::{OptionExt, ResultExt};
+use tokio::time::{sleep, Duration};
+use tokio_retry::{
+    strategy::{jitter, ExponentialBackoff},
+    Retry,
+};
+use tracing::{event, instrument, Level};
+
 // The reflector uses exponential backoff.
 // These values configure how long to delay between tries.
 const RETRY_BASE_DELAY: Duration = Duration::from_millis(1000);
@@ -34,6 +34,21 @@ const AGENT_SLEEP_DURATION: Duration = Duration::from_secs(5);
 
 /// The module-wide result type.
 pub type Result<T> = std::result::Result<T, agentclient_error::Error>;
+
+#[derive(Clone, Default, Debug)]
+struct ShadowErrorInfo {
+    pub crash_count: u32,
+    pub state_transition_failure_timestamp: Option<DateTime<Utc>>,
+}
+
+impl ShadowErrorInfo {
+    fn new(crash_count: u32, state_transition_failure_timestamp: Option<DateTime<Utc>>) -> Self {
+        ShadowErrorInfo {
+            crash_count,
+            state_transition_failure_timestamp,
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct BrupopAgent<T: APIServerClient> {
@@ -162,9 +177,10 @@ impl<T: APIServerClient> BrupopAgent<T> {
 
     /// Gather metadata about the system, node status provided by spec.
     #[instrument(skip(self, state), err)]
-    async fn gather_system_metadata(
+    async fn shadow_status_with_refreshed_system_matadata(
         &self,
         state: BottlerocketShadowState,
+        shadow_error_info: ShadowErrorInfo,
     ) -> Result<BottlerocketShadowStatus> {
         let os_info = get_os_info()
             .await
@@ -182,6 +198,8 @@ impl<T: APIServerClient> BrupopAgent<T> {
             os_info.version_id.clone(),
             update_version,
             state,
+            shadow_error_info.crash_count,
+            shadow_error_info.state_transition_failure_timestamp,
         ))
     }
 
@@ -223,7 +241,10 @@ impl<T: APIServerClient> BrupopAgent<T> {
     #[instrument(skip(self), err)]
     async fn initialize_metadata_shadow(&self) -> Result<()> {
         let update_node_status = self
-            .gather_system_metadata(BottlerocketShadowState::Idle)
+            .shadow_status_with_refreshed_system_matadata(
+                BottlerocketShadowState::Idle,
+                ShadowErrorInfo::default(),
+            )
             .await?;
 
         self.update_metadata_shadow(update_node_status).await?;
@@ -280,20 +301,30 @@ impl<T: APIServerClient> BrupopAgent<T> {
     async fn update_status_in_shadow(
         &self,
         bottlerocket_shadow: &BottlerocketShadow,
+        state: BottlerocketShadowState,
+        shadow_error_info: ShadowErrorInfo,
     ) -> Result<()> {
         let bottlerocket_shadow_status = bottlerocket_shadow
             .status
             .as_ref()
             .context(agentclient_error::MissingBottlerocketShadowStatus)?;
-        let bottlerocket_shadow_spec = &bottlerocket_shadow.spec;
 
         let updated_node_status = self
-            .gather_system_metadata(bottlerocket_shadow_spec.state.clone())
+            .shadow_status_with_refreshed_system_matadata(state, shadow_error_info)
             .await?;
 
         if updated_node_status != *bottlerocket_shadow_status {
             self.update_metadata_shadow(updated_node_status).await?;
         }
+        Ok(())
+    }
+
+    /// Prepare the node to be ready to work from rebooting or crashing.
+    #[instrument(skip(self))]
+    async fn handle_recover(&self) -> Result<()> {
+        // This recover logic might need to be improved in future based on adding
+        // more features when agent drain the node.
+        self.uncordon().await?;
         Ok(())
     }
 
@@ -318,12 +349,19 @@ impl<T: APIServerClient> BrupopAgent<T> {
             );
 
             match bottlerocket_shadow_spec.state {
-                BottlerocketShadowState::Idle => {
-                    event!(
-                        Level::INFO,
-                        "Ready to finish monitoring and start update process"
-                    );
-                }
+                // Right now we consider the recover state for ErrorReset is Idle
+                BottlerocketShadowState::Idle => match bottlerocket_shadow_status.current_state {
+                    BottlerocketShadowState::ErrorReset => {
+                        self.handle_recover().await?;
+                        event!(Level::INFO, "Recovered from ErrorReset");
+                    }
+                    _ => {
+                        event!(
+                            Level::INFO,
+                            "Ready to finish monitoring and start update process"
+                        );
+                    }
+                },
                 BottlerocketShadowState::StagedUpdate => {
                     event!(Level::INFO, "Preparing update");
                     prepare().await.context(agentclient_error::UpdateActions {
@@ -343,7 +381,15 @@ impl<T: APIServerClient> BrupopAgent<T> {
 
                     if running_desired_version(bottlerocket_shadow_spec).await? {
                         // Make sure the status in BottlerocketShadow is up-to-date from the reboot
-                        self.update_status_in_shadow(bottlerocket_shadow).await?;
+                        self.update_status_in_shadow(
+                            bottlerocket_shadow,
+                            bottlerocket_shadow_spec.state.clone(),
+                            ShadowErrorInfo::new(
+                                bottlerocket_shadow_status.crash_count(),
+                                bottlerocket_shadow_status.failure_timestamp().unwrap(),
+                            ),
+                        )
+                        .await?;
                     } else {
                         boot_update()
                             .await
@@ -354,13 +400,21 @@ impl<T: APIServerClient> BrupopAgent<T> {
                 }
                 BottlerocketShadowState::MonitoringUpdate => {
                     event!(Level::INFO, "Monitoring node's healthy condition");
-                    self.uncordon().await?;
+                    self.handle_recover().await?;
                     // TODO: we need add some criterias here by which we decide to transition
                     // from MonitoringUpdate to WaitingForUpdate.
                 }
+                BottlerocketShadowState::ErrorReset => {
+                    // Spec state should never be ErrorReset
+                    event!(Level::ERROR, "Spec state should never be ErrorReset");
+                    return agentclient_error::Assertion {
+                        message: "Spec state should never be ErrorReset.".to_string(),
+                    }
+                    .fail();
+                }
             }
         } else {
-            event!(Level::INFO, "Did not detect action demand.");
+            event!(Level::DEBUG, "Did not detect action demand.");
         }
         Ok(())
     }
@@ -398,41 +452,81 @@ impl<T: APIServerClient> BrupopAgent<T> {
                 }
             };
 
+            let bottlerocket_shadow_status = bottlerocket_shadow
+                .status
+                .as_ref()
+                .context(agentclient_error::MissingBottlerocketShadowStatus)?;
+
             match self.handle_state_transition(&bottlerocket_shadow).await {
-                Ok(()) => {}
+                Ok(()) => {
+                    let shadow_error_info;
+                    match bottlerocket_shadow_status.current_state {
+                        // Reset crash_count and state_transition_failure_timestamp for a successful update loop
+                        BottlerocketShadowState::MonitoringUpdate => {
+                            shadow_error_info = ShadowErrorInfo::default();
+                        }
+                        _ => {
+                            shadow_error_info = ShadowErrorInfo::new(
+                                bottlerocket_shadow_status.crash_count(),
+                                bottlerocket_shadow_status.failure_timestamp().unwrap(),
+                            )
+                        }
+                    }
+                    match self
+                        .update_status_in_shadow(
+                            &bottlerocket_shadow,
+                            bottlerocket_shadow.spec.state.clone(),
+                            shadow_error_info,
+                        )
+                        .await
+                    {
+                        Ok(()) => {
+                            event!(Level::DEBUG, "Agent loop completed. Sleeping.....");
+                        }
+                        Err(_) => {
+                            event!(
+                                Level::WARN,
+                                "An error occurred when updating BottlerocketShadow status. Restarting event loop"
+                            );
+                        }
+                    }
+                }
                 Err(e) => {
                     match e {
                         // Errors from update_status_in_shadow should be skipped and retry in next loop
                         agentclient_error::Error::BottlerocketShadowError { error: _ } => {
                             event!(Level::WARN, "An error occurred when updating BottlerocketShadow status. Restarting event loop.");
-                            sleep(AGENT_SLEEP_DURATION).await;
-                            continue;
+                        }
+                        agentclient_error::Error::Assertion { message: msg } => {
+                            return agentclient_error::Assertion { message: msg }.fail();
                         }
                         _ => {
-                            // TODO Handle agent crash loop by Lu
                             event!(
-                                Level::ERROR,
+                                Level::WARN,
                                 "An error occured when invoking Bottlerocket Update API"
                             );
-                            return Err(e);
+                            match self
+                                .update_status_in_shadow(
+                                    &bottlerocket_shadow,
+                                    BottlerocketShadowState::ErrorReset,
+                                    ShadowErrorInfo::new(
+                                        bottlerocket_shadow_status.crash_count() + 1,
+                                        Some(Utc::now()),
+                                    ),
+                                )
+                                .await
+                            {
+                                Ok(()) => {
+                                    event!(Level::DEBUG, "Reset the state to ErrorReset");
+                                }
+                                Err(_) => {
+                                    event!(Level::WARN, "An error occurred when updating BottlerocketShadow status to ErrorReset. Restarting event loop.");
+                                }
+                            }
                         }
                     }
                 }
             }
-
-            match self.update_status_in_shadow(&bottlerocket_shadow).await {
-                Ok(()) => {}
-                Err(_) => {
-                    event!(
-                        Level::WARN,
-                        "An error occurred when updating BottlerocketShadow status. Restarting event loop"
-                    );
-                    sleep(AGENT_SLEEP_DURATION).await;
-                    continue;
-                }
-            }
-
-            event!(Level::DEBUG, "Agent loop completed. Sleeping.....");
             sleep(AGENT_SLEEP_DURATION).await;
         }
     }
@@ -490,6 +584,9 @@ pub mod agentclient_error {
 
         #[snafu(display("Unable to operate on BottlerocketShadow: '{}'", error))]
         BottlerocketShadowError { error: BottlerocketShadowRWError },
+
+        #[snafu(display("Agent client failed due to internal assertion issue: '{}'", message))]
+        Assertion { message: String },
     }
 
     impl From<BottlerocketShadowRWError> for Error {

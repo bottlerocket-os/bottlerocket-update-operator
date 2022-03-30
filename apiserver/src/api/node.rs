@@ -132,6 +132,8 @@ mod tests {
             Version::new(1, 2, 1),
             Version::new(1, 3, 0),
             BottlerocketShadowState::default(),
+            0,
+            None,
         );
 
         let settings = test_settings(|node_client| {

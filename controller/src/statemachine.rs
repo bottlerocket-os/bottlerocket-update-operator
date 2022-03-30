@@ -1,6 +1,12 @@
-use models::node::{BottlerocketShadow, BottlerocketShadowSpec, BottlerocketShadowState};
+use models::node::{
+    BottlerocketShadow, BottlerocketShadowSpec, BottlerocketShadowState, BottlerocketShadowStatus,
+};
 
+use chrono::Utc;
 use tracing::instrument;
+use tracing::{event, Level};
+
+const RETRY_MAX_DELAY_IN_MINUTES: i64 = 24 * 60;
 
 /// Constructs a `BottlerocketShadowSpec` to assign to a `BottlerocketShadow` resource, assuming the current
 /// spec has been successfully achieved.
@@ -10,20 +16,38 @@ pub fn determine_next_node_spec(brs: &BottlerocketShadow) -> BottlerocketShadowS
         // If no status is present, just keep waiting for an update.
         None => BottlerocketShadowSpec::default(),
         // If we've not actualized the current spec, then don't bother computing a new one.
-        Some(node_status) if node_status.current_state != brs.spec.state => brs.spec.clone(),
+        Some(node_status) if node_status.current_state != brs.spec.state => {
+            if node_status.current_state != BottlerocketShadowState::ErrorReset {
+                // Wait for the update to complete
+                brs.spec.clone()
+            } else {
+                event!(Level::INFO, "Discovered that agent had crashed");
+                // Agent has crashed
+                BottlerocketShadowSpec::new_starting_now(
+                    BottlerocketShadowState::Idle,
+                    brs.spec.version(),
+                )
+            }
+        }
         Some(node_status) => {
             match brs.spec.state {
                 BottlerocketShadowState::Idle => {
                     let target_version = node_status.target_version();
-                    Some(target_version)
-                        .filter(|target_version| &node_status.current_version() != target_version)
-                        .map(|target_version| {
+                    if node_status.current_version() != target_version {
+                        // Node crashed before but reached time to retry
+                        // Or node just start or completed without crashing
+                        if node_allowed_to_update(node_status) {
                             BottlerocketShadowSpec::new_starting_now(
                                 BottlerocketShadowState::StagedUpdate,
                                 Some(target_version.clone()),
                             )
-                        })
-                        .unwrap_or_else(BottlerocketShadowSpec::default)
+                        } else {
+                            // Do nothing if not reach the wait time
+                            brs.spec.clone()
+                        }
+                    } else {
+                        BottlerocketShadowSpec::default()
+                    }
                 }
                 BottlerocketShadowState::MonitoringUpdate => {
                     // We're ready to wait for a new update.
@@ -45,5 +69,52 @@ pub fn determine_next_node_spec(brs: &BottlerocketShadow) -> BottlerocketShadowS
                 ),
             }
         }
+    }
+}
+
+/// Returns whether or not an Idle node is allowed to enter an update workflow.
+/// This returns false if the node has previously encountered an error and not yet
+/// passed its retry timer.
+fn node_allowed_to_update(node_status: &BottlerocketShadowStatus) -> bool {
+    if let Some(crash_time) = node_status.failure_timestamp().unwrap() {
+        let time_gap = (Utc::now() - crash_time).num_minutes();
+        exponential_backoff_time_with_upper_limit(
+            time_gap,
+            node_status.crash_count(),
+            RETRY_MAX_DELAY_IN_MINUTES,
+        )
+    } else {
+        // Never crashed
+        true
+    }
+}
+
+fn exponential_backoff_time_with_upper_limit(time_gap: i64, power: u32, upper_limit: i64) -> bool {
+    if time_gap > upper_limit {
+        true
+    } else {
+        time_gap > 2_i64.pow(power)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::statemachine::exponential_backoff_time_with_upper_limit;
+
+    #[test]
+    fn exponential_backoff_hit_limit() {
+        assert_eq!(true, exponential_backoff_time_with_upper_limit(15, 4, 8));
+    }
+    #[test]
+    fn exponential_backoff_not_hit_limit() {
+        assert_eq!(
+            false,
+            exponential_backoff_time_with_upper_limit(30, 5, 1024)
+        );
+
+        assert_eq!(
+            true,
+            exponential_backoff_time_with_upper_limit(244, 5, 1024)
+        )
     }
 }
