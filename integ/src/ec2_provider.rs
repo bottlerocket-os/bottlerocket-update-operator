@@ -40,17 +40,24 @@ impl Ec2Creator {}
 
 pub async fn create_ec2_instance(
     cluster: ClusterInfo,
-    node_ami: &str,
+    ami_arch: &str,
+    bottlerocket_version: &str,
 ) -> ProviderResult<CreatedEc2Instances> {
     // Setup aws_sdk_config and clients.
     let region_provider = RegionProviderChain::first_try(Some(Region::new(cluster.region.clone())));
     let shared_config = aws_config::from_env().region(region_provider).load().await;
     let ec2_client = aws_sdk_ec2::Client::new(&shared_config);
+    let ssm_client = aws_sdk_ssm::Client::new(&shared_config);
 
     // Prepare security groups
     let mut security_groups = vec![];
     security_groups.append(&mut cluster.nodegroup_sg.clone());
     security_groups.append(&mut cluster.clustershared_sg.clone());
+
+    // Prepare ami id
+    //default eks_version to the version that matches cluster
+    let eks_version = cluster.version;
+    let node_ami = find_ami_id(&ssm_client, ami_arch, bottlerocket_version, &eks_version).await?;
 
     // Prepare instance type
     let instance_type = instance_type(&ec2_client, &node_ami).await?;
@@ -136,6 +143,30 @@ pub async fn terminate_ec2_instance(cluster: ClusterInfo) -> ProviderResult<()> 
     .await
     .context("Timed-out waiting for instances to reach the `terminated` state.")??;
     Ok(())
+}
+
+// Find the node ami id to use.
+async fn find_ami_id(
+    ssm_client: &aws_sdk_ssm::Client,
+    arch: &str,
+    br_version: &str,
+    eks_version: &str,
+) -> ProviderResult<String> {
+    let parameter_name = format!(
+        "/aws/service/bottlerocket/aws-k8s-{}/{}/{}/image_id",
+        eks_version, arch, br_version
+    );
+    let ami_id = ssm_client
+        .get_parameter()
+        .name(parameter_name)
+        .send()
+        .await
+        .context("Unable to get ami id")?
+        .parameter
+        .context("Unable to get ami id")?
+        .value
+        .context("ami id is missing")?;
+    Ok(ami_id)
 }
 
 /// Determine the instance type to use. If provided use that one. Otherwise, for `x86_64` use `m5.large`

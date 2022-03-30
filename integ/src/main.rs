@@ -1,10 +1,13 @@
+use lazy_static::lazy_static;
 use log::info;
-use snafu::{OptionExt, ResultExt};
+use snafu::{ensure, OptionExt, ResultExt};
 use std::env::temp_dir;
 use std::fs;
 use std::process;
 use structopt::StructOpt;
 use tokio::time::{sleep, Duration};
+
+use aws_sdk_ec2::model::ArchitectureValues;
 
 use integ::ec2_provider::{create_ec2_instance, terminate_ec2_instance};
 use integ::eks_provider::{get_cluster_info, write_kubeconfig};
@@ -20,8 +23,16 @@ const DEFAULT_KUBECONFIG_FILE_NAME: &str = "kubeconfig.yaml";
 const DEFAULT_REGION: &str = "us-west-2";
 const CLUSTER_NAME: &str = "brupop-integration-test";
 
+//The default values for AMI ID
+const AMI_ARCH: &str = "x86_64";
+
 /// This value configure how long it sleeps between create instance and label instance.
 const INTEGRATION_TEST_DELAY: Duration = Duration::from_secs(60);
+
+lazy_static! {
+    static ref ARCHES: Vec<ArchitectureValues> =
+        vec![ArchitectureValues::Arm64, ArchitectureValues::X8664];
+}
 
 #[tokio::main]
 async fn main() {
@@ -60,9 +71,12 @@ enum SubCommand {
 
 // Stores user-supplied arguments for the 'integration-test' subcommand.
 #[derive(StructOpt, Debug)]
-struct IntegrationTestArgs {
-    #[structopt(long = "--instance-ami-id")]
-    instance_ami_id: String,
+pub struct IntegrationTestArgs {
+    #[structopt(long = "--bottlerocket-version")]
+    bottlerocket_version: String,
+
+    #[structopt(long = "--arch", default_value = AMI_ARCH)]
+    ami_arch: String,
 }
 
 async fn generate_kubeconfig(arguments: &Arguments) -> Result<String> {
@@ -110,9 +124,29 @@ fn get_kube_config_temp_dir_path(arguments: &Arguments) -> Result<String> {
     Ok(unique_kube_config_temp_dir)
 }
 
+fn args_validation(args: &Arguments) -> Result<()> {
+    match &args.subcommand {
+        SubCommand::IntegrationTest(integ_test_args) => {
+            ensure!(
+                ARCHES.contains(&ArchitectureValues::from(
+                    integ_test_args.ami_arch.as_str().clone()
+                )),
+                error::InvalidArchInput {
+                    input: integ_test_args.ami_arch.clone()
+                }
+            )
+        }
+        _ => return Ok(()),
+    }
+    Ok(())
+}
+
 async fn run() -> Result<()> {
     // Parse and store the args passed to the program
     let args = Arguments::from_args();
+
+    // Validate the args
+    args_validation(&args)?;
 
     let cluster_info = get_cluster_info(&args.cluster_name, &args.region)
         .await
@@ -122,10 +156,13 @@ async fn run() -> Result<()> {
         SubCommand::IntegrationTest(integ_test_args) => {
             // create instances and add nodes to eks cluster
             info!("Creating EC2 instances ...");
-            let created_instances =
-                create_ec2_instance(cluster_info, &integ_test_args.instance_ami_id)
-                    .await
-                    .context(error::CreateEc2Instances)?;
+            let created_instances = create_ec2_instance(
+                cluster_info,
+                &integ_test_args.ami_arch,
+                &integ_test_args.bottlerocket_version,
+            )
+            .await
+            .context(error::CreateEc2Instances)?;
             info!("EC2 instances have been created");
 
             // generate kubeconfig if no input value for argument `kube_config_path`
@@ -200,6 +237,9 @@ mod error {
 
         #[snafu(display("Failed to create ec2 instances: {}", source))]
         CreateEc2Instances { source: ProviderError },
+
+        #[snafu(display("Invalid Arch input: {}", input))]
+        InvalidArchInput { input: String },
 
         #[snafu(display("Failed to label ec2 instances: {}", source))]
         LabelNode { source: update_error::Error },
