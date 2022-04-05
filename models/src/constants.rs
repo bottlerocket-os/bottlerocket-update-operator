@@ -11,7 +11,7 @@ macro_rules! brupop_domain {
     };
 }
 
-pub const API_VERSION: &str = brupop_domain!("v1");
+pub const API_VERSION: &str = brupop_domain!("v2");
 pub const NAMESPACE: &str = "brupop-bottlerocket-aws";
 pub const BRUPOP: &str = "brupop";
 pub const BRUPOP_DOMAIN_LIKE_NAME: &str = brupop_domain!();

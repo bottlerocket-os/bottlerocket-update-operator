@@ -5,7 +5,6 @@ the corresponding k8s yaml files.
 
 !*/
 
-use kube::CustomResourceExt;
 use models::{
     agent::{
         agent_cluster_role, agent_cluster_role_binding, agent_daemonset, agent_service_account,
@@ -20,7 +19,7 @@ use models::{
         controller_service, controller_service_account,
     },
     namespace::brupop_namespace,
-    node::BottlerocketShadow,
+    node::combined_crds,
 };
 use std::env;
 use std::fs::File;
@@ -45,7 +44,7 @@ fn main() {
 
     // testsys-crd related K8S manifest
     brupop_resources.write_all(HEADER.as_bytes()).unwrap();
-    serde_yaml::to_writer(&brupop_resources, &BottlerocketShadow::crd()).unwrap();
+    serde_yaml::to_writer(&brupop_resources, &combined_crds()).unwrap();
 
     let brupop_image = env::var("BRUPOP_CONTAINER_IMAGE").ok().unwrap();
     let brupop_image_pull_secrets = env::var("BRUPOP_CONTAINER_IMAGE_PULL_SECRET").ok();
