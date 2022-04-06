@@ -139,13 +139,18 @@ impl<T: TokenReviewer> K8STokenAuthorizor<T> {
         token_review_status: &TokenReviewStatus,
         node_selector: &BottlerocketShadowSelector,
     ) -> Result<(), AuthorizationError> {
-        let pod_name = token_review_status
+        let pod_names = token_review_status
             .user
             .as_ref()
             .and_then(|user| user.extra.as_ref())
             .and_then(|extra| extra.get(POD_NAME_INFO_KEY))
-            .and_then(|pod_names| pod_names.first())
             .context(TokenReviewMissingPodName)?;
+
+        // Only one Pod should own a given token. If multiple Pods are present in the response,
+        // we should not proceed.
+        snafu::ensure!(pod_names.len() <= 1, TokenReviewMultiplePodNames);
+        // Authorization should also fail if no Pods are present in the response.
+        let pod_name = pod_names.first().context(TokenReviewMissingPodName)?;
 
         let pod_node_name = self
             .pod_reader
@@ -388,11 +393,11 @@ pub(crate) mod test {
         }
     }
 
-    fn review_for_pod(name: &str) -> TokenReviewStatus {
+    fn review_for_pods(pod_names: Vec<&str>) -> TokenReviewStatus {
         TokenReviewStatus {
             user: Some(UserInfo {
                 extra: Some(btreemap! {
-                    POD_NAME_INFO_KEY.to_string() => vec![name.to_string()],
+                    POD_NAME_INFO_KEY.to_string() => pod_names.iter().map(|s| s.to_string()).collect(),
                 }),
                 ..Default::default()
             }),
@@ -416,9 +421,26 @@ pub(crate) mod test {
         let authorizor = fake_token_authorizor(MockTokenReviewer::new(), "namespace", pods, None);
 
         let mut test_cases = vec![
-            (review_for_pod("pod1"), selector_with_name("node1"), true),
-            (review_for_pod("pod1"), selector_with_name("node3"), false),
-            (review_for_pod("pod4"), selector_with_name("node4"), true),
+            (
+                review_for_pods(vec!["pod1"]),
+                selector_with_name("node1"),
+                true,
+            ),
+            (
+                review_for_pods(vec!["pod1"]),
+                selector_with_name("node3"),
+                false,
+            ),
+            (
+                review_for_pods(vec!["pod4"]),
+                selector_with_name("node4"),
+                true,
+            ),
+            (
+                review_for_pods(vec!["pod1", "pod4"]),
+                selector_with_name("node4"),
+                false,
+            ),
         ];
 
         for (review_status, node_selector, success) in test_cases.drain(..) {
