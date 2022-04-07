@@ -4,6 +4,7 @@
 !*/
 
 use lazy_static::lazy_static;
+
 use snafu::{ensure, ResultExt};
 use std::process::Command;
 
@@ -15,6 +16,9 @@ use tokio_retry::{
 
 const BRUPOP_NODE_LABEL: &str = "bottlerocket.aws/updater-interface-version=2.0.0";
 const BRUPOP_NAMESPACE: &str = "brupop-bottlerocket-aws";
+const CURRENT_LOCATION_PATH: &str = "integ/src";
+const PODS_TEMPLATE: &str = "pods-template.yaml";
+const KUBECTL_BINARY: &str = "kubectl";
 
 lazy_static! {
     static ref BRUPOP_CLUSTER_ROLES: Vec<&'static str> = {
@@ -42,6 +46,12 @@ const RETRY_BASE_DELAY: Duration = Duration::from_secs(20);
 const RETRY_MAX_DELAY: Duration = Duration::from_secs(60);
 const NUM_RETRIES: usize = 5;
 
+#[derive(strum_macros::Display, Debug)]
+pub enum Action {
+    Create,
+    Delete,
+}
+
 // label node with `bottlerocket.aws/updater-interface-version=2.0.0`, so brupop can find right nodes
 // to run updater
 pub async fn label_node(node_names: Vec<String>, kube_config_path: &str) -> UpdaterResult<()> {
@@ -50,7 +60,7 @@ pub async fn label_node(node_names: Vec<String>, kube_config_path: &str) -> Upda
     // and give nodes more time to be ready.
     Retry::spawn(retry_strategy(), || async {
         for node in &node_names {
-            let status = Command::new("kubectl")
+            let status = Command::new(KUBECTL_BINARY)
                 .args([
                     "label",
                     "node",
@@ -75,7 +85,7 @@ pub async fn label_node(node_names: Vec<String>, kube_config_path: &str) -> Upda
 
 // installing brupop on EKS cluster
 pub async fn run_brupop(kube_config_path: &str) -> UpdaterResult<()> {
-    let brupop_resource_status = Command::new("kubectl")
+    let brupop_resource_status = Command::new(KUBECTL_BINARY)
         .args([
             "apply",
             "-f",
@@ -99,7 +109,7 @@ fn retry_strategy() -> impl Iterator<Item = Duration> {
 }
 
 // destroy all resources which were created when integration test installed brupop
-pub async fn delete_cluster_resources(kube_config_path: &str) -> UpdaterResult<()> {
+pub async fn delete_brupop_resources(kube_config_path: &str) -> UpdaterResult<()> {
     // delete namespaces brupop-bottlerocket-aws. This can clean all resources under this namespace like daemonsets.apps
     let namespace_deletion_status = Command::new("kubectl")
         .args([
@@ -158,6 +168,33 @@ pub async fn delete_cluster_resources(kube_config_path: &str) -> UpdaterResult<(
     Ok(())
 }
 
+// create/delete statefulset pods, stateless nginx pods, and pods with PDBs on EKS cluster
+pub async fn process_pods_test(action: Action, kube_config_path: &str) -> UpdaterResult<()> {
+    let action_string: String = action.to_string();
+
+    let pods_status = Command::new(KUBECTL_BINARY)
+        .args([
+            &action_string.to_lowercase(),
+            "-f",
+            format!("{}/{}", CURRENT_LOCATION_PATH, PODS_TEMPLATE).as_str(),
+            "--kubeconfig",
+            kube_config_path,
+        ])
+        .status()
+        .context(update_error::ProcessPodsTest {
+            action: action_string.clone(),
+        })?;
+
+    ensure!(
+        pods_status.success(),
+        update_error::PodsRun {
+            action: action_string
+        }
+    );
+
+    Ok(())
+}
+
 /// The result type returned by instance create and termiante operations.
 type UpdaterResult<T> = std::result::Result<T, update_error::Error>;
 
@@ -181,7 +218,14 @@ pub mod update_error {
             cluster_resource: String,
             source: std::io::Error,
         },
-        #[snafu(display("Unable to convert kubeconfig path to string path"))]
-        ConvertPathToStr {},
+
+        #[snafu(display("Failed to {:?} pods", action))]
+        ProcessPodsTest {
+            action: String,
+            source: std::io::Error,
+        },
+
+        #[snafu(display("Failed to process pods test: {:?} pods", action))]
+        PodsRun { action: String },
     }
 }
