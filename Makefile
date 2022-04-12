@@ -23,6 +23,12 @@ UNAME_ARCH = $(shell uname -m)
 # ARCH is the target architecture which is being built for.
 ARCH = $(lastword $(subst :, ,$(filter $(UNAME_ARCH):%,x86_64:amd64 aarch64:arm64)))
 
+# DESTDIR is where the release artifacts will be written.
+DESTDIR = .
+# DISTFILE is the path to the dist target's output file - the container image
+# tarball.
+DISTFILE = $(DESTDIR:/=)/$(subst /,_,$(IMAGE_NAME)).tar.gz
+
 BOTTLEROCKET_SDK_VERSION = v0.25.1
 BOTTLEROCKET_SDK_ARCH = $(UNAME_ARCH)
 
@@ -61,5 +67,10 @@ brupop-image: fetch check-licenses
 		--network none \
 		-f Dockerfile .
 
+dist: brupop-image
+	@mkdir -p $(dir $(DISTFILE))
+	docker save $(IMAGE_NAME) | gzip > '$(DISTFILE)'
+
 clean:
 	-rm -rf target
+	rm -f -- '$(DISTFILE)'
