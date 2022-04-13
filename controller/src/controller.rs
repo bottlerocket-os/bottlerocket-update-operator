@@ -38,7 +38,11 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
 
     /// Returns a list of all `BottlerocketShadow` objects in the cluster.
     fn all_nodes(&self) -> Vec<BottlerocketShadow> {
-        self.brs_reader.state()
+        self.brs_reader
+            .state()
+            .iter()
+            .map(|arc_brs| (**arc_brs).clone())
+            .collect()
     }
 
     /// Returns the set of BottlerocketShadow objects which is currently being acted upon.

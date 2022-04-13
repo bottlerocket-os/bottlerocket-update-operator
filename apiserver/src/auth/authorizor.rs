@@ -155,7 +155,7 @@ impl<T: TokenReviewer> K8STokenAuthorizor<T> {
         let pod_node_name = self
             .pod_reader
             .get(&ObjectRef::new(pod_name).within(&self.namespace))
-            .and_then(|pod| pod.spec)
+            .and_then(|pod| (*pod).clone().spec)
             .and_then(|pod_spec| pod_spec.node_name)
             .context(NoSuchPod {
                 pod_name: pod_name.to_string(),

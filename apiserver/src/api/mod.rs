@@ -34,6 +34,7 @@ use kube::{
 };
 use opentelemetry::global::meter;
 use snafu::{OptionExt, ResultExt};
+use std::env;
 use tracing::{event, Level};
 use tracing_actix_web::TracingLogger;
 
@@ -130,6 +131,21 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
     );
 
     // Set up the actix server.
+
+    // Use IP for KUBERNETES_SERVICE_HOST to decide the IP family for the cluster,
+    // Match API server IP family same as cluster
+    let k8s_service_addr =
+        env::var("KUBERNETES_SERVICE_HOST").context(error::MissingClusterIPFamiliy)?;
+    let server_addr = if k8s_service_addr.contains(":") {
+        // IPv6 format
+        format!("[::]:{}", server_port)
+    } else {
+        // IPv4 format
+        format!("0.0.0.0:{}", server_port)
+    };
+
+    event!(Level::DEBUG, ?server_addr, "Server addr localhost.");
+
     let server = HttpServer::new(move || {
         App::new()
             .wrap(
@@ -161,7 +177,7 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
                 web::get().to(ping::health_check),
             )
     })
-    .bind(format!("0.0.0.0:{}", server_port))
+    .bind(server_addr)
     .context(error::HttpServerError)?
     .run();
 
