@@ -9,7 +9,7 @@ pub enum AuthorizationError {
     #[snafu(display("Failed to create TokenReview request: '{}'", err_msg))]
     TokenReviewCreate { err_msg: String },
 
-    #[snafu(display("The TokenReview Server returned a review without a status"))]
+    #[snafu(display("The TokenReview Server returned a review without a status."))]
     TokenReviewMissingStatus {},
 
     #[snafu(display(
@@ -24,19 +24,24 @@ pub enum AuthorizationError {
     #[snafu(display("The TokenReview Server does not appear to be audience aware."))]
     TokenReviewServerNotAudienceAware {},
 
-    #[snafu(display("APIServer does not seem to be in the audience of the requester's token",))]
+    #[snafu(display("APIServer does not seem to be in the audience of the requester's token.",))]
     AudienceMismatch {},
 
     #[snafu(display(
-        "Returned TokenReview status does not contain pod metadata required to authorize",
+        "Returned TokenReview status does not contain pod metadata required to authorize.",
     ))]
     TokenReviewMissingPodName {},
+
+    #[snafu(display(
+        "Returned TokenReview status contains multiple pods, when it should be associated with only one.",
+    ))]
+    TokenReviewMultiplePodNames {},
 
     #[snafu(display("Could not find reference to Pod owning request token: '{}'", pod_name))]
     NoSuchPod { pod_name: String },
 
     #[snafu(display(
-        "Requesting pod's node ('{}') does not match brs selector ('{}')",
+        "Requesting pod's node ('{}') does not match brs selector ('{}').",
         requesting_node,
         target_node
     ))]
