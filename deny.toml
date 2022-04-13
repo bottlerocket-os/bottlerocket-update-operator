@@ -35,6 +35,9 @@ skip-tree = [
     { name = "chrono", version = "0.4.19" },
     # clap uses an older version or strsim, which clashed with the one used by darling_core.
     { name = "clap", version = "2.34.0" },
+    # use "rustls-tls" feature in kube to build correct k8s client for IPv6 cluster
+    # with "rustls-tls" enabled, kube uses mixed versions of hyper-rustls
+    { name = "kube", version = "0.71.0"}
 ]
 
 [sources]
