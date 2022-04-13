@@ -12,7 +12,7 @@ use aws_sdk_ec2::model::ArchitectureValues;
 use integ::ec2_provider::{create_ec2_instance, terminate_ec2_instance};
 use integ::eks_provider::{get_cluster_info, write_kubeconfig};
 use integ::error::ProviderError;
-use integ::updater::{delete_cluster_resources, label_node, run_brupop};
+use integ::updater::{delete_brupop_resources, label_node, process_pods_test, run_brupop, Action};
 
 type Result<T> = std::result::Result<T, error::Error>;
 
@@ -185,6 +185,15 @@ async fn run() -> Result<()> {
                 .context(error::LabelNode)?;
             info!("EC2 instances (nodes) have been labelled");
 
+            // create different types' pods to test if brupop can handle them.
+            info!(
+                "creating pods(statefulset pods, stateless pods, and pods with PodDisruptionBudgets) ...
+            "
+            );
+            process_pods_test(Action::Create, &kube_config_path)
+                .await
+                .context(error::CreatePod)?;
+
             // install brupop on EKS cluster
             info!("Running brupop on existing EKS cluster ...");
             run_brupop(&kube_config_path)
@@ -204,9 +213,18 @@ async fn run() -> Result<()> {
                 .await
                 .context(error::TerminateEc2Instance)?;
 
+            // delete all created pods for testing.
+            info!(
+                "deleting pods(statefulset pods, stateless pods, and pods with PodDisruptionBudgets) ...
+            "
+            );
+            process_pods_test(Action::Delete, &kube_config_path)
+                .await
+                .context(error::DeletePod)?;
+
             // clean up all resources like namespace, deployment on brupop test
             info!("Deleting all cluster resources which created by integration test ...");
-            delete_cluster_resources(&kube_config_path)
+            delete_brupop_resources(&kube_config_path)
                 .await
                 .context(error::DeleteClusterResources)?;
 
@@ -237,6 +255,12 @@ mod error {
 
         #[snafu(display("Failed to create ec2 instances: {}", source))]
         CreateEc2Instances { source: ProviderError },
+
+        #[snafu(display("Failed to create pods on eks cluster: {}", source))]
+        CreatePod { source: update_error::Error },
+
+        #[snafu(display("Failed to delete pods on eks cluster: {}", source))]
+        DeletePod { source: update_error::Error },
 
         #[snafu(display("Invalid Arch input: {}", input))]
         InvalidArchInput { input: String },

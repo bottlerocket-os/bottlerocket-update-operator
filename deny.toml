@@ -33,8 +33,10 @@ skip-tree = [
     { name = "actix-http", version = "3.0.0-beta.10" },
     # chrono uses an older version of time, which clashes with the one used by actix-web.
     { name = "chrono", version = "0.4.19" },
-    # clap uses an older version or strsim, which clashed with the one used by darling_core.
+    # clap uses an older version of strsim, which clashed with the one used by darling_core.
     { name = "clap", version = "2.34.0" },
+    # structopt-derive uses an older version of heck, which clashed with the one used by strum_macros.
+    { name = "structopt-derive", version = "0.4.18"},
 ]
 
 [sources]
