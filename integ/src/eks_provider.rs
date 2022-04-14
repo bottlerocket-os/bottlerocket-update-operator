@@ -6,13 +6,21 @@
 use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_ec2::model::{Filter, SecurityGroup, Subnet};
 use aws_sdk_ec2::Region;
+use aws_sdk_eks::model::IpFamily;
 
 use crate::error::{IntoProviderError, ProviderError, ProviderResult};
 
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Default)]
+const IPV4_OCTET: &str = "10";
+const IPV6_HEXTET: &str = "a";
+const IPV4_DIVIDER: &str = ".";
+const IPV6_DIVIDER: &str = ":";
+
+pub type ClusterDnsIpInfo = (IpFamily, Option<String>);
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClusterInfo {
     pub name: String,
     pub region: String,
@@ -25,6 +33,7 @@ pub struct ClusterInfo {
     pub controlplane_sg: Vec<String>,
     pub clustershared_sg: Vec<String>,
     pub iam_instance_profile_arn: String,
+    pub dns_ip_info: ClusterDnsIpInfo,
 }
 
 pub fn write_kubeconfig(
@@ -109,8 +118,9 @@ pub async fn get_cluster_info(cluster_name: &str, region: &str) -> ProviderResul
             .collect();
 
     let node_instance_role = cluster_iam_identity_mapping(cluster_name, region)?;
-    let iam_instance_profile_arn =
-        instance_profile(&iam_client, cluster_name, &node_instance_role).await?;
+    let iam_instance_profile_arn = instance_profile(&iam_client, &node_instance_role).await?;
+
+    let dns_ip_info = dns_ip(&eks_client, cluster_name).await?;
 
     Ok(ClusterInfo {
         name: cluster_name.to_string(),
@@ -124,7 +134,73 @@ pub async fn get_cluster_info(cluster_name: &str, region: &str) -> ProviderResul
         controlplane_sg,
         clustershared_sg,
         iam_instance_profile_arn,
+        dns_ip_info,
     })
+}
+
+async fn dns_ip(
+    eks_client: &aws_sdk_eks::Client,
+    cluster_name: &str,
+) -> ProviderResult<ClusterDnsIpInfo> {
+    let describe_results = eks_client
+        .describe_cluster()
+        .name(cluster_name)
+        .send()
+        .await
+        .context("Unable to get eks describe cluster")?;
+
+    let kubernetes_network_config = describe_results
+        .cluster
+        .and_then(|cluster| cluster.kubernetes_network_config)
+        .context("Cluster missing kubernetes_network_config field")?;
+
+    let ip_family = kubernetes_network_config
+        .ip_family
+        .as_ref()
+        .context("IP family missing data")
+        .map(|ids| ids.clone())?;
+
+    match ip_family {
+        IpFamily::Ipv4 => {
+            let ipv4_cidr = kubernetes_network_config.service_ipv4_cidr;
+
+            match ipv4_cidr {
+                Some(dns_ip) => {
+                    return Ok((
+                        IpFamily::Ipv4,
+                        Some(transform_dns_ip(dns_ip, IPV4_DIVIDER, IPV4_OCTET)),
+                    ))
+                }
+                None => return Ok((IpFamily::Ipv4, None)),
+            }
+        }
+        IpFamily::Ipv6 => {
+            let ipv6_cidr = kubernetes_network_config.service_ipv6_cidr;
+
+            match ipv6_cidr {
+                Some(dns_ip) => {
+                    return Ok((
+                        IpFamily::Ipv6,
+                        Some(transform_dns_ip(dns_ip, IPV6_DIVIDER, IPV6_HEXTET)),
+                    ))
+                }
+                None => return Ok((IpFamily::Ipv6, None)),
+            }
+        }
+        _ => return Err(ProviderError::new_with_context("Invalid dns ip")),
+    }
+}
+
+// transform ip_cidr to dns ip for different IpFamily.
+// IPv4: EKS clusters derive the cluster dns IP by setting the last octet of the IPv4 CIDR to `10`.
+// IPv6: EKS clusters derive the cluster dns IP by setting the last hextet of the IPv6 CIDR to `a`.
+fn transform_dns_ip(ip_cidr: String, divider: &str, number_system: &str) -> String {
+    let mut ip_vec: Vec<String> = ip_cidr.split(divider).map(|s| s.to_string()).collect();
+    let ip_vec_length = ip_vec.len();
+    let _replace_value =
+        std::mem::replace(&mut ip_vec[ip_vec_length - 1], number_system.to_string());
+
+    ip_vec.join(divider)
 }
 
 async fn eks_version(
@@ -302,7 +378,6 @@ async fn security_group(
 
 async fn instance_profile(
     iam_client: &aws_sdk_iam::Client,
-    cluster_name: &str,
     node_instance_role: &str,
 ) -> ProviderResult<String> {
     let list_result = iam_client
@@ -310,24 +385,11 @@ async fn instance_profile(
         .send()
         .await
         .context("Unable to list instance profiles")?;
-    let eksctl_prefix = format!("eksctl-{}", cluster_name);
     list_result
         .instance_profiles
         .as_ref()
         .context("No instance profiles found")?
         .iter()
-        .filter(|x| {
-            x.instance_profile_name
-                .as_ref()
-                .unwrap_or(&"".to_string())
-                .contains("NodeInstanceProfile")
-        })
-        .filter(|x| {
-            x.instance_profile_name
-                .as_ref()
-                .unwrap_or(&"".to_string())
-                .contains(&eksctl_prefix)
-        })
         .find(|instance_profile| {
             instance_profile
                 .roles
@@ -373,4 +435,40 @@ fn cluster_iam_identity_mapping(cluster_name: &str, region: &str) -> ProviderRes
         .as_str()
         .context("Rolearn is not a string.")
         .map(|arn| arn.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_transform_dns_ip_ipv4() {
+        let mut ipv4_test_cases = vec![
+            ("10.100.10.10/16".to_string(), "10.100.10.10"),
+            ("10.100.10.0/16".to_string(), "10.100.10.10"),
+            ("7815.1546.784.8/16".to_string(), "7815.1546.784.10"),
+        ];
+
+        for (ipv4_cidr, expected_ipv4) in ipv4_test_cases.drain(..) {
+            let ipv4 = transform_dns_ip(ipv4_cidr, IPV4_DIVIDER, IPV4_OCTET);
+            assert_eq!(ipv4, expected_ipv4);
+        }
+    }
+
+    #[test]
+    fn test_transform_dns_ip_ipv6() {
+        let mut ipv6_test_cases = vec![
+            ("fd6c:fc5c:05ed::/108".to_string(), "fd6c:fc5c:05ed::a"),
+            ("xxxx:xxxx:xxxx::/xxx".to_string(), "xxxx:xxxx:xxxx::a"),
+            (
+                "d43f3:f34fe1546:4fs4::/16".to_string(),
+                "d43f3:f34fe1546:4fs4::a",
+            ),
+        ];
+
+        for (ipv6_cidr, expected_ipv6) in ipv6_test_cases.drain(..) {
+            let ipv6 = transform_dns_ip(ipv6_cidr, IPV6_DIVIDER, IPV6_HEXTET);
+            assert_eq!(ipv6, expected_ipv6);
+        }
+    }
 }

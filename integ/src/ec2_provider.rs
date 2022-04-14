@@ -9,8 +9,9 @@ use aws_sdk_ec2::model::{
     TagSpecification,
 };
 use aws_sdk_ec2::Region;
+use aws_sdk_eks::model::IpFamily;
 
-use crate::eks_provider::ClusterInfo;
+use crate::eks_provider::{ClusterDnsIpInfo, ClusterInfo};
 use crate::error::{IntoProviderError, ProviderError, ProviderResult};
 
 use serde::{Deserialize, Serialize};
@@ -76,7 +77,8 @@ pub async fn create_ec2_instance(
             &cluster.endpoint,
             &cluster.name,
             &cluster.certificate,
-        ))
+            cluster.dns_ip_info,
+        )?)
         .iam_instance_profile(
             IamInstanceProfileSpecification::builder()
                 .arn(&cluster.iam_instance_profile_arn)
@@ -225,17 +227,38 @@ fn tag_specifications(cluster_name: &str) -> TagSpecification {
         .build()
 }
 
-fn userdata(endpoint: &str, cluster_name: &str, certificate: &str) -> String {
-    base64::encode(format!(
+fn userdata(
+    endpoint: &str,
+    cluster_name: &str,
+    certificate: &str,
+    dns_ip_info: ClusterDnsIpInfo,
+) -> ProviderResult<String> {
+    let dns_ip_setting = match dns_ip_info.0 {
+        // If IPv4 is missing, we just unset `cluster-dns-ip` and bottlerocket pluto will set it.
+        IpFamily::Ipv4 => match dns_ip_info.1 {
+            Some(dns) => format!(r#"cluster-dns-ip = "{}""#, dns),
+            None => "".to_string(),
+        },
+        // If IPv6 is missing, the brupop ipv6 integration test will fail so we just error out.
+        IpFamily::Ipv6 => match dns_ip_info.1 {
+            Some(dns) => format!(r#"cluster-dns-ip = "{}""#, dns),
+            None => return Err(ProviderError::new_with_context("Missing IPv6 dns ip")),
+        },
+        _ => return Err(ProviderError::new_with_context("Invalid dns ip")),
+    };
+
+    Ok(base64::encode(format!(
         r#"[settings.updates]
-ignore-waves = true
-    
-[settings.kubernetes]
-api-server = "{}"
-cluster-name = "{}"
-cluster-certificate = "{}""#,
-        endpoint, cluster_name, certificate
-    ))
+        ignore-waves = true
+            
+        [settings.kubernetes]
+        api-server = "{}"
+        cluster-name = "{}"
+        cluster-certificate = "{}"
+        {}
+        "#,
+        endpoint, cluster_name, certificate, dns_ip_setting
+    )))
 }
 
 #[derive(Debug)]
