@@ -288,6 +288,12 @@ async fn wait_for_deletion(k8s_client: &kube::Client, pod: &Pod) -> Result<(), e
                 event!(Level::INFO, "Pod {} deleted.", pod.name(),);
                 break;
             }
+
+            Ok(p) if p.uid() != pod.uid() => {
+                event!(Level::INFO, "Pod {} deleted.", p.name(),);
+                break;
+            }
+
             Ok(_) => {
                 event!(
                     Level::DEBUG,
