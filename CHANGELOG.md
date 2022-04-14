@@ -1,3 +1,18 @@
+# 0.2.1
+
+Fixed:
+
+* Fixed an issue where Node drains would hang indefinitely on StatefulSet Pods ([#168]), ([#179])
+* Added more restrictive checking of TokenReviewStatus during apiserver auth
+
+Added:
+
+* Added support for IPv6 cluster ([#178])
+
+[#168]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/168
+[#179]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/179
+[#178]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/178
+
 # 0.2.0
 
 Bottlerocket Update Operator (Brupop) 0.2.0 is a complete overhaul and rewrite of the update operator.
