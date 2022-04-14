@@ -229,7 +229,7 @@ impl SubnetType {
             SubnetType::Public => "Public",
             SubnetType::Private => "Private",
         };
-        format!("eksctl-{}-cluster/Subnet{}*", cluster_name, subnet_type)
+        format!("eksctl-{}-cluster*{}*", cluster_name, subnet_type)
     }
 }
 
@@ -270,7 +270,7 @@ impl SecurityGroupType {
             SecurityGroupType::ClusterShared => "ClusterSharedNodeSecurityGroup",
             SecurityGroupType::ControlPlane => "ControlPlaneSecurityGroup",
         };
-        format!("*{}-{}*", cluster_name, sg)
+        format!("*{}*{}*", cluster_name, sg)
     }
 }
 
