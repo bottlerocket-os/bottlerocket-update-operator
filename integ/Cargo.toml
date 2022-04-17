@@ -6,11 +6,11 @@ edition = "2018"
 publish = false
 
 [dependencies]
-aws-config = "0.0.26-alpha"
-aws-sdk-ec2 = "0.0.26-alpha"
-aws-sdk-eks = "0.0.26-alpha"
-aws-sdk-iam = "0.0.26-alpha"
-aws-sdk-ssm = "0.0.26-alpha"
+aws-config = "0.10.1"
+aws-sdk-ec2 = "0.10.1"
+aws-sdk-eks = "0.10.1"
+aws-sdk-iam = "0.10.1"
+aws-sdk-ssm = "0.10.1"
 base64 = "0.13.0"
 console_log = { version = "0.2", features = ["color"] }
 env_logger = "0.9"
