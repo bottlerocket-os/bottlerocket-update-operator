@@ -161,10 +161,10 @@ impl<T: APIServerClient> BrupopAgent<T> {
 
         Retry::spawn(retry_strategy(), || async {
             // Agent specifies node reflector only watch and cache the BottlerocketShadow which is associated with the node that agent pod currently lives on,
-            // so vector of brs_reader only have one object. Therefore, fetch_shadow uses index 0 to extract BottlerocketShadow object.
-            let associated_bottlerocketshadow = self.brs_reader.state().clone();
+            // so vector of brs_reader only have one object. Therefore, fetch_custom_resource uses index 0 to extract BottlerocketShadow object.
+            let associated_bottlerocketshadow = self.brs_reader.state();
             if associated_bottlerocketshadow.len() != 0 {
-                return Ok(associated_bottlerocketshadow[0].clone());
+                return Ok((*associated_bottlerocketshadow[0]).clone());
             }
 
             // reflector store is currently unavailable, bail out
