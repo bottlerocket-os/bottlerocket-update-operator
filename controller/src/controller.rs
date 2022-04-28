@@ -3,7 +3,9 @@ use super::{
     metrics::{BrupopControllerMetrics, BrupopHostsData},
     statemachine::determine_next_node_spec,
 };
-use models::node::{BottlerocketShadow, BottlerocketShadowClient, BottlerocketShadowState};
+use models::node::{
+    BottlerocketShadow, BottlerocketShadowClient, BottlerocketShadowState, Selector,
+};
 
 use kube::runtime::reflector::Store;
 use kube::ResourceExt;

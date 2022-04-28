@@ -1,6 +1,5 @@
-use super::{BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowState};
+use super::{BottlerocketShadowSelector, BottlerocketShadowState};
 
-use kube::ResourceExt;
 use snafu::Snafu;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -94,12 +93,15 @@ pub enum Error {
 
     #[snafu(display(
         "Attempted to perform an operation on a statusless node ({}) which requires a status.",
-        brs.metadata.name.as_ref().unwrap_or(&"<no name set>".to_string())
+        name
     ))]
-    NodeWithoutStatus { brs: BottlerocketShadow },
+    NodeWithoutStatus { name: String },
 
-    #[snafu(display("BottlerocketShadow object ('{}') is missing a reference to the owning Node.", brs.name()))]
-    MissingOwnerReference { brs: BottlerocketShadow },
+    #[snafu(display(
+        "BottlerocketShadow object ('{}') is missing a reference to the owning Node.",
+        name
+    ))]
+    MissingOwnerReference { name: String },
 
     #[snafu(display(
         "BottlerocketShadow object must have valid rfc3339 timestamp: '{}'",
