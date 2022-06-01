@@ -1,6 +1,7 @@
 use apiserver::api::{self, APIServerSettings};
 use apiserver::error::{self, Result};
 use apiserver::telemetry::init_telemetry;
+use models::constants::APISERVER_INTERNAL_PORT;
 use models::node::K8SBottlerocketShadowClient;
 use tracing::{event, Level};
 
@@ -40,7 +41,7 @@ async fn run_server() -> Result<()> {
 
     let settings = APIServerSettings {
         node_client: K8SBottlerocketShadowClient::new(k8s_client.clone()),
-        server_port: 8080,
+        server_port: APISERVER_INTERNAL_PORT as u16,
     };
 
     api::run_server(settings, k8s_client, Some(prometheus_exporter)).await

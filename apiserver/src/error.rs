@@ -41,6 +41,9 @@ pub enum Error {
 
     #[snafu(display("Failed to drain Node: '{}'", source))]
     BottlerocketShadowDrain { source: BottlerocketShadowError },
+
+    #[snafu(display("Failed to set up SslAcceptorBuilder : {:?}", source))]
+    SSLError { source: openssl::error::ErrorStack },
 }
 
 impl ResponseError for Error {}

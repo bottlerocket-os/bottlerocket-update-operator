@@ -67,4 +67,7 @@ pub enum ClientError {
         source
     ))]
     IOError { source: Box<dyn std::error::Error> },
+
+    #[snafu(display("Failed to create https client due to {}", source))]
+    CreateClientError { source: reqwest::Error },
 }

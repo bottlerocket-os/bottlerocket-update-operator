@@ -1,14 +1,15 @@
 use crate::constants::{
     AGENT, AGENT_NAME, APISERVER_SERVICE_NAME, APP_COMPONENT, APP_MANAGED_BY, APP_PART_OF, BRUPOP,
-    BRUPOP_INTERFACE_VERSION, LABEL_BRUPOP_INTERFACE_NAME, LABEL_COMPONENT, NAMESPACE,
+    BRUPOP_INTERFACE_VERSION, LABEL_BRUPOP_INTERFACE_NAME, LABEL_COMPONENT, NAMESPACE, SECRET_NAME,
+    TLS_KEY_MOUNT_PATH,
 };
 use k8s_openapi::api::apps::v1::{DaemonSet, DaemonSetSpec};
 use k8s_openapi::api::core::v1::{
     Affinity, Container, EnvVar, EnvVarSource, HostPathVolumeSource, LocalObjectReference,
     NodeAffinity, NodeSelector, NodeSelectorRequirement, NodeSelectorTerm, ObjectFieldSelector,
     PodSpec, PodTemplateSpec, ProjectedVolumeSource, ResourceRequirements, SELinuxOptions,
-    SecurityContext, ServiceAccount, ServiceAccountTokenProjection, Volume, VolumeMount,
-    VolumeProjection,
+    SecretVolumeSource, SecurityContext, ServiceAccount, ServiceAccountTokenProjection, Volume,
+    VolumeMount, VolumeProjection,
 };
 use k8s_openapi::api::rbac::v1::{ClusterRole, ClusterRoleBinding, PolicyRule, RoleRef, Subject};
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
@@ -206,6 +207,11 @@ pub fn agent_daemonset(agent_image: String, image_pull_secret: Option<String>) -
                                 mount_path: TOKEN_PROJECTION_MOUNT_PATH.to_string(),
                                 ..Default::default()
                             },
+                            VolumeMount {
+                                name: "bottlerocket-tls-keys".to_string(),
+                                mount_path: TLS_KEY_MOUNT_PATH.to_string(),
+                                ..Default::default()
+                            },
                         ]),
                         security_context: Some(SecurityContext {
                             se_linux_options: Some(SELinuxOptions {
@@ -248,6 +254,15 @@ pub fn agent_daemonset(agent_image: String, image_pull_secret: Option<String>) -
                                     }),
                                     ..Default::default()
                                 }]),
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        },
+                        Volume {
+                            name: "bottlerocket-tls-keys".to_string(),
+                            secret: Some(SecretVolumeSource {
+                                secret_name: Some(SECRET_NAME.to_string()),
+                                optional: Some(false),
                                 ..Default::default()
                             }),
                             ..Default::default()

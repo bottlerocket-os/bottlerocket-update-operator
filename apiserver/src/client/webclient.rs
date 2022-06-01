@@ -8,20 +8,23 @@ use crate::{
     UncordonBottlerocketShadowRequest, UpdateBottlerocketShadowRequest,
 };
 use models::{
-    constants::{APISERVER_SERVICE_NAME, APISERVER_SERVICE_PORT, NAMESPACE},
+    constants::{
+        APISERVER_SERVICE_NAME, APISERVER_SERVICE_PORT, NAMESPACE, PUBLIC_KEY_NAME,
+        TLS_KEY_MOUNT_PATH,
+    },
     node::{BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowStatus},
 };
 
 use async_trait::async_trait;
 use snafu::ResultExt;
+use std::fs;
+use std::io::Read;
 use tokio::time::Duration;
 use tokio_retry::{
     strategy::{jitter, ExponentialBackoff},
     Retry,
 };
 use tracing::instrument;
-
-use std::fs;
 
 // The web client uses exponential backoff.
 // These values configure how long to delay between tries.
@@ -74,7 +77,7 @@ impl K8SAPIServerClient {
 
     /// Protocol scheme for communicating with the server.
     pub fn scheme() -> String {
-        "http".to_string()
+        "https".to_string()
     }
 
     /// Returns the domain on which the server can be reached.
@@ -95,6 +98,28 @@ impl K8SAPIServerClient {
             .header(HEADER_BRUPOP_NODE_NAME, &node_selector.node_name)
             .header(HEADER_BRUPOP_K8S_AUTH_TOKEN, &self.auth_token()?))
     }
+
+    /// Returns the https client configured to use self-signed certificate
+    fn https_client() -> Result<reqwest::Client> {
+        let mut buf = Vec::new();
+
+        let public_key_path = format!("{}/{}", TLS_KEY_MOUNT_PATH, PUBLIC_KEY_NAME);
+        std::fs::File::open(public_key_path)
+            .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+            .context(error::IOError)?
+            .read_to_end(&mut buf)
+            .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+            .context(error::IOError)?;
+
+        let cert = reqwest::Certificate::from_pem(&buf).context(error::CreateClientError)?;
+
+        let client = reqwest::Client::builder()
+            .add_root_certificate(cert)
+            .connection_verbose(true)
+            .build()
+            .context(error::CreateClientError)?;
+        Ok(client)
+    }
 }
 
 #[async_trait]
@@ -105,10 +130,10 @@ impl APIServerClient for K8SAPIServerClient {
         req: CreateBottlerocketShadowRequest,
     ) -> Result<BottlerocketShadow> {
         Retry::spawn(retry_strategy(), || async {
-            let http_client = reqwest::Client::new();
+            let https_client = Self::https_client()?;
 
             let request_builder = self.add_common_request_headers(
-                http_client.post(format!(
+                https_client.post(format!(
                     "{}://{}{}",
                     Self::scheme(),
                     Self::server_domain(),
@@ -158,10 +183,9 @@ impl APIServerClient for K8SAPIServerClient {
         req: UpdateBottlerocketShadowRequest,
     ) -> Result<BottlerocketShadowStatus> {
         Retry::spawn(retry_strategy(), || async {
-            let http_client = reqwest::Client::new();
-
+            let https_client = Self::https_client()?;
             let request_builder = self.add_common_request_headers(
-                http_client.put(format!(
+                https_client.put(format!(
                     "{}://{}{}",
                     Self::scheme(),
                     Self::server_domain(),
@@ -212,10 +236,9 @@ impl APIServerClient for K8SAPIServerClient {
         req: CordonAndDrainBottlerocketShadowRequest,
     ) -> Result<()> {
         Retry::spawn(retry_strategy(), || async {
-            let http_client = reqwest::Client::new();
-
+            let https_client = Self::https_client()?;
             let request_builder = self.add_common_request_headers(
-                http_client.post(format!(
+                https_client.post(format!(
                     "{}://{}{}",
                     Self::scheme(),
                     Self::server_domain(),
@@ -254,10 +277,9 @@ impl APIServerClient for K8SAPIServerClient {
     #[instrument]
     async fn uncordon_node(&self, req: UncordonBottlerocketShadowRequest) -> Result<()> {
         Retry::spawn(retry_strategy(), || async {
-            let http_client = reqwest::Client::new();
-
+            let https_client = Self::https_client()?;
             let request_builder = self.add_common_request_headers(
-                http_client.post(format!(
+                https_client.post(format!(
                     "{}://{}{}",
                     Self::scheme(),
                     Self::server_domain(),

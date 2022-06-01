@@ -23,7 +23,7 @@ use models::{
 };
 use std::env;
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 
 const YAMLGEN_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -50,6 +50,13 @@ fn main() {
     let brupop_image_pull_secrets = env::var("BRUPOP_CONTAINER_IMAGE_PULL_SECRET").ok();
 
     serde_yaml::to_writer(&brupop_resources, &brupop_namespace()).unwrap();
+
+    // cert-manager and secret
+    let cert_path = PathBuf::from(YAMLGEN_DIR).join("deploy").join("cert.yaml");
+    let mut cert_file = File::open(cert_path).unwrap();
+    let mut contents = String::new();
+    cert_file.read_to_string(&mut contents).unwrap();
+    brupop_resources.write_all(contents.as_bytes()).unwrap();
 
     // apiserver resources
     serde_yaml::to_writer(&brupop_resources, &apiserver_service_account()).unwrap();
