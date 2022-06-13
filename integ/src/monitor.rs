@@ -88,26 +88,24 @@ impl<T: BrupopClient> BrupopMonitor<T> {
         }
     }
 
-    // verify if Burpop pods (agent, api-server, controller) are in `running` status.
+    // verify if Brupop pods (agent, api-server, controller) are in `running` status.
     fn check_pods_health(&self, pods: &ObjectList<Pod>) -> bool {
-        pods.iter().all(|pod| is_pod_running(pod))
+        if pods.items.is_empty() {
+            return false;
+        } else {
+            return pods.iter().all(|pod| is_pod_running(pod));
+        }
     }
 
     // verify if brs has been created properly and initialized `status`.
-    async fn check_shadows_health(
-        &self,
-        bottlerocketshadows: &ObjectList<BottlerocketShadow>,
-    ) -> Result<bool> {
-        for bottlerocketshadow in bottlerocketshadows {
-            // verify if brs has been updated `status` properly
-            if bottlerocketshadow.status.is_some() {
-                continue;
-            } else {
-                return Ok(false);
-            }
+    fn check_shadows_health(&self, bottlerocketshadows: &ObjectList<BottlerocketShadow>) -> bool {
+        if bottlerocketshadows.items.is_empty() {
+            return false;
+        } else {
+            return bottlerocketshadows
+                .iter()
+                .all(|bottlerocketshadow| bottlerocketshadow.status.is_some());
         }
-
-        Ok(true)
     }
 
     // confirm that the instances successfully made it to the target version and the Idle state
@@ -156,12 +154,11 @@ impl<T: BrupopClient> Monitor for BrupopMonitor<T> {
 
             // verify if Brupop pods (agent, api-server, controller) in `running` status
             // and if BottlerocketShadows (brs) are created properly.
-            if !self.check_pods_health(&pods)
-                || !self.check_shadows_health(&bottlerocketshadows).await?
-            {
+            if !self.check_pods_health(&pods) || !self.check_shadows_health(&bottlerocketshadows) {
                 if retry_count < NUM_RETRIES {
                     retry_count += 1;
                     sleep(MONITOR_SLEEP_DURATION).await;
+                    continue;
                 } else {
                     return Err(monitor_error::Error::BrupopMonitor {object: "Brupop pods (agent, apisever, controller or BottlerocketShadows) aren't on healthy status".to_string()});
                 }
@@ -337,6 +334,18 @@ pub(crate) mod test {
                 },
                 false,
             ),
+            (
+                ObjectList {
+                    items: vec![],
+                    metadata: ListMeta {
+                        continue_: None,
+                        remaining_item_count: None,
+                        resource_version: Some("83212702".to_string()),
+                        self_link: None,
+                    },
+                },
+                false,
+            ),
         ];
         for (pods, is_healthy) in test_cases.drain(..) {
             let result = brupop_monitor.check_pods_health(&pods);
@@ -423,10 +432,22 @@ pub(crate) mod test {
                 },
                 false,
             ),
+            (
+                ObjectList {
+                    items: vec![],
+                    metadata: ListMeta {
+                        continue_: None,
+                        remaining_item_count: None,
+                        resource_version: Some("83212702".to_string()),
+                        self_link: None,
+                    },
+                },
+                false,
+            ),
         ];
 
         for (brss, is_healthy) in test_cases.drain(..) {
-            let result = brupop_monitor.check_shadows_health(&brss).await.unwrap();
+            let result = brupop_monitor.check_shadows_health(&brss);
             assert_eq!(result, is_healthy);
         }
     }
