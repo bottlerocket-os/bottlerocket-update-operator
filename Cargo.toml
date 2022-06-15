@@ -5,5 +5,5 @@ members = [
     "controller",
     "models",
     "yamlgen",
-    "integ"
+    "integ",
 ]

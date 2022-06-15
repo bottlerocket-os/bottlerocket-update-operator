@@ -1,7 +1,7 @@
 use crate::constants::{
     APISERVER, APISERVER_HEALTH_CHECK_ROUTE, APISERVER_INTERNAL_PORT, APISERVER_MAX_UNAVAILABLE,
     APISERVER_SERVICE_NAME, APISERVER_SERVICE_PORT, APP_COMPONENT, APP_MANAGED_BY, APP_PART_OF,
-    BRUPOP, BRUPOP_DOMAIN_LIKE_NAME, LABEL_COMPONENT, NAMESPACE,
+    BRUPOP, BRUPOP_DOMAIN_LIKE_NAME, LABEL_COMPONENT, NAMESPACE, SECRET_NAME, TLS_KEY_MOUNT_PATH,
 };
 use crate::node::{K8S_NODE_PLURAL, K8S_NODE_STATUS};
 use k8s_openapi::api::apps::v1::{
@@ -10,7 +10,7 @@ use k8s_openapi::api::apps::v1::{
 use k8s_openapi::api::core::v1::{
     Affinity, Container, ContainerPort, HTTPGetAction, LocalObjectReference, NodeAffinity,
     NodeSelector, NodeSelectorRequirement, NodeSelectorTerm, PodSpec, PodTemplateSpec, Probe,
-    Service, ServiceAccount, ServicePort, ServiceSpec,
+    SecretVolumeSource, Service, ServiceAccount, ServicePort, ServiceSpec, Volume, VolumeMount,
 };
 use k8s_openapi::api::rbac::v1::{ClusterRole, ClusterRoleBinding, PolicyRule, RoleRef, Subject};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
@@ -246,6 +246,7 @@ pub fn apiserver_deployment(
                             http_get: Some(HTTPGetAction {
                                 path: Some(APISERVER_HEALTH_CHECK_ROUTE.to_string()),
                                 port: IntOrString::Int(APISERVER_INTERNAL_PORT),
+                                scheme: Some("HTTPS".to_string()),
                                 ..Default::default()
                             }),
                             initial_delay_seconds: Some(5),
@@ -255,13 +256,28 @@ pub fn apiserver_deployment(
                             http_get: Some(HTTPGetAction {
                                 path: Some(APISERVER_HEALTH_CHECK_ROUTE.to_string()),
                                 port: IntOrString::Int(APISERVER_INTERNAL_PORT),
+                                scheme: Some("HTTPS".to_string()),
                                 ..Default::default()
                             }),
                             initial_delay_seconds: Some(5),
                             ..Default::default()
                         }),
+                        volume_mounts: Some(vec![VolumeMount {
+                            name: "bottlerocket-tls-keys".to_string(),
+                            mount_path: TLS_KEY_MOUNT_PATH.to_string(),
+                            ..Default::default()
+                        }]),
                         ..Default::default()
                     }],
+                    volumes: Some(vec![Volume {
+                        name: "bottlerocket-tls-keys".to_string(),
+                        secret: Some(SecretVolumeSource {
+                            secret_name: Some(SECRET_NAME.to_string()),
+                            optional: Some(false),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    }]),
                     image_pull_secrets,
                     service_account_name: Some(BRUPOP_APISERVER_SERVICE_ACCOUNT.to_string()),
                     ..Default::default()

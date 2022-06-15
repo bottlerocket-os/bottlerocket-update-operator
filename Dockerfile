@@ -45,4 +45,4 @@ COPY --from=build \
     /licenses/bottlerocket-sdk/
 
 # Expose apiserver port
-EXPOSE 8080
+EXPOSE 8443

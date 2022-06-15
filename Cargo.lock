@@ -135,6 +135,8 @@ dependencies = [
  "futures-core",
  "http",
  "log",
+ "openssl",
+ "tokio-openssl",
  "tokio-util 0.6.9",
 ]
 
@@ -161,6 +163,7 @@ dependencies = [
  "actix-rt",
  "actix-server",
  "actix-service",
+ "actix-tls",
  "actix-utils",
  "actix-web-codegen",
  "ahash",
@@ -287,6 +290,7 @@ dependencies = [
  "maplit",
  "mockall",
  "models",
+ "openssl",
  "opentelemetry",
  "opentelemetry-prometheus",
  "reqwest",

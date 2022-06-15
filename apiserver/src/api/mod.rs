@@ -15,6 +15,7 @@ use crate::{
 };
 use models::constants::{
     AGENT, APISERVER_HEALTH_CHECK_ROUTE, APISERVER_SERVICE_NAME, LABEL_COMPONENT, NAMESPACE,
+    PRIVATE_KEY_NAME, PUBLIC_KEY_NAME, TLS_KEY_MOUNT_PATH,
 };
 use models::node::{BottlerocketShadowClient, BottlerocketShadowSelector};
 
@@ -32,6 +33,7 @@ use kube::{
     runtime::{reflector, utils::try_flatten_touched, watcher::watcher},
     ResourceExt,
 };
+use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use opentelemetry::global::meter;
 use snafu::{OptionExt, ResultExt};
 use std::env;
@@ -146,6 +148,18 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
 
     event!(Level::DEBUG, ?server_addr, "Server addr localhost.");
 
+    let mut builder = SslAcceptor::mozilla_modern_v5(SslMethod::tls()).context(error::SSLError)?;
+
+    builder
+        .set_certificate_chain_file(format!("{}/{}", TLS_KEY_MOUNT_PATH, PUBLIC_KEY_NAME))
+        .context(error::SSLError)?;
+    builder
+        .set_private_key_file(
+            format!("{}/{}", TLS_KEY_MOUNT_PATH, PRIVATE_KEY_NAME),
+            SslFiletype::PEM,
+        )
+        .context(error::SSLError)?;
+
     let server = HttpServer::new(move || {
         App::new()
             .wrap(
@@ -177,7 +191,7 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
                 web::get().to(ping::health_check),
             )
     })
-    .bind(server_addr)
+    .bind_openssl(server_addr, builder)
     .context(error::HttpServerError)?
     .run();
 

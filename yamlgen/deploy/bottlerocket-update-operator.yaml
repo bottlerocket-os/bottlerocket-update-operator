@@ -184,6 +184,41 @@ metadata:
     name: brupop
   name: brupop-bottlerocket-aws
 ---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: my-ca-issuer
+  namespace: brupop-bottlerocket-aws
+spec:
+  ca:
+    secretName: brupop-tls
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: brupop-apiserver
+  namespace: brupop-bottlerocket-aws
+spec:
+  isCA: true
+  commonName: my-selfsigned-ca
+  secretName: brupop-tls
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS8
+  dnsNames:
+    - brupop-apiserver.brupop-bottlerocket-aws.svc.cluster.local
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -318,17 +353,27 @@ spec:
           livenessProbe:
             httpGet:
               path: /ping
-              port: 8080
+              port: 8443
+              scheme: HTTPS
             initialDelaySeconds: 5
           name: brupop
           ports:
-            - containerPort: 8080
+            - containerPort: 8443
           readinessProbe:
             httpGet:
               path: /ping
-              port: 8080
+              port: 8443
+              scheme: HTTPS
             initialDelaySeconds: 5
+          volumeMounts:
+            - mountPath: /etc/brupop-tls-keys
+              name: bottlerocket-tls-keys
       serviceAccountName: brupop-apiserver-service-account
+      volumes:
+        - name: bottlerocket-tls-keys
+          secret:
+            optional: false
+            secretName: brupop-tls
 ---
 apiVersion: v1
 kind: Service
@@ -342,8 +387,8 @@ metadata:
   namespace: brupop-bottlerocket-aws
 spec:
   ports:
-    - port: 80
-      targetPort: 8080
+    - port: 443
+      targetPort: 8443
   selector:
     brupop.bottlerocket.aws/component: apiserver
 ---
@@ -460,6 +505,8 @@ spec:
               name: bottlerocket-apiclient
             - mountPath: /var/run/secrets/tokens/
               name: bottlerocket-agent-service-account-token
+            - mountPath: /etc/brupop-tls-keys
+              name: bottlerocket-tls-keys
       serviceAccountName: brupop-agent-service-account
       volumes:
         - hostPath:
@@ -476,6 +523,10 @@ spec:
               - serviceAccountToken:
                   audience: brupop-apiserver
                   path: bottlerocket-agent-service-account-token
+        - name: bottlerocket-tls-keys
+          secret:
+            optional: false
+            secretName: brupop-tls
 ---
 apiVersion: v1
 kind: ServiceAccount
