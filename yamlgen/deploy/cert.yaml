@@ -29,6 +29,7 @@ spec:
     encoding: PKCS8
   dnsNames:
     - brupop-apiserver.brupop-bottlerocket-aws.svc.cluster.local
+    - brupop-apiserver.brupop-bottlerocket-aws.svc
   issuerRef:
     name: selfsigned-issuer
     kind: ClusterIssuer
