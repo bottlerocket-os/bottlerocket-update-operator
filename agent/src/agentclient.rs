@@ -362,15 +362,12 @@ impl<T: APIServerClient> BrupopAgent<T> {
                         );
                     }
                 },
-                BottlerocketShadowState::StagedUpdate => {
+                BottlerocketShadowState::StagedAndPerformedUpdate => {
                     event!(Level::INFO, "Preparing update");
                     prepare().await.context(agentclient_error::UpdateActions {
                         action: "Prepare".to_string(),
                     })?;
 
-                    self.cordon_and_drain().await?;
-                }
-                BottlerocketShadowState::PerformedUpdate => {
                     event!(Level::INFO, "Performing update");
                     update().await.context(agentclient_error::UpdateActions {
                         action: "Perform".to_string(),
@@ -390,7 +387,9 @@ impl<T: APIServerClient> BrupopAgent<T> {
                             ),
                         )
                         .await?;
+                        self.handle_recover().await?;
                     } else {
+                        self.cordon_and_drain().await?;
                         boot_update()
                             .await
                             .context(agentclient_error::UpdateActions {
@@ -400,9 +399,8 @@ impl<T: APIServerClient> BrupopAgent<T> {
                 }
                 BottlerocketShadowState::MonitoringUpdate => {
                     event!(Level::INFO, "Monitoring node's healthy condition");
-                    self.handle_recover().await?;
-                    // TODO: we need add some criterias here by which we decide to transition
-                    // from MonitoringUpdate to WaitingForUpdate.
+                    // TODO: we left space here for customer if they need add customized criteria
+                    // which uses to decide to transition from MonitoringUpdate to WaitingForUpdate.
                 }
                 BottlerocketShadowState::ErrorReset => {
                     // Spec state should never be ErrorReset

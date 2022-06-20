@@ -43,8 +43,7 @@ spec:
                   description: "Records the desired state of the `BottlerocketShadow`"
                   enum:
                     - Idle
-                    - StagedUpdate
-                    - PerformedUpdate
+                    - StagedAndPerformedUpdate
                     - RebootedIntoUpdate
                     - MonitoringUpdate
                     - ErrorReset
@@ -73,8 +72,7 @@ spec:
                   description: "BottlerocketShadowState represents a node's state in the update state machine."
                   enum:
                     - Idle
-                    - StagedUpdate
-                    - PerformedUpdate
+                    - StagedAndPerformedUpdate
                     - RebootedIntoUpdate
                     - MonitoringUpdate
                     - ErrorReset

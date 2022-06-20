@@ -38,7 +38,7 @@ pub fn determine_next_node_spec(brs: &BottlerocketShadow) -> BottlerocketShadowS
                         // Or node just start or completed without crashing
                         if node_allowed_to_update(node_status) {
                             BottlerocketShadowSpec::new_starting_now(
-                                BottlerocketShadowState::StagedUpdate,
+                                BottlerocketShadowState::StagedAndPerformedUpdate,
                                 Some(target_version.clone()),
                             )
                         } else {

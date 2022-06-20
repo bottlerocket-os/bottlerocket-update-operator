@@ -17,18 +17,16 @@ pub enum BottlerocketShadowState {
     /// Nodes in this state are waiting for new updates to become available. This is both the starting, terminal and recovery state
     /// in the update process.
     Idle,
-    /// Nodes in this state have staged a new update image and used the kubernetes cordon and drain APIs to remove
-    /// running pods.
-    StagedUpdate,
-    /// Nodes in this state have installed the new image and updated the partition table to mark it as the new active
-    /// image.
-    PerformedUpdate,
-    /// Nodes in this state have rebooted after performing an update.
+    /// Nodes in this state have staged a new update image, have installed the new image, and have updated the partition table
+    /// to mark it as the new active image.
+    StagedAndPerformedUpdate,
+    /// Nodes in this state have used the kubernetes cordon and drain APIs to remove
+    /// running pods, have un-cordoned the node to allow work to be scheduled, and
+    /// have rebooted after performing an update.
     RebootedIntoUpdate,
-    /// Nodes in this state have un-cordoned the node to allow work to be scheduled, and are monitoring to ensure that
-    /// the node seems healthy before marking the udpate as complete.
+    /// Nodes in this state are monitoring to ensure that the node seems healthy before
+    /// marking the update as complete.
     MonitoringUpdate,
-
     /// Nodes in this state have crashed due to Bottlerocket Update API call failure.
     ErrorReset,
 }
@@ -40,8 +38,7 @@ impl Default for BottlerocketShadowState {
 }
 
 // These constants define the maximum amount of time to allow a machine to transition *into* this state.
-const STAGED_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(600));
-const PERFORMED_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(120));
+const STAGED_AND_PERFORMED_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(720));
 const REBOOTED_INTO_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(600));
 const MONITORING_UPDATE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(300));
 const IDLE_TIMEOUT: Option<Duration> = Some(Duration::from_secs(120));
@@ -51,9 +48,8 @@ impl BottlerocketShadowState {
     /// Returns the next state in the state machine if the current state has been reached successfully.
     pub fn on_success(&self) -> Self {
         match self {
-            Self::Idle => Self::StagedUpdate,
-            Self::StagedUpdate => Self::PerformedUpdate,
-            Self::PerformedUpdate => Self::RebootedIntoUpdate,
+            Self::Idle => Self::StagedAndPerformedUpdate,
+            Self::StagedAndPerformedUpdate => Self::RebootedIntoUpdate,
             Self::RebootedIntoUpdate => Self::MonitoringUpdate,
             Self::MonitoringUpdate => Self::Idle,
             Self::ErrorReset => Self::Idle,
@@ -64,8 +60,7 @@ impl BottlerocketShadowState {
     pub fn timeout_time(&self) -> Option<Duration> {
         match self {
             Self::Idle => IDLE_TIMEOUT,
-            Self::StagedUpdate => STAGED_UPDATE_TIMEOUT,
-            Self::PerformedUpdate => PERFORMED_UPDATE_TIMEOUT,
+            Self::StagedAndPerformedUpdate => STAGED_AND_PERFORMED_UPDATE_TIMEOUT,
             Self::RebootedIntoUpdate => REBOOTED_INTO_UPDATE_TIMEOUT,
             Self::MonitoringUpdate => MONITORING_UPDATE_TIMEOUT,
             Self::ErrorReset => ERROR_RESET_TIMEOUT,
