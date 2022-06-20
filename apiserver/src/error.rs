@@ -44,6 +44,9 @@ pub enum Error {
 
     #[snafu(display("Failed to set up SslAcceptorBuilder : {:?}", source))]
     SSLError { source: openssl::error::ErrorStack },
+
+    #[snafu(display("Failed to serialize Webhook response: {:?}", source))]
+    WebhookError { source: serde_json::error::Error },
 }
 
 impl ResponseError for Error {}

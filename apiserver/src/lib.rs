@@ -9,6 +9,8 @@ pub mod telemetry;
 
 #[cfg(feature = "client")]
 pub mod client;
+#[cfg(feature = "server")]
+pub mod webhook;
 
 pub(crate) mod constants;
 
