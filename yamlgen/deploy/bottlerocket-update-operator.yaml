@@ -674,6 +674,11 @@ spec:
       containers:
         - command:
             - "./controller"
+          env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
           image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v0.2.1"
           name: brupop
       serviceAccountName: brupop-controller-service-account

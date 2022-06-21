@@ -37,4 +37,7 @@ pub enum Error {
 
     #[snafu(display("Controller failed due to internal assertion issue: '{}'", source))]
     Assertion { source: serde_plain::Error },
+
+    #[snafu(display("Unable to get host controller pod node name: {}", source))]
+    GetNodeName { source: std::env::VarError },
 }

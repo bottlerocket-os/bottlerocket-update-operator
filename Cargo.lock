@@ -844,6 +844,7 @@ dependencies = [
  "opentelemetry",
  "opentelemetry-prometheus",
  "prometheus",
+ "semver 1.0.4",
  "serde_plain",
  "snafu",
  "tokio",

@@ -7,8 +7,9 @@ use crate::constants::{
 use crate::node::{K8S_NODE_PLURAL, K8S_NODE_STATUS};
 use k8s_openapi::api::apps::v1::{Deployment, DeploymentSpec, DeploymentStrategy};
 use k8s_openapi::api::core::v1::{
-    Affinity, Container, LocalObjectReference, NodeAffinity, NodeSelector, NodeSelectorRequirement,
-    NodeSelectorTerm, PodSpec, PodTemplateSpec, Service, ServiceAccount, ServicePort, ServiceSpec,
+    Affinity, Container, EnvVar, EnvVarSource, LocalObjectReference, NodeAffinity, NodeSelector,
+    NodeSelectorRequirement, NodeSelectorTerm, ObjectFieldSelector, PodSpec, PodTemplateSpec,
+    Service, ServiceAccount, ServicePort, ServiceSpec,
 };
 use k8s_openapi::api::rbac::v1::{ClusterRole, ClusterRoleBinding, PolicyRule, RoleRef, Subject};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
@@ -183,6 +184,17 @@ pub fn controller_deployment(
                         image_pull_policy: None,
                         name: BRUPOP.to_string(),
                         command: Some(vec!["./controller".to_string()]),
+                        env: Some(vec![EnvVar {
+                            name: "MY_NODE_NAME".to_string(),
+                            value_from: Some(EnvVarSource {
+                                field_ref: Some(ObjectFieldSelector {
+                                    field_path: "spec.nodeName".to_string(),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        }]),
                         ..Default::default()
                     }],
                     image_pull_secrets,
