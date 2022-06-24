@@ -8,11 +8,11 @@ publish = false
 [dependencies]
 models = { path = "../models", version = "0.1.0" }
 
-aws-config = "0.10.1"
-aws-sdk-ec2 = "0.10.1"
-aws-sdk-eks = "0.10.1"
-aws-sdk-iam = "0.10.1"
-aws-sdk-ssm = "0.10.1"
+aws-config = "0.13.0"
+aws-sdk-ec2 = "0.13.0"
+aws-sdk-eks = "0.13.0"
+aws-sdk-iam = "0.13.0"
+aws-sdk-ssm = "0.13.0"
 async-trait = "0.1"
 base64 = "0.13.0"
 chrono = "0.4"
