@@ -4,7 +4,6 @@
 !*/
 
 use lazy_static::lazy_static;
-
 use snafu::{ensure, ResultExt};
 use std::process::Command;
 
@@ -39,7 +38,7 @@ lazy_static! {
 
 #[derive(strum_macros::Display, Debug)]
 pub enum Action {
-    Create,
+    Apply,
     Delete,
 }
 
@@ -121,7 +120,9 @@ pub async fn delete_brupop_cluster_resources(kube_config_path: &str) -> UpdaterR
     Ok(())
 }
 
-// create/delete statefulset pods, stateless nginx pods, and pods with PDBs on EKS cluster
+// =^..^=   =^..^=   =^..^=   =^..^=   =^..^= Deletion and Creation of test pods  =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
+
+// create or delete statefulset pods, stateless nginx pods, and pods with PDBs on EKS cluster
 pub async fn process_pods_test(action: Action, kube_config_path: &str) -> UpdaterResult<()> {
     let action_string: String = action.to_string();
 
@@ -144,7 +145,6 @@ pub async fn process_pods_test(action: Action, kube_config_path: &str) -> Update
             action: action_string
         }
     );
-
     Ok(())
 }
 

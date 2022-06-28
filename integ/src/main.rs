@@ -186,7 +186,7 @@ async fn run() -> Result<()> {
                 "creating pods(statefulset pods, stateless pods, and pods with PodDisruptionBudgets) ...
             "
             );
-            process_pods_test(Action::Create, &kube_config_path)
+            process_pods_test(Action::Apply, &kube_config_path)
                 .await
                 .context(error::CreatePod)?;
 
