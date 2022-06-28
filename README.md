@@ -261,7 +261,7 @@ Then run the following to regenerate the `.yaml` resource definitions:
 cargo build -p yamlgen
 ```
 
-These can of course be deployed using `kubectl apply` or the `cargo run --bin integ` for the integration testing tool.
+These can of course be deployed using `kubectl apply` or the automatic integration testing tool [integ](https://github.com/bottlerocket-os/bottlerocket-update-operator/tree/develop/integ).
 
 ## Security
 
