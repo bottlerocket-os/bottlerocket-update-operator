@@ -1,3 +1,4 @@
+use crate::brupop_labels;
 use crate::constants::{
     APP_COMPONENT, APP_MANAGED_BY, APP_PART_OF, BRUPOP, BRUPOP_DOMAIN_LIKE_NAME, CONTROLLER,
     CONTROLLER_DEPLOYMENT_NAME, CONTROLLER_INTERNAL_PORT, CONTROLLER_SERVICE_NAME,
@@ -22,6 +23,7 @@ const BRUPOP_CONTROLLER_CLUSTER_ROLE: &str = "brupop-controller-role";
 pub fn controller_service_account() -> ServiceAccount {
     ServiceAccount {
         metadata: ObjectMeta {
+            labels: Some(brupop_labels!(CONTROLLER)),
             name: Some(BRUPOP_CONTROLLER_SERVICE_ACCOUNT.to_string()),
             namespace: Some(NAMESPACE.to_string()),
             annotations: Some(btreemap! {
@@ -37,6 +39,7 @@ pub fn controller_service_account() -> ServiceAccount {
 pub fn controller_cluster_role() -> ClusterRole {
     ClusterRole {
         metadata: ObjectMeta {
+            labels: Some(brupop_labels!(CONTROLLER)),
             name: Some(BRUPOP_CONTROLLER_CLUSTER_ROLE.to_string()),
             namespace: Some(NAMESPACE.to_string()),
             ..Default::default()
@@ -89,6 +92,7 @@ pub fn controller_cluster_role() -> ClusterRole {
 pub fn controller_cluster_role_binding() -> ClusterRoleBinding {
     ClusterRoleBinding {
         metadata: ObjectMeta {
+            labels: Some(brupop_labels!(CONTROLLER)),
             name: Some("brupop-controller-role-binding".to_string()),
             namespace: Some(NAMESPACE.to_string()),
             ..Default::default()
@@ -117,17 +121,7 @@ pub fn controller_deployment(
 
     Deployment {
         metadata: ObjectMeta {
-            labels: Some(
-                btreemap! {
-                    APP_COMPONENT => CONTROLLER.to_string(),
-                    APP_MANAGED_BY => BRUPOP.to_string(),
-                    APP_PART_OF => BRUPOP.to_string(),
-                    LABEL_COMPONENT => CONTROLLER.to_string(),
-                }
-                .iter()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
-                .collect(),
-            ),
+            labels: Some(brupop_labels!(CONTROLLER)),
             name: Some(CONTROLLER_DEPLOYMENT_NAME.to_string()),
             namespace: Some(NAMESPACE.to_string()),
             ..Default::default()
@@ -205,17 +199,7 @@ pub fn controller_deployment(
 pub fn controller_service() -> Service {
     Service {
         metadata: ObjectMeta {
-            labels: Some(
-                btreemap! {
-                    APP_COMPONENT => CONTROLLER.to_string(),
-                    APP_MANAGED_BY => BRUPOP.to_string(),
-                    APP_PART_OF => BRUPOP.to_string(),
-                    LABEL_COMPONENT => CONTROLLER.to_string(),
-                }
-                .iter()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
-                .collect(),
-            ),
+            labels: Some(brupop_labels!(CONTROLLER)),
             name: Some(CONTROLLER_SERVICE_NAME.to_string()),
             namespace: Some(NAMESPACE.to_string()),
             ..Default::default()

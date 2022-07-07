@@ -224,12 +224,22 @@ kind: ServiceAccount
 metadata:
   annotations:
     kubernetes.io/service-account.name: brupop-apiserver-service-account
+  labels:
+    app.kubernetes.io/component: apiserver
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: apiserver
   name: brupop-apiserver-service-account
   namespace: brupop-bottlerocket-aws
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app.kubernetes.io/component: apiserver
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: apiserver
   name: brupop-apiserver-role
   namespace: brupop-bottlerocket-aws
 rules:
@@ -283,6 +293,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app.kubernetes.io/component: apiserver
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: apiserver
   name: brupop-apiserver-role-binding
   namespace: brupop-bottlerocket-aws
 roleRef:
@@ -297,6 +312,11 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app.kubernetes.io/component: apiserver
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: apiserver
   name: brupop-apiserver-auth-delegator-role-binding
   namespace: brupop-bottlerocket-aws
 roleRef:
@@ -397,12 +417,22 @@ kind: ServiceAccount
 metadata:
   annotations:
     kubernetes.io/service-account.name: brupop-agent-service-account
+  labels:
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: agent
   name: brupop-agent-service-account
   namespace: brupop-bottlerocket-aws
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: agent
   name: brupop-agent-role
   namespace: brupop-bottlerocket-aws
 rules:
@@ -427,6 +457,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: agent
   name: brupop-agent-role-binding
   namespace: brupop-bottlerocket-aws
 roleRef:
@@ -533,12 +568,22 @@ kind: ServiceAccount
 metadata:
   annotations:
     kubernetes.io/service-account.name: brupop-controller-service-account
+  labels:
+    app.kubernetes.io/component: brupop-controller
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: brupop-controller
   name: brupop-controller-service-account
   namespace: brupop-bottlerocket-aws
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app.kubernetes.io/component: brupop-controller
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: brupop-controller
   name: brupop-controller-role
   namespace: brupop-bottlerocket-aws
 rules:
@@ -575,6 +620,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app.kubernetes.io/component: brupop-controller
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: brupop-controller
   name: brupop-controller-role-binding
   namespace: brupop-bottlerocket-aws
 roleRef:
