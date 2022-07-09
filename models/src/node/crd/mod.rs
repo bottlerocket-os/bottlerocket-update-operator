@@ -12,18 +12,26 @@
 /// ```
 ///
 /// Push the BottlerocketShadow version to the end of BOTTLEROCKETSHADOW_CRD_METHODS
-/// So the build tool could find all BottlerocketShadow versions and generate correct
+/// so the build tool could find all BottlerocketShadow versions and generate correct
 /// yaml file for CustomResrouceDefinition
 #[cfg_attr(doctest, doc = " ````no_test")]
 /// ```
 /// static ref BOTTLEROCKETSHADOW_CRD_METHODS: Vec<fn() -> CustomResourceDefinition> = {
 ///    // A list of CRD methods for different BottlerocketShadow version
 ///    // The latest version should be added at the end of the vector.
-///    let mut crd_methods = Vec::new();
-///    crd_methods.push(v1::BottlerocketShadow::crd as fn()->CustomResourceDefinition);
-///    crd_methods.push(v2::BottlerocketShadow::crd as fn()->CustomResourceDefinition);
-///    crd_methods
+///    vec![
+///            v1::BottlerocketShadow::crd as fn() -> CustomResourceDefinition,
+///            v2::BottlerocketShadow::crd as fn() -> CustomResourceDefinition,
+///        ]
 /// };
+/// ```
+///
+/// Add the BottlerocketShadow version to the end of BOTTLEROCKETSHADOW_CRD_VERSIONS
+/// so the webhook conversion could set up proper conversion_review_versions
+#[cfg_attr(doctest, doc = " ````no_test")]
+/// ```
+/// static ref BOTTLEROCKETSHADOW_CRD_VERSIONS: Vec<String> =
+///     vec!["v1".to_string(), "v2".to_string()];
 /// ```
 ///
 pub mod v1;
@@ -44,13 +52,13 @@ use std::fmt::Debug;
 
 lazy_static! {
     static ref BOTTLEROCKETSHADOW_CRD_METHODS: Vec<fn() -> CustomResourceDefinition> = {
-        // A list of CRD methods for different BottlerocketShadow version
-        // The latest version should be added at the end of the vector.
-        let mut crd_methods = Vec::new();
-        crd_methods.push(v1::BottlerocketShadow::crd as fn()->CustomResourceDefinition);
-        crd_methods.push(v2::BottlerocketShadow::crd as fn()->CustomResourceDefinition);
-        crd_methods
+        vec![
+            v1::BottlerocketShadow::crd as fn() -> CustomResourceDefinition,
+            v2::BottlerocketShadow::crd as fn() -> CustomResourceDefinition,
+        ]
     };
+    static ref BOTTLEROCKETSHADOW_CRD_VERSIONS: Vec<String> =
+        vec!["v1".to_string(), "v2".to_string()];
 }
 
 pub trait BottlerocketShadowResource: kube::ResourceExt {}
