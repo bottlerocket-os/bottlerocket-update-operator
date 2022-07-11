@@ -1,3 +1,4 @@
+use crate::brupop_labels;
 use crate::constants::{
     APISERVER, APISERVER_HEALTH_CHECK_ROUTE, APISERVER_INTERNAL_PORT, APISERVER_MAX_UNAVAILABLE,
     APISERVER_SERVICE_NAME, APISERVER_SERVICE_PORT, APP_COMPONENT, APP_MANAGED_BY, APP_PART_OF,
@@ -28,6 +29,7 @@ const AUTH_DELEGATOR_ROLE_NAME: &str = "system:auth-delegator";
 pub fn apiserver_service_account() -> ServiceAccount {
     ServiceAccount {
         metadata: ObjectMeta {
+            labels: Some(brupop_labels!(APISERVER)),
             name: Some(BRUPOP_APISERVER_SERVICE_ACCOUNT.to_string()),
             namespace: Some(NAMESPACE.to_string()),
             annotations: Some(btreemap! {
@@ -43,6 +45,7 @@ pub fn apiserver_service_account() -> ServiceAccount {
 pub fn apiserver_cluster_role() -> ClusterRole {
     ClusterRole {
         metadata: ObjectMeta {
+            labels: Some(brupop_labels!(APISERVER)),
             name: Some(BRUPOP_APISERVER_CLUSTER_ROLE.to_string()),
             namespace: Some(NAMESPACE.to_string()),
             ..Default::default()
@@ -110,6 +113,7 @@ pub fn apiserver_cluster_role() -> ClusterRole {
 pub fn apiserver_cluster_role_binding() -> ClusterRoleBinding {
     ClusterRoleBinding {
         metadata: ObjectMeta {
+            labels: Some(brupop_labels!(APISERVER)),
             name: Some("brupop-apiserver-role-binding".to_string()),
             namespace: Some(NAMESPACE.to_string()),
             ..Default::default()
@@ -132,6 +136,7 @@ pub fn apiserver_cluster_role_binding() -> ClusterRoleBinding {
 pub fn apiserver_auth_delegator_cluster_role_binding() -> ClusterRoleBinding {
     ClusterRoleBinding {
         metadata: ObjectMeta {
+            labels: Some(brupop_labels!(APISERVER)),
             name: Some("brupop-apiserver-auth-delegator-role-binding".to_string()),
             namespace: Some(NAMESPACE.to_string()),
             ..Default::default()
@@ -160,17 +165,7 @@ pub fn apiserver_deployment(
 
     Deployment {
         metadata: ObjectMeta {
-            labels: Some(
-                btreemap! {
-                    APP_COMPONENT => APISERVER.to_string(),
-                    APP_MANAGED_BY => BRUPOP.to_string(),
-                    APP_PART_OF => BRUPOP.to_string(),
-                    LABEL_COMPONENT => APISERVER.to_string(),
-                }
-                .iter()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
-                .collect(),
-            ),
+            labels: Some(brupop_labels!(APISERVER)),
             name: Some(APISERVER_SERVICE_NAME.to_string()),
             namespace: Some(NAMESPACE.to_string()),
             ..Default::default()
@@ -292,17 +287,7 @@ pub fn apiserver_deployment(
 pub fn apiserver_service() -> Service {
     Service {
         metadata: ObjectMeta {
-            labels: Some(
-                btreemap! {
-                    APP_COMPONENT => APISERVER.to_string(),
-                    APP_MANAGED_BY => BRUPOP.to_string(),
-                    APP_PART_OF => BRUPOP.to_string(),
-                    LABEL_COMPONENT => APISERVER.to_string(),
-                }
-                .iter()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
-                .collect(),
-            ),
+            labels: Some(brupop_labels!(APISERVER)),
             name: Some(APISERVER_SERVICE_NAME.to_string()),
             namespace: Some(NAMESPACE.to_string()),
             ..Default::default()

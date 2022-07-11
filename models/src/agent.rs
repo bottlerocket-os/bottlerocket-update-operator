@@ -1,3 +1,4 @@
+use crate::brupop_labels;
 use crate::constants::{
     AGENT, AGENT_NAME, APISERVER_SERVICE_NAME, APP_COMPONENT, APP_MANAGED_BY, APP_PART_OF, BRUPOP,
     BRUPOP_INTERFACE_VERSION, LABEL_BRUPOP_INTERFACE_NAME, LABEL_COMPONENT, NAMESPACE, SECRET_NAME,
@@ -27,6 +28,7 @@ pub const AGENT_TOKEN_PATH: &str = "bottlerocket-agent-service-account-token";
 pub fn agent_service_account() -> ServiceAccount {
     ServiceAccount {
         metadata: ObjectMeta {
+            labels: Some(brupop_labels!(AGENT)),
             name: Some(BRUPOP_AGENT_SERVICE_ACCOUNT.to_string()),
             namespace: Some(NAMESPACE.to_string()),
             annotations: Some(btreemap! {
@@ -42,6 +44,7 @@ pub fn agent_service_account() -> ServiceAccount {
 pub fn agent_cluster_role() -> ClusterRole {
     ClusterRole {
         metadata: ObjectMeta {
+            labels: Some(brupop_labels!(AGENT)),
             name: Some(BRUPOP_AGENT_CLUSTER_ROLE.to_string()),
             namespace: Some(NAMESPACE.to_string()),
             ..Default::default()
@@ -77,6 +80,7 @@ pub fn agent_cluster_role() -> ClusterRole {
 pub fn agent_cluster_role_binding() -> ClusterRoleBinding {
     ClusterRoleBinding {
         metadata: ObjectMeta {
+            labels: Some(brupop_labels!(AGENT)),
             name: Some("brupop-agent-role-binding".to_string()),
             namespace: Some(NAMESPACE.to_string()),
             ..Default::default()
@@ -102,17 +106,7 @@ pub fn agent_daemonset(agent_image: String, image_pull_secret: Option<String>) -
 
     DaemonSet {
         metadata: ObjectMeta {
-            labels: Some(
-                btreemap! {
-                    APP_COMPONENT => AGENT,
-                    APP_MANAGED_BY => BRUPOP,
-                    APP_PART_OF => BRUPOP,
-                    LABEL_COMPONENT => AGENT,
-                }
-                .iter()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
-                .collect(),
-            ),
+            labels: Some(brupop_labels!(AGENT)),
             name: Some(AGENT_NAME.to_string()),
             namespace: Some(NAMESPACE.to_string()),
             ..Default::default()

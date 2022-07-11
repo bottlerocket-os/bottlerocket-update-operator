@@ -10,6 +10,22 @@ macro_rules! brupop_domain {
         concat!(brupop_domain!(), "/", $s)
     };
 }
+/// Helper macro to generate all brupop resources' common k8s labels.
+/// When given a string parameter it assign the value to `APP_COMPONENT` and `LABEL_COMPONENT`
+#[macro_export]
+macro_rules! brupop_labels {
+    ($s:expr) => {
+        btreemap! {
+            APP_COMPONENT => $s,
+            APP_MANAGED_BY => BRUPOP,
+            APP_PART_OF => BRUPOP,
+            LABEL_COMPONENT => $s,
+        }
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
+    };
+}
 
 pub const API_VERSION: &str = brupop_domain!("v2");
 pub const NAMESPACE: &str = "brupop-bottlerocket-aws";
