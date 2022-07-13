@@ -2,52 +2,31 @@
   updater helps running brupop on existing EKS cluster and clean up all
   resources once completing integration test
 !*/
-
-use lazy_static::lazy_static;
-
 use snafu::{ensure, ResultExt};
 use std::process::Command;
 
 use k8s_openapi::api::core::v1::Node;
 use kube::api::{Api, ListParams};
 
-use models::constants::NAMESPACE;
-
 const CURRENT_LOCATION_PATH: &str = "integ/src";
 const PODS_TEMPLATE: &str = "pods-template.yaml";
 const KUBECTL_BINARY: &str = "kubectl";
 
-lazy_static! {
-    static ref BRUPOP_CLUSTER_ROLES: Vec<&'static str> = {
-        let mut m = Vec::new();
-        m.push("brupop-apiserver-role");
-        m.push("brupop-agent-role");
-        m.push("brupop-controller-role");
-        m
-    };
-}
-
-lazy_static! {
-    static ref BRUPOP_CLUSTER_ROLE_BINDINGS: Vec<&'static str> = {
-        let mut m = Vec::new();
-        m.push("brupop-apiserver-role-binding");
-        m.push("brupop-agent-role-binding");
-        m.push("brupop-controller-role-binding");
-        m
-    };
-}
-
 #[derive(strum_macros::Display, Debug)]
 pub enum Action {
-    Create,
+    Apply,
     Delete,
 }
 
-// installing brupop on EKS cluster
-pub async fn run_brupop(kube_config_path: &str) -> UpdaterResult<()> {
+// =^..^=   =^..^=   =^..^=   =^..^=   =^..^= Deletion and Creation of brupop resources  =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
+
+// install or destroy all brupop resources
+pub async fn process_brupop_resources(action: Action, kube_config_path: &str) -> UpdaterResult<()> {
+    let action_string: String = action.to_string();
+
     let brupop_resource_status = Command::new(KUBECTL_BINARY)
         .args([
-            "apply",
+            &action_string.to_lowercase(),
             "-f",
             "yamlgen/deploy/bottlerocket-update-operator.yaml",
             "--kubeconfig",
@@ -56,72 +35,18 @@ pub async fn run_brupop(kube_config_path: &str) -> UpdaterResult<()> {
         .status()
         .context(update_error::BrupopProcess)?;
 
-    ensure!(brupop_resource_status.success(), update_error::BrupopRun);
-
+    ensure!(
+        brupop_resource_status.success(),
+        update_error::BrupopRun {
+            action: action_string
+        }
+    );
     Ok(())
 }
 
-// destroy all brupop resources which were created when integration test installed brupop
-pub async fn delete_brupop_cluster_resources(kube_config_path: &str) -> UpdaterResult<()> {
-    // delete namespaces brupop-bottlerocket-aws. This can clean all resources under this namespace like daemonsets.apps
-    let namespace_deletion_status = Command::new("kubectl")
-        .args([
-            "delete",
-            "namespaces",
-            NAMESPACE,
-            "--kubeconfig",
-            kube_config_path,
-        ])
-        .status()
-        .context(update_error::BrupopCleanUp {
-            cluster_resource: "namespaces",
-        })?;
-    ensure!(namespace_deletion_status.success(), update_error::BrupopRun);
+// =^..^=   =^..^=   =^..^=   =^..^=   =^..^= Deletion and Creation of test pods  =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
 
-    // delete clusterrolebinding.rbac.authorization.k8s.io
-    for cluster_role_binding in BRUPOP_CLUSTER_ROLE_BINDINGS.iter() {
-        let clusterrolebinding_deletion_status = Command::new("kubectl")
-            .args([
-                "delete",
-                "clusterrolebinding.rbac.authorization.k8s.io",
-                cluster_role_binding,
-                "--kubeconfig",
-                kube_config_path,
-            ])
-            .status()
-            .context(update_error::BrupopCleanUp {
-                cluster_resource: "clusterrolebinding.rbac.authorization.k8s.io",
-            })?;
-        ensure!(
-            clusterrolebinding_deletion_status.success(),
-            update_error::BrupopRun
-        );
-    }
-
-    // delete clusterrole.rbac.authorization.k8s.io
-    for cluster_role in BRUPOP_CLUSTER_ROLES.iter() {
-        let clusterrole_deletion_status = Command::new("kubectl")
-            .args([
-                "delete",
-                "clusterrole.rbac.authorization.k8s.io",
-                cluster_role,
-                "--kubeconfig",
-                kube_config_path,
-            ])
-            .status()
-            .context(update_error::BrupopCleanUp {
-                cluster_resource: "clusterrole.rbac.authorization.k8s.io",
-            })?;
-        ensure!(
-            clusterrole_deletion_status.success(),
-            update_error::BrupopRun
-        );
-    }
-
-    Ok(())
-}
-
-// create/delete statefulset pods, stateless nginx pods, and pods with PDBs on EKS cluster
+// create or delete statefulset pods, stateless nginx pods, and pods with PDBs on EKS cluster
 pub async fn process_pods_test(action: Action, kube_config_path: &str) -> UpdaterResult<()> {
     let action_string: String = action.to_string();
 
@@ -144,7 +69,6 @@ pub async fn process_pods_test(action: Action, kube_config_path: &str) -> Update
             action: action_string
         }
     );
-
     Ok(())
 }
 
@@ -172,14 +96,8 @@ pub mod update_error {
         #[snafu(display("Failed to install brupop: {}", source))]
         BrupopProcess { source: std::io::Error },
 
-        #[snafu(display("Failed to run brupop test"))]
-        BrupopRun,
-
-        #[snafu(display("Failed to deleted resource {}: {}", cluster_resource, source))]
-        BrupopCleanUp {
-            cluster_resource: String,
-            source: std::io::Error,
-        },
+        #[snafu(display("Failed to process brupop resources: {:?} brupop", action))]
+        BrupopRun { action: String },
 
         #[snafu(display("Failed to {:?} pods", action))]
         ProcessPodsTest {

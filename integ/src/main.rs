@@ -15,9 +15,7 @@ use integ::eks_provider::{get_cluster_info, write_kubeconfig};
 use integ::error::ProviderError;
 use integ::monitor::{BrupopMonitor, IntegBrupopClient, Monitor};
 use integ::nodegroup_provider::{create_nodegroup, terminate_nodegroup};
-use integ::updater::{
-    delete_brupop_cluster_resources, nodes_exist, process_pods_test, run_brupop, Action,
-};
+use integ::updater::{nodes_exist, process_brupop_resources, process_pods_test, Action};
 
 type Result<T> = std::result::Result<T, error::Error>;
 
@@ -186,13 +184,13 @@ async fn run() -> Result<()> {
                 "creating pods(statefulset pods, stateless pods, and pods with PodDisruptionBudgets) ...
             "
             );
-            process_pods_test(Action::Create, &kube_config_path)
+            process_pods_test(Action::Apply, &kube_config_path)
                 .await
                 .context(error::CreatePod)?;
 
             // install brupop on EKS cluster
             info!("Running brupop on existing EKS cluster ...");
-            run_brupop(&kube_config_path)
+            process_brupop_resources(Action::Apply, &kube_config_path)
                 .await
                 .context(error::RunBrupop)?;
         }
@@ -251,7 +249,7 @@ async fn run() -> Result<()> {
             if !nodes_exist(k8s_client).await.context(error::RunBrupop)? {
                 // Clean up all brupop resources like namespace, deployment on brupop test
                 info!("Deleting all brupop cluster resources created by integration test ...");
-                delete_brupop_cluster_resources(&kube_config_path)
+                process_brupop_resources(Action::Apply, &kube_config_path)
                     .await
                     .context(error::DeleteClusterResources)?;
 
