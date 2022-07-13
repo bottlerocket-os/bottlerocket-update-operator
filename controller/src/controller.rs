@@ -1,5 +1,4 @@
 use super::{
-    error::{self, Result},
     metrics::{BrupopControllerMetrics, BrupopHostsData},
     statemachine::determine_next_node_spec,
 };
@@ -19,6 +18,9 @@ use tracing::{event, instrument, Level};
 
 // Defines the length time after which the controller will take actions.
 const ACTION_INTERVAL: Duration = Duration::from_secs(2);
+
+/// The module-wide result type.
+type Result<T> = std::result::Result<T, controllerclient_error::Error>;
 
 /// The BrupopController orchestrates updates across a cluster of Bottlerocket nodes.
 pub struct BrupopController<T: BottlerocketShadowClient> {
@@ -89,11 +91,13 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
 
             self.node_client
                 .update_node_spec(
-                    &node.selector().context(error::NodeSelectorCreation)?,
+                    &node
+                        .selector()
+                        .context(controllerclient_error::NodeSelectorCreation)?,
                     &desired_spec,
                 )
                 .await
-                .context(error::UpdateNodeSpec)
+                .context(controllerclient_error::UpdateNodeSpec)
         } else {
             // Otherwise, we need to ensure that the node is making progress in a timely fashion.
 
@@ -149,7 +153,11 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
 
                 *hosts_version_count_map.entry(current_version).or_default() += 1;
                 *hosts_state_count_map
-                    .entry(serde_plain::to_string(&current_state).context(error::Assertion)?)
+                    .entry(serde_plain::to_string(&current_state).context(
+                        controllerclient_error::Assertion {
+                            msg: "unable to parse current_state".to_string(),
+                        },
+                    )?)
                     .or_default() += 1;
             }
         }
@@ -209,7 +217,8 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
 // Get node and BottlerocketShadow names
 #[instrument]
 fn get_associated_bottlerocketshadow_name() -> Result<String> {
-    let associated_node_name = env::var("MY_NODE_NAME").context(error::GetNodeName)?;
+    let associated_node_name =
+        env::var("MY_NODE_NAME").context(controllerclient_error::GetNodeName)?;
     let associated_bottlerocketshadow_name = brs_name_from_node_name(&associated_node_name);
 
     event!(
@@ -386,5 +395,28 @@ pub(crate) mod test {
         sort_shadows(&mut test_shadows, associated_brs_name);
 
         assert_eq!(test_shadows, expected_result);
+    }
+}
+pub mod controllerclient_error {
+    use models::node::BottlerocketShadowError;
+    use snafu::Snafu;
+
+    #[derive(Debug, Snafu)]
+    #[snafu(visibility = "pub")]
+    pub enum Error {
+        #[snafu(display("Controller failed due to {}: '{}'", msg, source))]
+        Assertion {
+            msg: String,
+            source: serde_plain::Error,
+        },
+
+        #[snafu(display("Unable to get host controller pod node name: {}", source))]
+        GetNodeName { source: std::env::VarError },
+
+        #[snafu(display("Failed to update node spec via kubernetes API: '{}'", source))]
+        UpdateNodeSpec { source: BottlerocketShadowError },
+
+        #[snafu(display("Could not determine selector for node: '{}'", source))]
+        NodeSelectorCreation { source: BottlerocketShadowError },
     }
 }
