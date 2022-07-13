@@ -1,5 +1,4 @@
 use agent::agentclient::BrupopAgent;
-use agent::error::{self, Result};
 use apiserver::client::K8SAPIServerClient;
 use futures::StreamExt;
 use k8s_openapi::api::core::v1::Node;
@@ -24,6 +23,10 @@ use std::fs;
 use std::path::Path;
 
 const TERMINATION_LOG: &str = "/dev/termination-log";
+
+/// The module-wide result type.
+type Result<T> = std::result::Result<T, agent_error::Error>;
+
 #[tokio::main]
 async fn main() {
     let termination_log = env::var("TERMINATION_LOG").unwrap_or(TERMINATION_LOG.to_string());
@@ -42,17 +45,17 @@ async fn run_agent() -> Result<()> {
 
     let k8s_client = kube::client::Client::try_default()
         .await
-        .context(error::ClientCreate)?;
+        .context(agent_error::ClientCreate)?;
 
     // Configure our brupop apiserver client to use the auth token mounted to our Pod.
     let token_path = Path::new(TOKEN_PROJECTION_MOUNT_PATH).join(AGENT_TOKEN_PATH);
-    let token_path = token_path.to_str().context(error::Assertion {
+    let token_path = token_path.to_str().context(agent_error::Assertion {
         message: "Token path (defined in models/agent.rs) is not valid unicode.",
     })?;
     let apiserver_client = K8SAPIServerClient::new(token_path.to_string());
 
     // Get node and BottlerocketShadow names
-    let associated_node_name = env::var("MY_NODE_NAME").context(error::GetNodeName)?;
+    let associated_node_name = env::var("MY_NODE_NAME").context(agent_error::GetNodeName)?;
     let associated_bottlerocketshadow_name = brs_name_from_node_name(&associated_node_name);
 
     // Generate reflector to watch and cache BottlerocketShadow
@@ -97,15 +100,15 @@ async fn run_agent() -> Result<()> {
     tokio::select! {
         _ = brs_drainer => {
             event!(Level::ERROR, "Processed event for brs");
-            return Err(error::Error::KubernetesWatcherFailed {object: "brs".to_string()});
+            return Err(agent_error::Error::KubernetesWatcherFailed {object: "brs".to_string()});
         },
         _ = node_drainer => {
             event!(Level::ERROR, "Processed event for node");
-            return Err(error::Error::KubernetesWatcherFailed {object: "node".to_string()});
+            return Err(agent_error::Error::KubernetesWatcherFailed {object: "node".to_string()});
         },
         res = agent_runner => {
             event!(Level::ERROR, "Agent runner exited");
-            res.context(error::AgentError)?
+            res.context(agent_error::AgentError)?
         },
     };
     Ok(())
@@ -121,7 +124,39 @@ pub fn init_telemetry() -> Result<()> {
         .with(env_filter)
         .with(JsonStorageLayer)
         .with(stdio_formatting_layer);
-    tracing::subscriber::set_global_default(subscriber).context(error::TracingConfiguration)?;
+    tracing::subscriber::set_global_default(subscriber)
+        .context(agent_error::TracingConfiguration)?;
 
     Ok(())
+}
+
+pub mod agent_error {
+    use agent::agentclient::agentclient_error;
+    use snafu::Snafu;
+
+    #[derive(Debug, Snafu)]
+    #[snafu(visibility = "pub")]
+    pub enum Error {
+        #[snafu(display("Error running agent server: '{}'", source))]
+        AgentError { source: agentclient_error::Error },
+
+        // The assertion type lets us return a Result in cases where we would otherwise use `unwrap()` on results that
+        // we know cannot be Err. This lets us bubble up to our error handler which writes to the termination log.
+        #[snafu(display("Agent failed due to internal assertion issue: '{}'", message))]
+        Assertion { message: String },
+
+        #[snafu(display("Unable to create client: '{}'", source))]
+        ClientCreate { source: kube::Error },
+
+        #[snafu(display("Unable to get associated node name: {}", source))]
+        GetNodeName { source: std::env::VarError },
+
+        #[snafu(display("The Kubernetes WATCH on {} objects has failed.", object))]
+        KubernetesWatcherFailed { object: String },
+
+        #[snafu(display("Error configuring tracing: '{}'", source))]
+        TracingConfiguration {
+            source: tracing::subscriber::SetGlobalDefaultError,
+        },
+    }
 }
