@@ -249,7 +249,7 @@ async fn run() -> Result<()> {
             if !nodes_exist(k8s_client).await.context(error::RunBrupop)? {
                 // Clean up all brupop resources like namespace, deployment on brupop test
                 info!("Deleting all brupop cluster resources created by integration test ...");
-                process_brupop_resources(Action::Apply, &kube_config_path)
+                process_brupop_resources(Action::Delete, &kube_config_path)
                     .await
                     .context(error::DeleteClusterResources)?;
 
