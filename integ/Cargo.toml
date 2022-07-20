@@ -26,7 +26,7 @@ mockall = { version = "0.10", optional = true }
 semver = "1.0"
 serde = { version = "1", features = [ "derive" ] }
 serde_json = "1"
-snafu = "0.6"
+snafu = "0.7"
 structopt = "0.3.17"
 strum_macros = "0.24.0"
 tokio = { version = "1", default-features = false, features = ["macros", "rt-multi-thread"] }
