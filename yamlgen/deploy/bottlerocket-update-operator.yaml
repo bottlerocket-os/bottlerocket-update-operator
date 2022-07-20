@@ -43,8 +43,7 @@ spec:
                   description: "Records the desired state of the `BottlerocketShadow`"
                   enum:
                     - Idle
-                    - StagedUpdate
-                    - PerformedUpdate
+                    - StagedAndPerformedUpdate
                     - RebootedIntoUpdate
                     - MonitoringUpdate
                     - ErrorReset
@@ -73,8 +72,7 @@ spec:
                   description: "BottlerocketShadowState represents a node's state in the update state machine."
                   enum:
                     - Idle
-                    - StagedUpdate
-                    - PerformedUpdate
+                    - StagedAndPerformedUpdate
                     - RebootedIntoUpdate
                     - MonitoringUpdate
                     - ErrorReset
@@ -636,6 +634,14 @@ subjects:
     name: brupop-controller-service-account
     namespace: brupop-bottlerocket-aws
 ---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: brupop-controller-high-priority
+  namespace: brupop-bottlerocket-aws
+preemptionPolicy: Never
+value: 1000000
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -676,8 +682,14 @@ spec:
       containers:
         - command:
             - "./controller"
+          env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
           image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v0.2.1"
           name: brupop
+      priorityClassName: brupop-controller-high-priority
       serviceAccountName: brupop-controller-service-account
 ---
 apiVersion: v1

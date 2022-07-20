@@ -469,7 +469,7 @@ pub(crate) mod test {
                             "brs-ip-2.us-west-2.compute.internal".to_string(),
                             "1.6.0".to_string(),
                             "1.5.0".to_string(),
-                            BottlerocketShadowState::StagedUpdate,
+                            BottlerocketShadowState::StagedAndPerformedUpdate,
                         ),
                         fake_shadow(
                             "brs-ip-3.us-west-2.compute.internal".to_string(),
@@ -531,7 +531,7 @@ pub(crate) mod test {
                             "brs-ip-2.us-west-2.compute.internal".to_string(),
                             "1.6.0".to_string(),
                             "1.5.0".to_string(),
-                            BottlerocketShadowState::PerformedUpdate,
+                            BottlerocketShadowState::StagedAndPerformedUpdate,
                         ),
                         fake_shadow(
                             "brs-ip-3.us-west-2.compute.internal".to_string(),

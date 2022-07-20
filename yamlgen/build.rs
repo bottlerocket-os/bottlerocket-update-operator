@@ -16,7 +16,7 @@ use models::{
     },
     controller::{
         controller_cluster_role, controller_cluster_role_binding, controller_deployment,
-        controller_service, controller_service_account,
+        controller_priority_class, controller_service, controller_service_account,
     },
     namespace::brupop_namespace,
     node::combined_crds,
@@ -88,6 +88,7 @@ fn main() {
     serde_yaml::to_writer(&brupop_resources, &controller_service_account()).unwrap();
     serde_yaml::to_writer(&brupop_resources, &controller_cluster_role()).unwrap();
     serde_yaml::to_writer(&brupop_resources, &controller_cluster_role_binding()).unwrap();
+    serde_yaml::to_writer(&brupop_resources, &controller_priority_class()).unwrap();
     serde_yaml::to_writer(
         &brupop_resources,
         &controller_deployment(brupop_image.clone(), brupop_image_pull_secrets.clone()),

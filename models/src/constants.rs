@@ -70,3 +70,9 @@ pub const CONTROLLER_DEPLOYMENT_NAME: &str = "brupop-controller-deployment";
 pub const CONTROLLER_SERVICE_NAME: &str = "brupop-controller-server"; // The name for the `svc` fronting the controller.
 pub const CONTROLLER_INTERNAL_PORT: i32 = 8080; // The internal port on which the the controller service is hosted.
 pub const CONTROLLER_SERVICE_PORT: i32 = 80; // The k8s service port hosting the controller service.
+pub const BRUPOP_CONTROLLER_PRIORITY_CLASS: &str = "brupop-controller-high-priority";
+pub const BRUPOP_CONTROLLER_PREEMPTION_POLICY: &str = "Never";
+// We strategically determine the controller priority class value to be one million,
+// since one million presents a high priority value which can enable controller to be scheduled preferentially,
+// but not a critical value which takes precedence over customers' critical k8s resources.
+pub const BRUPOP_CONTROLLER_PRIORITY_VALUE: i32 = 1000000;

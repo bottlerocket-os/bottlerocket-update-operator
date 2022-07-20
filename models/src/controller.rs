@@ -1,16 +1,19 @@
 use crate::brupop_labels;
 use crate::constants::{
-    APP_COMPONENT, APP_MANAGED_BY, APP_PART_OF, BRUPOP, BRUPOP_DOMAIN_LIKE_NAME, CONTROLLER,
-    CONTROLLER_DEPLOYMENT_NAME, CONTROLLER_INTERNAL_PORT, CONTROLLER_SERVICE_NAME,
+    APP_COMPONENT, APP_MANAGED_BY, APP_PART_OF, BRUPOP, BRUPOP_CONTROLLER_PREEMPTION_POLICY,
+    BRUPOP_CONTROLLER_PRIORITY_CLASS, BRUPOP_CONTROLLER_PRIORITY_VALUE, BRUPOP_DOMAIN_LIKE_NAME,
+    CONTROLLER, CONTROLLER_DEPLOYMENT_NAME, CONTROLLER_INTERNAL_PORT, CONTROLLER_SERVICE_NAME,
     CONTROLLER_SERVICE_PORT, LABEL_COMPONENT, NAMESPACE,
 };
 use crate::node::{K8S_NODE_PLURAL, K8S_NODE_STATUS};
 use k8s_openapi::api::apps::v1::{Deployment, DeploymentSpec, DeploymentStrategy};
 use k8s_openapi::api::core::v1::{
-    Affinity, Container, LocalObjectReference, NodeAffinity, NodeSelector, NodeSelectorRequirement,
-    NodeSelectorTerm, PodSpec, PodTemplateSpec, Service, ServiceAccount, ServicePort, ServiceSpec,
+    Affinity, Container, EnvVar, EnvVarSource, LocalObjectReference, NodeAffinity, NodeSelector,
+    NodeSelectorRequirement, NodeSelectorTerm, ObjectFieldSelector, PodSpec, PodTemplateSpec,
+    Service, ServiceAccount, ServicePort, ServiceSpec,
 };
 use k8s_openapi::api::rbac::v1::{ClusterRole, ClusterRoleBinding, PolicyRule, RoleRef, Subject};
+use k8s_openapi::api::scheduling::v1::PriorityClass;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
 use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use kube::api::ObjectMeta;
@@ -183,10 +186,22 @@ pub fn controller_deployment(
                         image_pull_policy: None,
                         name: BRUPOP.to_string(),
                         command: Some(vec!["./controller".to_string()]),
+                        env: Some(vec![EnvVar {
+                            name: "MY_NODE_NAME".to_string(),
+                            value_from: Some(EnvVarSource {
+                                field_ref: Some(ObjectFieldSelector {
+                                    field_path: "spec.nodeName".to_string(),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        }]),
                         ..Default::default()
                     }],
                     image_pull_secrets,
                     service_account_name: Some(BRUPOP_CONTROLLER_SERVICE_ACCOUNT.to_string()),
+                    priority_class_name: Some(BRUPOP_CONTROLLER_PRIORITY_CLASS.to_string()),
                     ..Default::default()
                 }),
             },
@@ -214,6 +229,20 @@ pub fn controller_service() -> Service {
             }]),
             ..Default::default()
         }),
+        ..Default::default()
+    }
+}
+
+/// Defines the brupop-controller priority class
+pub fn controller_priority_class() -> PriorityClass {
+    PriorityClass {
+        metadata: ObjectMeta {
+            name: Some(BRUPOP_CONTROLLER_PRIORITY_CLASS.to_string()),
+            namespace: Some(NAMESPACE.to_string()),
+            ..Default::default()
+        },
+        preemption_policy: Some(BRUPOP_CONTROLLER_PREEMPTION_POLICY.to_string()),
+        value: BRUPOP_CONTROLLER_PRIORITY_VALUE,
         ..Default::default()
     }
 }
