@@ -1,8 +1,4 @@
-use controller::{
-    error::{self, Result},
-    telemetry::vending_metrics,
-    BrupopController,
-};
+use controller::{telemetry::vending_metrics, BrupopController};
 use models::{
     constants::{CONTROLLER, CONTROLLER_INTERNAL_PORT, NAMESPACE},
     node::{BottlerocketShadow, K8SBottlerocketShadowClient},
@@ -24,13 +20,16 @@ use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
 
 const DEFAULT_TRACE_LEVEL: &str = "info";
 
+/// The module-wide result type.
+type Result<T> = std::result::Result<T, controller_error::Error>;
+
 #[actix_web::main]
 async fn main() -> Result<()> {
     init_telemetry()?;
 
     let k8s_client = kube::client::Client::try_default()
         .await
-        .context(error::ClientCreate)?;
+        .context(controller_error::ClientCreate)?;
 
     // The `BrupopController` needs a `reflector::Store`, which is updated by a reflector
     // that runs concurrently. We'll create the store and run the reflector here.
@@ -68,7 +67,7 @@ async fn main() -> Result<()> {
             .service(vending_metrics)
     })
     .bind(format!("0.0.0.0:{}", CONTROLLER_INTERNAL_PORT))
-    .context(error::PrometheusServerError)?
+    .context(controller_error::PrometheusServerError)?
     .run();
 
     // TODO if any of these fails, we should write to the k8s termination log and exit.
@@ -96,7 +95,27 @@ fn init_telemetry() -> Result<()> {
         .with(env_filter)
         .with(JsonStorageLayer)
         .with(stdio_formatting_layer);
-    tracing::subscriber::set_global_default(subscriber).context(error::TracingConfiguration)?;
+    tracing::subscriber::set_global_default(subscriber)
+        .context(controller_error::TracingConfiguration)?;
 
     Ok(())
+}
+
+pub mod controller_error {
+    use snafu::Snafu;
+
+    #[derive(Debug, Snafu)]
+    #[snafu(visibility = "pub")]
+    pub enum Error {
+        #[snafu(display("Unable to create client: '{}'", source))]
+        ClientCreate { source: kube::Error },
+
+        #[snafu(display("Error configuring tracing: '{}'", source))]
+        TracingConfiguration {
+            source: tracing::subscriber::SetGlobalDefaultError,
+        },
+
+        #[snafu(display("Error running prometheus HTTP server: '{}'", source))]
+        PrometheusServerError { source: std::io::Error },
+    }
 }
