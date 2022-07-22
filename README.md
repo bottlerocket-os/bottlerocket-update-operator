@@ -10,6 +10,12 @@ Updates to Bottlerocket are rolled out in [waves](https://github.com/bottlerocke
 
 ### Installation
 
+We use [cert-manager](https://cert-manager.io) to manage self-signed certificates used by Bottlerocket update operator. To install cert-manager:
+
+```sh
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.8.2/cert-manager.yaml
+```
+
 We can install the Bottlerocket update operator using the recommended configuration defined in [bottlerocket-update-operator.yaml](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/v0.2.1/yamlgen/deploy/bottlerocket-update-operator.yaml):
 
 ```sh
