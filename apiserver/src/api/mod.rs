@@ -7,8 +7,9 @@ mod ping;
 use crate::{
     auth::{K8STokenAuthorizor, K8STokenReviewer, TokenAuthMiddleware},
     constants::{
-        HEADER_BRUPOP_K8S_AUTH_TOKEN, HEADER_BRUPOP_NODE_NAME, HEADER_BRUPOP_NODE_UID,
-        NODE_CORDON_AND_DRAIN_ENDPOINT, NODE_RESOURCE_ENDPOINT, NODE_UNCORDON_ENDPOINT,
+        CRD_CONVERT_ENDPOINT, HEADER_BRUPOP_K8S_AUTH_TOKEN, HEADER_BRUPOP_NODE_NAME,
+        HEADER_BRUPOP_NODE_UID, NODE_CORDON_AND_DRAIN_ENDPOINT, NODE_RESOURCE_ENDPOINT,
+        NODE_UNCORDON_ENDPOINT,
     },
     error::{self, Result},
     telemetry,
@@ -169,7 +170,8 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
                     pod_reader.clone(),
                     Some(vec![APISERVER_SERVICE_NAME.to_string()]),
                 ))
-                .exclude(APISERVER_HEALTH_CHECK_ROUTE),
+                .exclude(APISERVER_HEALTH_CHECK_ROUTE)
+                .exclude(CRD_CONVERT_ENDPOINT),
             )
             .wrap(request_metrics.clone())
             .wrap(TracingLogger::<telemetry::BrupopApiserverRootSpanBuilder>::new())
@@ -185,6 +187,10 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
             )
             .service(
                 web::resource(NODE_UNCORDON_ENDPOINT).route(web::post().to(drain::uncordon::<T>)),
+            )
+            .service(
+                web::resource(CRD_CONVERT_ENDPOINT)
+                    .route(web::post().to(node::convert_bottlerocket_shadow_resource)),
             )
             .route(
                 APISERVER_HEALTH_CHECK_ROUTE,
