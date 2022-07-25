@@ -194,6 +194,14 @@ fn add_webhook_setting(
     combined_version_crds
 }
 
+/// `#[derive(CustomResource)]` set default categories to empty list
+/// causes mismatch in Kubernetes's object and YAML manifest file,
+/// futher causes ArgoCD/FluxCD constantly reapply defined manifest.
+fn remove_empty_categories(mut crds: CustomResourceDefinition) -> CustomResourceDefinition {
+    crds.spec.names.categories = None;
+    crds
+}
+
 pub fn combined_crds() -> CustomResourceDefinition {
     let mut crds: Vec<CustomResourceDefinition> = BOTTLEROCKETSHADOW_CRD_METHODS
         .iter()
@@ -201,5 +209,6 @@ pub fn combined_crds() -> CustomResourceDefinition {
         .collect();
     let latest_crd = crds.pop().unwrap();
     let combined_version_crds = combine_version_in_crds(latest_crd, crds);
-    add_webhook_setting(combined_version_crds)
+    let crds_with_webhook = add_webhook_setting(combined_version_crds);
+    remove_empty_categories(crds_with_webhook)
 }
