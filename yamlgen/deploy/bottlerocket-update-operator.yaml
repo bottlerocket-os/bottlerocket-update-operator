@@ -21,7 +21,6 @@ spec:
         - v2
   group: brupop.bottlerocket.aws
   names:
-    categories: []
     kind: BottlerocketShadow
     plural: bottlerocketshadows
     shortNames:
