@@ -1,3 +1,47 @@
+# 0.2.2
+
+## General
+
+Added
+
+* Add support to protect controller from becoming unscheduleable ([#14])
+* Apply common k8s labels to all created resources ([#113])
+* Support SSL communication between brupop-agent and brupop-apiserver ([#127])
+* Handle update-reboot failures/ "crash loops" ([#161]), ([#123])
+* Update README for setting up SSL ([#211])
+
+Fixed
+
+* Remove empty categories in Custom Resource spec ([#205])
+
+## Integration test
+
+Added
+
+* Add README on integration test tool ([#166])
+* Add integration testing subcommand Monitor which monitors new nodes for successful updates ([#130])
+* Support integration test for IPv6 cluster ([#186])
+* Improve integration testing subcommand Integration-test to creates the bottlerocket nodes via nodegroups ([#162])
+
+Fixed
+
+* Fixed integration test bugs ([#208]), ([#216])
+
+[#14]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/14
+[#113]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/113
+[#123]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/123
+[#127]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/127
+[#130]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/130
+[#161]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/161
+[#162]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/162
+[#166]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/166
+[#186]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/186
+[#205]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/205
+[#208]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/208
+[#211]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/211
+[#216]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/216
+
+
 # 0.2.1
 
 Fixed:
