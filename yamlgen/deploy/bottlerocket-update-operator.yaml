@@ -381,7 +381,7 @@ spec:
       containers:
         - command:
             - "./apiserver"
-          image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v0.2.1"
+          image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v0.2.2"
           livenessProbe:
             httpGet:
               path: /ping
@@ -531,7 +531,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-          image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v0.2.1"
+          image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v0.2.2"
           name: brupop
           resources:
             limits:
@@ -701,7 +701,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-          image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v0.2.1"
+          image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v0.2.2"
           name: brupop
       priorityClassName: brupop-controller-high-priority
       serviceAccountName: brupop-controller-service-account
