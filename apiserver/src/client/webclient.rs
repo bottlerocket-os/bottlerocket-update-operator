@@ -1,10 +1,12 @@
 use super::error::{self, Result};
 use crate::{
     constants::{
-        HEADER_BRUPOP_K8S_AUTH_TOKEN, HEADER_BRUPOP_NODE_NAME, HEADER_BRUPOP_NODE_UID,
-        NODE_CORDON_AND_DRAIN_ENDPOINT, NODE_RESOURCE_ENDPOINT, NODE_UNCORDON_ENDPOINT,
+        EXCLUDE_NODE_FROM_LB_ENDPOINT, HEADER_BRUPOP_K8S_AUTH_TOKEN, HEADER_BRUPOP_NODE_NAME,
+        HEADER_BRUPOP_NODE_UID, NODE_CORDON_AND_DRAIN_ENDPOINT, NODE_RESOURCE_ENDPOINT,
+        NODE_UNCORDON_ENDPOINT, REMOVE_NODE_EXCLUSION_TO_LB_ENDPOINT,
     },
     CordonAndDrainBottlerocketShadowRequest, CreateBottlerocketShadowRequest,
+    ExcludeNodeFromLoadBalancerRequest, RemoveNodeExclusionFromLoadBalancerRequest,
     UncordonBottlerocketShadowRequest, UpdateBottlerocketShadowRequest,
 };
 use models::{
@@ -54,6 +56,11 @@ pub trait APIServerClient {
         req: CordonAndDrainBottlerocketShadowRequest,
     ) -> Result<()>;
     async fn uncordon_node(&self, req: UncordonBottlerocketShadowRequest) -> Result<()>;
+    async fn exclude_node_from_lb(&self, req: ExcludeNodeFromLoadBalancerRequest) -> Result<()>;
+    async fn remove_node_exclusion_from_lb(
+        &self,
+        req: RemoveNodeExclusionFromLoadBalancerRequest,
+    ) -> Result<()>;
 }
 
 #[derive(Debug, Clone)]
@@ -308,6 +315,89 @@ impl APIServerClient for K8SAPIServerClient {
                         .unwrap_or("<empty response>".to_string()),
                 }) as Box<dyn std::error::Error>)
                 .context(error::CordonAndDrainNodeResource {
+                    selector: req.node_selector.clone(),
+                })
+            }
+        })
+        .await
+    }
+
+    async fn exclude_node_from_lb(&self, req: ExcludeNodeFromLoadBalancerRequest) -> Result<()> {
+        Retry::spawn(retry_strategy(), || async {
+            let https_client = Self::https_client()?;
+            let request_builder = self.add_common_request_headers(
+                https_client.post(format!(
+                    "{}://{}{}",
+                    Self::scheme(),
+                    Self::server_domain(),
+                    EXCLUDE_NODE_FROM_LB_ENDPOINT
+                )),
+                &req.node_selector,
+            )?;
+
+            let response = request_builder
+                .send()
+                .await
+                .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+                .context(error::ExcludeNodeFromLB {
+                    selector: req.node_selector.clone(),
+                })?;
+
+            let status = response.status();
+            if status.is_success() {
+                Ok(())
+            } else {
+                Err(Box::new(error::ClientError::ErrorResponse {
+                    status_code: status,
+                    response: response
+                        .text()
+                        .await
+                        .unwrap_or("<empty response>".to_string()),
+                }) as Box<dyn std::error::Error>)
+                .context(error::ExcludeNodeFromLB {
+                    selector: req.node_selector.clone(),
+                })
+            }
+        })
+        .await
+    }
+
+    async fn remove_node_exclusion_from_lb(
+        &self,
+        req: RemoveNodeExclusionFromLoadBalancerRequest,
+    ) -> Result<()> {
+        Retry::spawn(retry_strategy(), || async {
+            let https_client = Self::https_client()?;
+            let request_builder = self.add_common_request_headers(
+                https_client.post(format!(
+                    "{}://{}{}",
+                    Self::scheme(),
+                    Self::server_domain(),
+                    REMOVE_NODE_EXCLUSION_TO_LB_ENDPOINT
+                )),
+                &req.node_selector,
+            )?;
+
+            let response = request_builder
+                .send()
+                .await
+                .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+                .context(error::RemoveNodeExclusionFromLB {
+                    selector: req.node_selector.clone(),
+                })?;
+
+            let status = response.status();
+            if status.is_success() {
+                Ok(())
+            } else {
+                Err(Box::new(error::ClientError::ErrorResponse {
+                    status_code: status,
+                    response: response
+                        .text()
+                        .await
+                        .unwrap_or("<empty response>".to_string()),
+                }) as Box<dyn std::error::Error>)
+                .context(error::RemoveNodeExclusionFromLB {
                     selector: req.node_selector.clone(),
                 })
             }

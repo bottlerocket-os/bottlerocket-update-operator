@@ -45,3 +45,33 @@ pub(crate) async fn uncordon<T: BottlerocketShadowClient>(
 
     Ok(HttpResponse::Ok())
 }
+
+/// HTTP endpoint which exludes a node from load balancer.
+pub(crate) async fn exclude<T: BottlerocketShadowClient>(
+    settings: web::Data<APIServerSettings<T>>,
+    http_req: HttpRequest,
+) -> Result<impl Responder> {
+    let headers = ApiserverCommonHeaders::try_from(http_req.headers())?;
+    settings
+        .node_client
+        .exclude_node_from_lb(&headers.node_selector)
+        .await
+        .context(error::BottlerocketShadowDrain)?;
+
+    Ok(HttpResponse::Ok())
+}
+
+/// HTTP endpoint which remove node's exlusion from load balancer.
+pub(crate) async fn remove_exclusion<T: BottlerocketShadowClient>(
+    settings: web::Data<APIServerSettings<T>>,
+    http_req: HttpRequest,
+) -> Result<impl Responder> {
+    let headers = ApiserverCommonHeaders::try_from(http_req.headers())?;
+    settings
+        .node_client
+        .remove_node_exclusion_from_lb(&headers.node_selector)
+        .await
+        .context(error::BottlerocketShadowDrain)?;
+
+    Ok(HttpResponse::Ok())
+}

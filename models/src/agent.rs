@@ -100,7 +100,11 @@ pub fn agent_cluster_role_binding() -> ClusterRoleBinding {
 }
 
 /// Defines the brupop-agent DaemonSet
-pub fn agent_daemonset(agent_image: String, image_pull_secret: Option<String>) -> DaemonSet {
+pub fn agent_daemonset(
+    agent_image: String,
+    image_pull_secret: Option<String>,
+    exclude_from_lb_wait_time: u64,
+) -> DaemonSet {
     let image_pull_secrets =
         image_pull_secret.map(|secret| vec![LocalObjectReference { name: Some(secret) }]);
 
@@ -165,17 +169,24 @@ pub fn agent_daemonset(agent_image: String, image_pull_secret: Option<String>) -
                         name: BRUPOP.to_string(),
                         image_pull_policy: None,
                         command: Some(vec!["./agent".to_string()]),
-                        env: Some(vec![EnvVar {
-                            name: "MY_NODE_NAME".to_string(),
-                            value_from: Some(EnvVarSource {
-                                field_ref: Some(ObjectFieldSelector {
-                                    field_path: "spec.nodeName".to_string(),
+                        env: Some(vec![
+                            EnvVar {
+                                name: "MY_NODE_NAME".to_string(),
+                                value_from: Some(EnvVarSource {
+                                    field_ref: Some(ObjectFieldSelector {
+                                        field_path: "spec.nodeName".to_string(),
+                                        ..Default::default()
+                                    }),
                                     ..Default::default()
                                 }),
                                 ..Default::default()
-                            }),
-                            ..Default::default()
-                        }]),
+                            },
+                            EnvVar {
+                                name: "EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC".to_string(),
+                                value: Some(exclude_from_lb_wait_time.to_string()),
+                                ..Default::default()
+                            },
+                        ]),
                         resources: Some(ResourceRequirements {
                             limits: Some(btreemap! {
                                 "memory".to_string() => Quantity("50Mi".to_string()),

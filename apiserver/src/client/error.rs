@@ -70,4 +70,26 @@ pub enum ClientError {
 
     #[snafu(display("Failed to create https client due to {}", source))]
     CreateClientError { source: reqwest::Error },
+
+    #[snafu(display(
+        "Unable to exclude node from load balancer ({}, {}): '{}'",
+        selector.node_name,
+        selector.node_uid,
+        source
+    ))]
+    ExcludeNodeFromLB {
+        source: Box<dyn std::error::Error>,
+        selector: BottlerocketShadowSelector,
+    },
+
+    #[snafu(display(
+        "Unable to remove node exlucsion from load balancer ({}, {}): '{}'",
+        selector.node_name,
+        selector.node_uid,
+        source
+    ))]
+    RemoveNodeExclusionFromLB {
+        source: Box<dyn std::error::Error>,
+        selector: BottlerocketShadowSelector,
+    },
 }

@@ -27,6 +27,32 @@ This will create the required namespace, custom resource definition, roles, depl
 Note: The above link is set to use the configuration for the latest version of the Update Operator, `v0.2.1`.
 Be sure to use the git tag for the Update Operator release that you plan to deploy.
 
+#### Configuration
+
+##### Exclude Nodes from Load Balancers Before Draining
+This configuration uses Kuberenetes [ServiceNodeExclusion](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/) feature.
+`EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` can be used to enable the feature to exclude the node from load balancer before draining.
+When `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` is 0 (default), the feature is disabled.
+When `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` is set to a positive integer, bottlerocket update operater will exclude the node from 
+load balancer and then wait `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` seconds before draining the pods on the node.
+
+To enable this feature, go to `bottlerocket-update-operator.yaml`, change `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` to a positive integer value.
+For example:
+```yaml
+      ...
+      containers:
+        - command:
+            - "./agent"
+          env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC
+              value: "180"
+      ...
+```
+
 ### Label nodes
 
 By default, each Workload resource constrains scheduling of the update operator by limiting pods to Bottlerocket nodes based on their labels.

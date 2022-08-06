@@ -2,6 +2,7 @@
 use super::{error::Result, APIServerClient};
 use crate::{
     CordonAndDrainBottlerocketShadowRequest, CreateBottlerocketShadowRequest,
+    ExcludeNodeFromLoadBalancerRequest, RemoveNodeExclusionFromLoadBalancerRequest,
     UncordonBottlerocketShadowRequest, UpdateBottlerocketShadowRequest,
 };
 use models::node::{BottlerocketShadow, BottlerocketShadowStatus};
@@ -26,5 +27,7 @@ mock! {
         async fn cordon_and_drain_node(&self, req: CordonAndDrainBottlerocketShadowRequest)
             -> Result<()>;
         async fn uncordon_node(&self, req: UncordonBottlerocketShadowRequest) -> Result<()>;
+        async fn exclude_node_from_lb(&self, req: ExcludeNodeFromLoadBalancerRequest) -> Result<()>;
+        async fn remove_node_exclusion_from_lb(&self, req: RemoveNodeExclusionFromLoadBalancerRequest) -> Result<()>;
     }
 }
