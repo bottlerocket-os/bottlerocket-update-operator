@@ -840,6 +840,7 @@ dependencies = [
  "http",
  "k8s-openapi",
  "kube",
+ "maplit",
  "models",
  "opentelemetry",
  "opentelemetry-prometheus",

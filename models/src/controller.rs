@@ -63,7 +63,7 @@ pub fn controller_cluster_role() -> ClusterRole {
             PolicyRule {
                 api_groups: Some(vec![BRUPOP_DOMAIN_LIKE_NAME.to_string()]),
                 resources: Some(vec![K8S_NODE_PLURAL.to_string()]),
-                verbs: vec!["create", "patch", "update"]
+                verbs: vec!["create", "patch", "update", "delete"]
                     .iter()
                     .map(|s| s.to_string())
                     .collect(),
@@ -84,6 +84,15 @@ pub fn controller_cluster_role() -> ClusterRole {
                 .iter()
                 .map(|s| s.to_string())
                 .collect(),
+                ..Default::default()
+            },
+            PolicyRule {
+                api_groups: Some(vec!["".to_string()]),
+                resources: Some(vec!["nodes".to_string()]),
+                verbs: vec!["get", "list", "watch"]
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect(),
                 ..Default::default()
             },
         ]),
