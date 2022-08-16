@@ -1,7 +1,8 @@
 use crate::apiclient::{boot_update, get_chosen_update, get_os_info, prepare, update};
 use apiserver::{
     client::APIServerClient,
-    CordonAndDrainBottlerocketShadowRequest, UncordonBottlerocketShadowRequest,
+    CordonAndDrainBottlerocketShadowRequest, ExcludeNodeFromLoadBalancerRequest,
+    RemoveNodeExclusionFromLoadBalancerRequest, UncordonBottlerocketShadowRequest,
     {CreateBottlerocketShadowRequest, UpdateBottlerocketShadowRequest},
 };
 use models::{
@@ -17,6 +18,7 @@ use k8s_openapi::api::core::v1::Node;
 use kube::runtime::reflector::Store;
 use kube::Api;
 use snafu::{OptionExt, ResultExt};
+use std::env;
 use tokio::time::{sleep, Duration};
 use tokio_retry::{
     strategy::{jitter, ExponentialBackoff},
@@ -265,6 +267,44 @@ impl<T: APIServerClient> BrupopAgent<T> {
         Ok(())
     }
 
+    fn get_exclude_from_lb_time(&self) -> Result<u64> {
+        let wait_time: u64 = env::var("EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC")
+            .context(agentclient_error::EnvVarNotExist {
+                variable: "EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC".to_string(),
+            })?
+            .parse()
+            .context(agentclient_error::ExcludeFromLBWaitTimeParseError)?;
+        Ok(wait_time)
+    }
+
+    #[instrument(skip(self), err)]
+    async fn exclude_node_from_lb(&self) -> Result<()> {
+        let selector = self.get_node_selector().await?;
+
+        self.apiserver_client
+            .exclude_node_from_lb(ExcludeNodeFromLoadBalancerRequest {
+                node_selector: selector,
+            })
+            .await
+            .context(agentclient_error::ExcludeNodeFromLB)?;
+
+        Ok(())
+    }
+
+    #[instrument(skip(self), err)]
+    async fn remove_node_exclusion_from_lb(&self) -> Result<()> {
+        let selector = self.get_node_selector().await?;
+
+        self.apiserver_client
+            .remove_node_exclusion_from_lb(RemoveNodeExclusionFromLoadBalancerRequest {
+                node_selector: selector,
+            })
+            .await
+            .context(agentclient_error::RemoveNodeExclusionFromLB)?;
+
+        Ok(())
+    }
+
     #[instrument(skip(self), err)]
     async fn uncordon(&self) -> Result<()> {
         let selector = self.get_node_selector().await?;
@@ -319,11 +359,35 @@ impl<T: APIServerClient> BrupopAgent<T> {
         Ok(())
     }
 
+    /// Prepare the node for update
+    #[instrument(skip(self))]
+    async fn prepare_for_update(&self) -> Result<()> {
+        // Skip exclude node from lb if environment variable EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC
+        // doesn't exist or equals to 0.
+        if let Ok(wait_time) = self.get_exclude_from_lb_time() {
+            if wait_time != 0 {
+                self.exclude_node_from_lb().await?;
+                sleep(Duration::from_secs(wait_time)).await;
+            }
+        }
+        self.cordon_and_drain().await?;
+        Ok(())
+    }
+
     /// Prepare the node to be ready to work from rebooting or crashing.
     #[instrument(skip(self))]
     async fn handle_recover(&self) -> Result<()> {
         // This recover logic might need to be improved in future based on adding
         // more features when agent drain the node.
+
+        // Skip remove node exclusion from lb if environment variable
+        // EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC doesn't exist or equals to 0.
+        if let Ok(wait_time) = self.get_exclude_from_lb_time() {
+            if wait_time != 0 {
+                self.remove_node_exclusion_from_lb().await?;
+            }
+        }
+
         self.uncordon().await?;
         Ok(())
     }
@@ -389,7 +453,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                         .await?;
                         self.handle_recover().await?;
                     } else {
-                        self.cordon_and_drain().await?;
+                        self.prepare_for_update().await?;
                         boot_update()
                             .await
                             .context(agentclient_error::UpdateActions {
@@ -574,6 +638,16 @@ pub mod agentclient_error {
             source: apiserver::client::ClientError,
         },
 
+        #[snafu(display("Unable to exclude this node from load balancer: '{}'", source))]
+        ExcludeNodeFromLB {
+            source: apiserver::client::ClientError,
+        },
+
+        #[snafu(display("Unable to remove node exclusion from load balancer: '{}'", source))]
+        RemoveNodeExclusionFromLB {
+            source: apiserver::client::ClientError,
+        },
+
         #[snafu(display("Unable to take action '{}': '{}'", action, source))]
         UpdateActions {
             action: String,
@@ -585,6 +659,22 @@ pub mod agentclient_error {
 
         #[snafu(display("Agent client failed due to internal assertion issue: '{}'", message))]
         Assertion { message: String },
+
+        #[snafu(display(
+            "Unable to get environment variable '{}' due to : '{}'",
+            variable,
+            source
+        ))]
+        EnvVarNotExist {
+            source: std::env::VarError,
+            variable: String,
+        },
+
+        #[snafu(display(
+            "Unable to parse environment variable 'EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC': '{}'",
+            source
+        ))]
+        ExcludeFromLBWaitTimeParseError { source: std::num::ParseIntError },
     }
 
     impl From<BottlerocketShadowRWError> for Error {

@@ -41,3 +41,13 @@ pub struct CordonAndDrainBottlerocketShadowRequest {
 pub struct UncordonBottlerocketShadowRequest {
     pub node_selector: BottlerocketShadowSelector,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExcludeNodeFromLoadBalancerRequest {
+    pub node_selector: BottlerocketShadowSelector,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemoveNodeExclusionFromLoadBalancerRequest {
+    pub node_selector: BottlerocketShadowSelector,
+}

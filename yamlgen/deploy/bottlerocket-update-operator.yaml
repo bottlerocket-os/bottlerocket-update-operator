@@ -531,6 +531,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            - name: EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC
+              value: "0"
           image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v0.2.2"
           name: brupop
           resources:

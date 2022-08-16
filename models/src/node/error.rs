@@ -63,6 +63,28 @@ pub enum Error {
     },
 
     #[snafu(display(
+        "Unable to exclude node from load balancer ({}, {}): '{}'",
+        selector.node_name,
+        selector.node_uid,
+        source
+    ))]
+    ExcludeNodeFromLB {
+        source: Box<dyn std::error::Error>,
+        selector: BottlerocketShadowSelector,
+    },
+
+    #[snafu(display(
+        "Unable to remove node exclusion from load balancer ({}, {}): '{}'",
+        selector.node_name,
+        selector.node_uid,
+        source
+    ))]
+    RemoveNodeExclusionFromLB {
+        source: Box<dyn std::error::Error>,
+        selector: BottlerocketShadowSelector,
+    },
+
+    #[snafu(display(
         "Unable to uncordon BottlerocketShadow ({}, {}): '{}'",
         selector.node_name,
         selector.node_uid,

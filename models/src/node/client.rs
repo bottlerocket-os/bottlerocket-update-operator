@@ -47,6 +47,15 @@ pub trait BottlerocketShadowClient: Clone + Sized + Send + Sync {
     async fn drain_node(&self, selector: &BottlerocketShadowSelector) -> Result<()>;
     // Marks the given node as scheduleable, allowing Pods to be deployed onto it.
     async fn uncordon_node(&self, selector: &BottlerocketShadowSelector) -> Result<()>;
+    // Label the node with "node.kubernetes.io/exclude-from-external-load-balancers=True" to
+    // exclude the node from load balancer.
+    async fn exclude_node_from_lb(&self, selector: &BottlerocketShadowSelector) -> Result<()>;
+    // Remove "node.kubernetes.io/exclude-from-external-load-balancers" label from the node
+    // to remove exclusion from load balancer.
+    async fn remove_node_exclusion_from_lb(
+        &self,
+        selector: &BottlerocketShadowSelector,
+    ) -> Result<()>;
 }
 
 #[cfg(feature = "mockall")]
@@ -72,6 +81,8 @@ mock! {
         async fn cordon_node(&self, selector: &BottlerocketShadowSelector) -> Result<()>;
         async fn drain_node(&self, selector: &BottlerocketShadowSelector) -> Result<()>;
         async fn uncordon_node(&self, selector: &BottlerocketShadowSelector) -> Result<()>;
+        async fn exclude_node_from_lb(&self, selector: &BottlerocketShadowSelector) -> Result<()>;
+        async fn remove_node_exclusion_from_lb(&self, selector: &BottlerocketShadowSelector) -> Result<()>;
     }
 
     impl Clone for BottlerocketShadowClient {
@@ -116,6 +127,17 @@ where
 
     async fn uncordon_node(&self, selector: &BottlerocketShadowSelector) -> Result<()> {
         (**self).uncordon_node(selector).await
+    }
+
+    async fn exclude_node_from_lb(&self, selector: &BottlerocketShadowSelector) -> Result<()> {
+        (**self).exclude_node_from_lb(selector).await
+    }
+
+    async fn remove_node_exclusion_from_lb(
+        &self,
+        selector: &BottlerocketShadowSelector,
+    ) -> Result<()> {
+        (**self).remove_node_exclusion_from_lb(selector).await
     }
 }
 
@@ -297,6 +319,66 @@ impl BottlerocketShadowClient for K8SBottlerocketShadowClient {
             .await
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
             .context(error::UncordonBottlerocketShadow {
+                selector: selector.clone(),
+            })?;
+
+        Ok(())
+    }
+
+    /// Label the node with "node.kubernetes.io/exclude-from-external-load-balancers=True"
+    /// to exclude the node from load balancer.
+    #[instrument(skip(self), err)]
+    async fn exclude_node_from_lb(&self, selector: &BottlerocketShadowSelector) -> Result<()> {
+        let nodes: Api<Node> = Api::all(self.k8s_client.clone());
+
+        let label_patch = serde_json::json!({
+            "metadata": {
+                "labels": {
+                    "node.kubernetes.io/exclude-from-external-load-balancers": "True",
+                }
+            }
+        });
+
+        nodes
+            .patch(
+                &selector.node_name,
+                &PatchParams::default(),
+                &Patch::Merge(&label_patch),
+            )
+            .await
+            .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+            .context(error::ExcludeNodeFromLB {
+                selector: selector.clone(),
+            })?;
+        Ok(())
+    }
+
+    /// Remove label "node.kubernetes.io/exclude-from-external-load-balancers" from the node
+    /// to remove exclusion from load balancer.
+    #[instrument(skip(self), err)]
+    async fn remove_node_exclusion_from_lb(
+        &self,
+        selector: &BottlerocketShadowSelector,
+    ) -> Result<()> {
+        let nodes: Api<Node> = Api::all(self.k8s_client.clone());
+
+        let label_patch = serde_json::json!({
+            "metadata": {
+                "labels": {
+                    "node.kubernetes.io/exclude-from-external-load-balancers": null,
+                }
+            }
+        });
+
+        nodes
+            .patch(
+                &selector.node_name,
+                &PatchParams::default(),
+                &Patch::Merge(&label_patch),
+            )
+            .await
+            .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
+            .context(error::RemoveNodeExclusionFromLB {
                 selector: selector.clone(),
             })?;
 

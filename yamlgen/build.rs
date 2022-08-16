@@ -48,6 +48,11 @@ fn main() {
 
     let brupop_image = env::var("BRUPOP_CONTAINER_IMAGE").ok().unwrap();
     let brupop_image_pull_secrets = env::var("BRUPOP_CONTAINER_IMAGE_PULL_SECRET").ok();
+    let exclude_from_lb_wait_time: u64 = env::var("EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC")
+        .ok()
+        .unwrap()
+        .parse()
+        .unwrap();
 
     serde_yaml::to_writer(&brupop_resources, &brupop_namespace()).unwrap();
 
@@ -80,7 +85,11 @@ fn main() {
     serde_yaml::to_writer(&brupop_resources, &agent_cluster_role_binding()).unwrap();
     serde_yaml::to_writer(
         &brupop_resources,
-        &agent_daemonset(brupop_image.clone(), brupop_image_pull_secrets.clone()),
+        &agent_daemonset(
+            brupop_image.clone(),
+            brupop_image_pull_secrets.clone(),
+            exclude_from_lb_wait_time,
+        ),
     )
     .unwrap();
 
