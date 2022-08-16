@@ -129,27 +129,46 @@ async fn invoke_apiclient(args: Vec<String>) -> Result<Output> {
             .output()
             .context(apiclient_error::ApiClientRawCommand { args: args.clone() })?;
 
-        if output.status.success() {
-            return Ok(output);
-        }
-        let error_content = String::from_utf8_lossy(&output.stderr).to_string();
-        let error_statuscode = extract_status_code_from_error(&error_content);
+        match output.status.success() {
+            true => return Ok(output),
+            false => {
+                // Return value `exit status` is Option. When the value has `some` value, we need extract error info from stderr and handle those errors.
+                // Otherwise, on Unix, this will return `None` if the process was terminated by a signal. Signal termination is not considered a success.
+                // Apiclient `Reboot` command will send signal to terminate the process, so we have to consider this situation and have extra logic to recognize
+                // return value `None` as success and terminate the process properly.
+                match output.status.code() {
+                    // when return value has `some` code, this part will handle those errors properly.
+                    Some(_code) => {
+                        let error_content = String::from_utf8_lossy(&output.stderr).to_string();
+                        let error_statuscode = extract_status_code_from_error(&error_content);
 
-        match error_statuscode {
-            UPDATE_API_BUSY_STATUSCODE => {
-                event!(Level::INFO, "API server busy, retrying later ...");
-                // Retry after ten seconds if we get a 423 Locked response (update API busy)
-                sleep(UPDATE_API_SLEEP_DURATION).await;
-                attempts += 1;
-            }
-            _ => {
-                // API response was a non-transient error, bail out
-                return apiclient_error::BadHttpResponse {
-                    statuscode: error_statuscode,
+                        match error_statuscode {
+                            UPDATE_API_BUSY_STATUSCODE => {
+                                event!(Level::INFO, "API server busy, retrying later ...");
+                                // Retry after ten seconds if we get a 423 Locked response (update API busy)
+                                sleep(UPDATE_API_SLEEP_DURATION).await;
+                                attempts += 1;
+                            }
+                            _ => {
+                                // API response was a non-transient error, bail out
+                                return apiclient_error::BadHttpResponse {
+                                    statuscode: error_statuscode,
+                                }
+                                .fail();
+                            }
+                        };
+                    }
+                    // when it returns `None`, this part will treat it as success and then gracefully exit brupop agent.
+                    _ => {
+                        event!(
+                            Level::INFO,
+                            "Bottlerocket node is terminated by reboot signal"
+                        );
+                        std::process::exit(0)
+                    }
                 }
-                .fail();
             }
-        };
+        }
     }
     // Update API is currently unavailable, bail out
     Err(apiclient_error::Error::UpdateApiUnavailable { args })
