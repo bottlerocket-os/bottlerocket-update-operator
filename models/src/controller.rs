@@ -118,6 +118,7 @@ pub fn controller_cluster_role_binding() -> ClusterRoleBinding {
 pub fn controller_deployment(
     brupop_image: String,
     image_pull_secret: Option<String>,
+    max_concurrent_update: String,
 ) -> Deployment {
     let image_pull_secrets =
         image_pull_secret.map(|secret| vec![LocalObjectReference { name: Some(secret) }]);
@@ -186,17 +187,24 @@ pub fn controller_deployment(
                         image_pull_policy: None,
                         name: BRUPOP.to_string(),
                         command: Some(vec!["./controller".to_string()]),
-                        env: Some(vec![EnvVar {
-                            name: "MY_NODE_NAME".to_string(),
-                            value_from: Some(EnvVarSource {
-                                field_ref: Some(ObjectFieldSelector {
-                                    field_path: "spec.nodeName".to_string(),
+                        env: Some(vec![
+                            EnvVar {
+                                name: "MY_NODE_NAME".to_string(),
+                                value_from: Some(EnvVarSource {
+                                    field_ref: Some(ObjectFieldSelector {
+                                        field_path: "spec.nodeName".to_string(),
+                                        ..Default::default()
+                                    }),
                                     ..Default::default()
                                 }),
                                 ..Default::default()
-                            }),
-                            ..Default::default()
-                        }]),
+                            },
+                            EnvVar {
+                                name: "MAX_CONCURRENT_UPDATE".to_string(),
+                                value: Some(max_concurrent_update),
+                                ..Default::default()
+                            },
+                        ]),
                         ..Default::default()
                     }],
                     image_pull_secrets,
