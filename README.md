@@ -16,7 +16,7 @@ We use [cert-manager](https://cert-manager.io) to manage self-signed certificate
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.8.2/cert-manager.yaml
 ```
 
-We can install the Bottlerocket update operator using the recommended configuration defined in [bottlerocket-update-operator.yaml](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/v0.2.2/yamlgen/deploy/bottlerocket-update-operator.yaml):
+We can install the Bottlerocket update operator using the recommended configuration defined in [bottlerocket-update-operator.yaml](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/0.2.2/yamlgen/deploy/bottlerocket-update-operator.yaml):
 
 ```sh
 kubectl apply -f ./bottlerocket-update-operator.yaml
