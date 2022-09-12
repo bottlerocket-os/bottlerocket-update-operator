@@ -128,6 +128,8 @@ pub fn controller_deployment(
     brupop_image: String,
     image_pull_secret: Option<String>,
     max_concurrent_update: String,
+    update_window_start: String,
+    update_window_stop: String,
 ) -> Deployment {
     let image_pull_secrets =
         image_pull_secret.map(|secret| vec![LocalObjectReference { name: Some(secret) }]);
@@ -211,6 +213,16 @@ pub fn controller_deployment(
                             EnvVar {
                                 name: "MAX_CONCURRENT_UPDATE".to_string(),
                                 value: Some(max_concurrent_update),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "UPDATE_WINDOW_START".to_string(),
+                                value: Some(update_window_start),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "UPDATE_WINDOW_STOP".to_string(),
+                                value: Some(update_window_stop),
                                 ..Default::default()
                             },
                         ]),

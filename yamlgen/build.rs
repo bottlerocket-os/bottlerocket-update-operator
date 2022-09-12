@@ -53,6 +53,8 @@ fn main() {
         .unwrap()
         .parse()
         .unwrap();
+    let update_window_start: String = env::var("UPDATE_WINDOW_START").ok().unwrap();
+    let update_window_stop: String = env::var("UPDATE_WINDOW_STOP").ok().unwrap();
 
     let max_concurrent_update: String = env::var("MAX_CONCURRENT_UPDATE")
         .ok()
@@ -112,6 +114,8 @@ fn main() {
             brupop_image,
             brupop_image_pull_secrets,
             max_concurrent_update,
+            update_window_start,
+            update_window_stop,
         ),
     )
     .unwrap();

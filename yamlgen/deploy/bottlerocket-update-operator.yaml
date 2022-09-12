@@ -714,6 +714,10 @@ spec:
                   fieldPath: spec.nodeName
             - name: MAX_CONCURRENT_UPDATE
               value: "1"
+            - name: UPDATE_WINDOW_START
+              value: "0:0:0"
+            - name: UPDATE_WINDOW_STOP
+              value: "0:0:0"
           image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v0.2.2"
           name: brupop
       priorityClassName: brupop-controller-high-priority
