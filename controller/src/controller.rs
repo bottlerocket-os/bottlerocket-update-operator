@@ -11,13 +11,19 @@ use kube::runtime::reflector::Store;
 use kube::ResourceExt;
 use opentelemetry::global;
 use snafu::ResultExt;
-use std::collections::{BTreeMap, HashMap};
 use std::env;
+use std::{
+    collections::{BTreeMap, HashMap},
+    convert::TryInto,
+};
 use tokio::time::{sleep, Duration};
 use tracing::{event, instrument, Level};
 
 // Defines the length time after which the controller will take actions.
 const ACTION_INTERVAL: Duration = Duration::from_secs(2);
+
+// Defines environment variable name used to fetch max concurrent update number.
+const MAX_CONCURRENT_UPDATE_ENV_VAR: &str = "MAX_CONCURRENT_UPDATE";
 
 /// The module-wide result type.
 type Result<T> = std::result::Result<T, controllerclient_error::Error>;
@@ -106,7 +112,8 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
         }
     }
 
-    /// This function searches all `BottlerocketShadow`s for those which can be transitioned to a new state.
+    /// This function searches all `BottlerocketShadow`s for those
+    /// which can be transitioned from initial state to a new state.
     /// The state transition is then attempted. If successful, this node should be detected as part of the active
     /// set during the next iteration of the controller's event loop.
     #[instrument(skip(self))]
@@ -117,7 +124,7 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
         for brs in shadows.drain(..) {
             // If we determine that the spec should change, this node is a candidate to begin updating.
             let next_spec = determine_next_node_spec(&brs);
-            if next_spec != brs.spec {
+            if next_spec != brs.spec && is_initial_state(&brs) {
                 match self.progress_node(brs.clone()).await {
                     Ok(_) => return Ok(Some(brs)),
                     Err(_) => {
@@ -184,6 +191,7 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
             // Brupop typically only operates on a single node at a time. Here we find the set of nodes which is currently undergoing
             // change, to ensure that errors resulting in multiple nodes changing state simultaneously is not unrecoverable.
             let active_set = self.active_node_set();
+            let active_set_size = active_set.len();
             event!(Level::TRACE, ?active_set, "Found active set of nodes.");
 
             if !active_set.is_empty() {
@@ -197,7 +205,10 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
                         self.progress_node(brs).await;
                     }
                 }
-            } else {
+            }
+
+            // Bring one more node each time if the active nodes size is less than MAX_CONCURRENT_UPDATE setting.
+            if active_set_size < get_max_concurrent_update()? {
                 // If there's nothing to operate on, check to see if any other nodes are ready for action.
                 let new_active_node = self.find_and_update_ready_node().await?;
                 if let Some(brs) = new_active_node {
@@ -261,6 +272,30 @@ fn sort_shadows(shadows: &mut Vec<BottlerocketShadow>, associated_brs_name: &str
     }
 }
 
+/// Fetch the environment variable to determine the max concurrent update nodes number.
+fn get_max_concurrent_update() -> Result<usize> {
+    let max_concurrent_update = env::var(MAX_CONCURRENT_UPDATE_ENV_VAR)
+        .context(controllerclient_error::MissingEnvVariable {
+            variable: MAX_CONCURRENT_UPDATE_ENV_VAR.to_string(),
+        })?
+        .to_lowercase();
+
+    if max_concurrent_update.eq("unlimited") {
+        return Ok(usize::MAX);
+    } else {
+        max_concurrent_update
+            .parse::<usize>()
+            .context(controllerclient_error::MaxConcurrentUpdateParseError)
+    }
+}
+
+/// Determine if a BottlerocketShadow is in default or None status.
+fn is_initial_state(brs: &BottlerocketShadow) -> bool {
+    match brs.status.clone() {
+        None => true,
+        Some(status) => status.current_state == BottlerocketShadowState::default(),
+    }
+}
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
@@ -396,8 +431,20 @@ pub(crate) mod test {
 
         assert_eq!(test_shadows, expected_result);
     }
+
+    #[test]
+    fn test_get_max_concurrent_update() {
+        let variable_value_tuple =
+            vec![("unlimited".to_string(), usize::MAX), ("2".to_string(), 2)];
+
+        for (env_val, target_val) in variable_value_tuple {
+            env::set_var(MAX_CONCURRENT_UPDATE_ENV_VAR, env_val);
+            assert_eq!(get_max_concurrent_update().unwrap(), target_val);
+        }
+    }
 }
 pub mod controllerclient_error {
+    use crate::controller::MAX_CONCURRENT_UPDATE_ENV_VAR;
     use models::node::BottlerocketShadowError;
     use snafu::Snafu;
 
@@ -418,5 +465,22 @@ pub mod controllerclient_error {
 
         #[snafu(display("Could not determine selector for node: '{}'", source))]
         NodeSelectorCreation { source: BottlerocketShadowError },
+
+        #[snafu(display(
+            "Unable to get environment variable '{}' due to : '{}'",
+            variable,
+            source
+        ))]
+        MissingEnvVariable {
+            source: std::env::VarError,
+            variable: String,
+        },
+
+        #[snafu(display(
+            "Unable to parse environment variable '{}': '{}'",
+            MAX_CONCURRENT_UPDATE_ENV_VAR,
+            source
+        ))]
+        MaxConcurrentUpdateParseError { source: std::num::ParseIntError },
     }
 }

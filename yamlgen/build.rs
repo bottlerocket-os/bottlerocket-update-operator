@@ -54,6 +54,14 @@ fn main() {
         .parse()
         .unwrap();
 
+    let max_concurrent_update: String = env::var("MAX_CONCURRENT_UPDATE")
+        .ok()
+        .unwrap()
+        .to_lowercase();
+    // Make sure it is integer if it is not "unlimited"
+    if !max_concurrent_update.eq("unlimited") {
+        max_concurrent_update.clone().parse::<usize>().unwrap();
+    }
     serde_yaml::to_writer(&brupop_resources, &brupop_namespace()).unwrap();
 
     // cert-manager and secret
@@ -100,7 +108,11 @@ fn main() {
     serde_yaml::to_writer(&brupop_resources, &controller_priority_class()).unwrap();
     serde_yaml::to_writer(
         &brupop_resources,
-        &controller_deployment(brupop_image.clone(), brupop_image_pull_secrets.clone()),
+        &controller_deployment(
+            brupop_image.clone(),
+            brupop_image_pull_secrets.clone(),
+            max_concurrent_update,
+        ),
     )
     .unwrap();
     serde_yaml::to_writer(&brupop_resources, &controller_service()).unwrap();

@@ -53,6 +53,32 @@ For example:
       ...
 ```
 
+##### Set Up Max Concurrent Update
+`MAX_CONCURRENT_UPDATE` can be used to specify the max concurrent updates during updating.
+When `MAX_CONCURRENT_UPDATE` is a positive integer number, bottlerocket update operator
+will concurrently update up to `MAX_CONCURRENT_UPDATE` nodes respecting [PodDisruptionBudgets](https://kubernetes.io/docs/tasks/run-application/configure-pdb/).
+When `MAX_CONCURRENT_UPDATE` is set to `unlimited`, bottlerocket update operator
+will concurrently update all nodes respecting [PodDisruptionBudgets](https://kubernetes.io/docs/tasks/run-application/configure-pdb/).
+
+Note: The `MAX_CONCURRENT_UPDATE` configuration does not work well with `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` 
+configuration, especially when `MAX_CONCURRENT_UPDATE` is set to `unlimited`, it could potentially exclude all 
+nodes from load balancer at the same time..
+
+To enable this feature, go to `bottlerocket-update-operator.yaml`, change `MAX_CONCURRENT_UPDATE` to a positive integer value or `unlimited`.
+For example:
+```yaml
+      containers:
+        - command:
+            - "./controller"
+          env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: MAX_CONCURRENT_UPDATE
+              value: "1"
+```
+
 ### Label nodes
 
 By default, each Workload resource constrains scheduling of the update operator by limiting pods to Bottlerocket nodes based on their labels.

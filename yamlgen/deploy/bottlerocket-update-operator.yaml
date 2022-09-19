@@ -703,6 +703,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            - name: MAX_CONCURRENT_UPDATE
+              value: "1"
           image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v0.2.2"
           name: brupop
       priorityClassName: brupop-controller-high-priority
