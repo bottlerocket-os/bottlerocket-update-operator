@@ -64,7 +64,8 @@ pub fn init_telemetry() -> Result<()> {
         .with(env_filter)
         .with(JsonStorageLayer)
         .with(stdio_formatting_layer);
-    tracing::subscriber::set_global_default(subscriber).context(error::TracingConfiguration)?;
+    tracing::subscriber::set_global_default(subscriber)
+        .context(error::TracingConfigurationSnafu)?;
 
     Ok(())
 }

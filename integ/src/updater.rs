@@ -33,11 +33,11 @@ pub async fn process_brupop_resources(action: Action, kube_config_path: &str) ->
             kube_config_path,
         ])
         .status()
-        .context(update_error::BrupopProcess)?;
+        .context(update_error::BrupopProcessSnafu)?;
 
     ensure!(
         brupop_resource_status.success(),
-        update_error::BrupopRun {
+        update_error::BrupopRunSnafu {
             action: action_string
         }
     );
@@ -59,13 +59,13 @@ pub async fn process_pods_test(action: Action, kube_config_path: &str) -> Update
             kube_config_path,
         ])
         .status()
-        .context(update_error::ProcessPodsTest {
+        .context(update_error::ProcessPodsTestSnafu {
             action: action_string.clone(),
         })?;
 
     ensure!(
         pods_status.success(),
-        update_error::PodsRun {
+        update_error::PodsRunSnafu {
             action: action_string
         }
     );
@@ -79,7 +79,7 @@ pub async fn nodes_exist(k8s_client: kube::client::Client) -> UpdaterResult<bool
     let nodes_objectlist = nodes
         .list(&ListParams::default())
         .await
-        .context(update_error::FindNodes {})?;
+        .context(update_error::FindNodesSnafu {})?;
 
     Ok(nodes_objectlist.iter().count() > 0)
 }
@@ -91,7 +91,7 @@ pub mod update_error {
     use snafu::Snafu;
 
     #[derive(Debug, Snafu)]
-    #[snafu(visibility = "pub")]
+    #[snafu(visibility(pub))]
     pub enum Error {
         #[snafu(display("Failed to install brupop: {}", source))]
         BrupopProcess { source: std::io::Error },

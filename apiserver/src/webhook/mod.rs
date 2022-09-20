@@ -167,7 +167,7 @@ struct BRSObject {
 impl BRSObject {
     fn get_version(&self) -> Result<String> {
         Ok(serde_json::from_value(self.object["apiVersion"].clone())
-            .context(SourceVersionNotExistInRequest)?)
+            .context(SourceVersionNotExistInRequestSnafu)?)
     }
 
     fn to_v2(source_obj: BRSObject) -> Result<BRSObject> {
@@ -180,7 +180,7 @@ impl BRSObject {
         let version = self.get_version()?;
         match version.as_str() {
             "brupop.bottlerocket.aws/v1" => BRSObject::to_v2(self),
-            _ => InvalidVersionError { version }.fail(),
+            _ => InvalidVersionSnafu { version }.fail(),
         }
     }
 
@@ -193,7 +193,7 @@ impl BRSObject {
             match source_object.convert_to_next_version() {
                 Ok(val) => source_object = val,
                 Err(_) => {
-                    return ChainedConvertError {
+                    return ChainedConvertSnafu {
                         src_version: version,
                         dst_version: desired_version,
                     }
@@ -211,7 +211,7 @@ impl TryFrom<BRSObject> for BottleRocketShadowV1 {
     type Error = WebhookConvertError;
 
     fn try_from(obj: BRSObject) -> Result<Self> {
-        serde_json::from_value(obj.object).context(JsonToBottlerocketShadowConvertError {
+        serde_json::from_value(obj.object).context(JsonToBottlerocketShadowConvertSnafu {
             version: "v1".to_string(),
         })
     }
@@ -221,7 +221,7 @@ impl TryFrom<BRSObject> for BottlerocketShadowV2 {
     type Error = WebhookConvertError;
 
     fn try_from(obj: BRSObject) -> Result<Self> {
-        serde_json::from_value(obj.object).context(JsonToBottlerocketShadowConvertError {
+        serde_json::from_value(obj.object).context(JsonToBottlerocketShadowConvertSnafu {
             version: "v2".to_string(),
         })
     }
@@ -232,7 +232,7 @@ impl TryFrom<BottlerocketShadowV2> for BRSObject {
 
     fn try_from(shadow: BottlerocketShadowV2) -> Result<Self> {
         Ok(BRSObject {
-            object: serde_json::to_value(shadow).context(BottlerocketShadowToJsonConvertError {
+            object: serde_json::to_value(shadow).context(BottlerocketShadowToJsonConvertSnafu {
                 version: "v2".to_string(),
             })?,
         })
@@ -380,7 +380,7 @@ mod tests {
     }
 }
 #[derive(Debug, Snafu)]
-#[snafu(visibility = "pub")]
+#[snafu(visibility(pub))]
 pub enum WebhookConvertError {
     #[snafu(display("Source version does not exist in ConversionRequest: {}", source))]
     SourceVersionNotExistInRequest { source: serde_json::Error },

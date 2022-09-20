@@ -37,7 +37,7 @@ async fn run_server() -> Result<()> {
 
     let k8s_client = kube::client::Client::try_default()
         .await
-        .context(error::ClientCreate)?;
+        .context(error::ClientCreateSnafu)?;
 
     let settings = APIServerSettings {
         node_client: K8SBottlerocketShadowClient::new(k8s_client.clone()),

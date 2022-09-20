@@ -127,7 +127,7 @@ async fn invoke_apiclient(args: Vec<String>) -> Result<Output> {
         let output = Command::new(API_CLIENT_BIN)
             .args(&args)
             .output()
-            .context(apiclient_error::ApiClientRawCommand { args: args.clone() })?;
+            .context(apiclient_error::ApiClientRawCommandSnafu { args: args.clone() })?;
 
         match output.status.success() {
             true => return Ok(output),
@@ -151,7 +151,7 @@ async fn invoke_apiclient(args: Vec<String>) -> Result<Output> {
                             }
                             _ => {
                                 // API response was a non-transient error, bail out
-                                return apiclient_error::BadHttpResponse {
+                                return apiclient_error::BadHttpResponseSnafu {
                                     statuscode: error_statuscode,
                                 }
                                 .fail();
@@ -184,7 +184,7 @@ pub async fn get_update_status() -> Result<UpdateStatus> {
 
     let update_status_string = String::from_utf8_lossy(&update_status_output.stdout).to_string();
     let update_status: UpdateStatus = serde_json::from_str(&update_status_string)
-        .context(apiclient_error::UpdateStatusContent)?;
+        .context(apiclient_error::UpdateStatusContentSnafu)?;
 
     Ok(update_status)
 }
@@ -197,7 +197,7 @@ pub async fn get_os_info() -> Result<OsInfo> {
 
     let os_info_content_string = String::from_utf8_lossy(&os_info_output.stdout).to_string();
     let os_info: OsInfo =
-        serde_json::from_str(&os_info_content_string).context(apiclient_error::OsContent)?;
+        serde_json::from_str(&os_info_content_string).context(apiclient_error::OsContentSnafu)?;
 
     Ok(os_info)
 }
@@ -253,7 +253,7 @@ pub async fn get_chosen_update() -> Result<Option<UpdateImage>> {
     ensure!(
         update_status.most_recent_command.cmd_type == UpdateCommand::Refresh
             && update_status.most_recent_command.cmd_status == CommandStatus::Success,
-        apiclient_error::RefreshUpdate
+        apiclient_error::RefreshUpdateSnafu
     );
 
     Ok(update_status.chosen_update)
@@ -265,7 +265,7 @@ pub async fn prepare() -> Result<()> {
     ensure!(
         update_status.update_state == UpdateState::Available
             || update_status.update_state == UpdateState::Staged,
-        apiclient_error::UpdateStage {
+        apiclient_error::UpdateStageSnafu {
             expect_state: "Available or Staged".to_string(),
             update_state: update_status.update_state,
         },
@@ -279,7 +279,7 @@ pub async fn prepare() -> Result<()> {
     ensure!(
         recent_command.cmd_type == UpdateCommand::Prepare
             || recent_command.cmd_status == CommandStatus::Success,
-        apiclient_error::PrepareUpdate
+        apiclient_error::PrepareUpdateSnafu
     );
 
     Ok(())
@@ -290,7 +290,7 @@ pub async fn update() -> Result<()> {
 
     ensure!(
         update_status.update_state == UpdateState::Staged,
-        apiclient_error::UpdateStage {
+        apiclient_error::UpdateStageSnafu {
             expect_state: "Staged".to_string(),
             update_state: update_status.update_state,
         }
@@ -305,7 +305,7 @@ pub async fn update() -> Result<()> {
     ensure!(
         recent_command.cmd_type == UpdateCommand::Activate
             || recent_command.cmd_status == CommandStatus::Success,
-        apiclient_error::Update
+        apiclient_error::UpdateSnafu
     );
 
     Ok(())
@@ -317,7 +317,7 @@ pub async fn boot_update() -> Result<Output> {
 
     ensure!(
         update_status.update_state == UpdateState::Ready,
-        apiclient_error::UpdateStage {
+        apiclient_error::UpdateStageSnafu {
             expect_state: "Ready".to_string(),
             update_state: update_status.update_state,
         }
@@ -332,7 +332,7 @@ pub mod apiclient_error {
     use snafu::Snafu;
 
     #[derive(Debug, Snafu)]
-    #[snafu(visibility = "pub")]
+    #[snafu(visibility(pub))]
     pub enum Error {
         #[snafu(display("Failed to run apiclient command apiclient {:?}: {}", args.join(" "), source))]
         ApiClientRawCommand {

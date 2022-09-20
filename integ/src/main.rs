@@ -98,7 +98,7 @@ async fn generate_kubeconfig(arguments: &Arguments) -> Result<String> {
         &arguments.region,
         &kube_config_path,
     )
-    .context(error::WriteKubeconfig)?;
+    .context(error::WriteKubeconfigSnafu)?;
     info!(
         "kubeconfig has been written and store at {:?}",
         &kube_config_path
@@ -110,7 +110,7 @@ async fn generate_kubeconfig(arguments: &Arguments) -> Result<String> {
 async fn generate_kubeconfig_file_path(arguments: &Arguments) -> Result<String> {
     let unique_kube_config_temp_dir = get_kube_config_temp_dir_path(&arguments)?;
 
-    fs::create_dir_all(&unique_kube_config_temp_dir).context(error::CreateDir)?;
+    fs::create_dir_all(&unique_kube_config_temp_dir).context(error::CreateDirSnafu)?;
 
     let kube_config_path = format!(
         "{}/{}",
@@ -124,7 +124,7 @@ fn get_kube_config_temp_dir_path(arguments: &Arguments) -> Result<String> {
     let unique_tmp_dir_name = format!("{}-{}", arguments.cluster_name, arguments.region);
     let unique_kube_config_temp_dir = format!(
         "{}/{}",
-        temp_dir().to_str().context(error::FindTmpDir)?,
+        temp_dir().to_str().context(error::FindTmpDirSnafu)?,
         unique_tmp_dir_name
     );
 
@@ -138,7 +138,7 @@ fn args_validation(args: &Arguments) -> Result<()> {
                 ARCHES.contains(&ArchitectureValues::from(
                     integ_test_args.ami_arch.as_str().clone()
                 )),
-                error::InvalidArchInput {
+                error::InvalidArchInputSnafu {
                     input: integ_test_args.ami_arch.clone()
                 }
             )
@@ -157,7 +157,7 @@ async fn run() -> Result<()> {
 
     let cluster_info = get_cluster_info(&args.cluster_name, &args.region)
         .await
-        .context(error::GetClusterInfo)?;
+        .context(error::GetClusterInfoSnafu)?;
 
     match &args.subcommand {
         SubCommand::IntegrationTest(integ_test_args) => {
@@ -176,7 +176,7 @@ async fn run() -> Result<()> {
                 &integ_test_args.bottlerocket_version,
             )
             .await
-            .context(error::CreateNodeGroup)?;
+            .context(error::CreateNodeGroupSnafu)?;
             info!("EC2 instances/nodegroup have been created");
 
             // create different types' pods to test if brupop can handle them.
@@ -186,13 +186,13 @@ async fn run() -> Result<()> {
             );
             process_pods_test(Action::Apply, &kube_config_path)
                 .await
-                .context(error::CreatePod)?;
+                .context(error::CreatePodSnafu)?;
 
             // install brupop on EKS cluster
             info!("Running brupop on existing EKS cluster ...");
             process_brupop_resources(Action::Apply, &kube_config_path)
                 .await
-                .context(error::RunBrupop)?;
+                .context(error::RunBrupopSnafu)?;
         }
         SubCommand::Monitor => {
             // generate kubeconfig path if no input value for argument `kube_config_path`
@@ -203,22 +203,22 @@ async fn run() -> Result<()> {
 
             // create k8s client
             let kubeconfig =
-                Kubeconfig::read_from(kube_config_path).context(error::ReadKubeConfig)?;
+                Kubeconfig::read_from(kube_config_path).context(error::ReadKubeConfigSnafu)?;
             let config = Config::from_custom_kubeconfig(
                 kubeconfig.to_owned(),
                 &KubeConfigOptions::default(),
             )
             .await
-            .context(error::LoadKubeConfig)?;
+            .context(error::LoadKubeConfigSnafu)?;
             let k8s_client =
-                kube::client::Client::try_from(config).context(error::CreateK8sClient)?;
+                kube::client::Client::try_from(config).context(error::CreateK8sClientSnafu)?;
 
             info!("monitoring brupop");
             let monitor_client = BrupopMonitor::new(IntegBrupopClient::new(k8s_client));
             monitor_client
                 .run_monitor()
                 .await
-                .context(error::MonitorBrupop)?;
+                .context(error::MonitorBrupopSnafu)?;
         }
         SubCommand::Clean => {
             // Generate kubeconfig path if no input value for argument `kube_config_path`
@@ -229,29 +229,32 @@ async fn run() -> Result<()> {
 
             // Create k8s client
             let kubeconfig =
-                Kubeconfig::read_from(&kube_config_path).context(error::ReadKubeConfig)?;
+                Kubeconfig::read_from(&kube_config_path).context(error::ReadKubeConfigSnafu)?;
             let config = Config::from_custom_kubeconfig(
                 kubeconfig.to_owned(),
                 &KubeConfigOptions::default(),
             )
             .await
-            .context(error::LoadKubeConfig)?;
+            .context(error::LoadKubeConfigSnafu)?;
             let k8s_client =
-                kube::client::Client::try_from(config).context(error::CreateK8sClient)?;
+                kube::client::Client::try_from(config).context(error::CreateK8sClientSnafu)?;
 
             // Terminate nodegroup created by integration test.
             info!("Terminating nodegroup ...");
             terminate_nodegroup(cluster_info, &args.nodegroup_name)
                 .await
-                .context(error::TerminateNodeGroup)?;
+                .context(error::TerminateNodeGroupSnafu)?;
 
             // If EKS cluster still has running nodes which need brupop, Integration-test shouldn't uninstall brupop, delete test pods, and kubeconfig file.
-            if !nodes_exist(k8s_client).await.context(error::RunBrupop)? {
+            if !nodes_exist(k8s_client)
+                .await
+                .context(error::RunBrupopSnafu)?
+            {
                 // Clean up all brupop resources like namespace, deployment on brupop test
                 info!("Deleting all brupop cluster resources created by integration test ...");
                 process_brupop_resources(Action::Delete, &kube_config_path)
                     .await
-                    .context(error::DeleteClusterResources)?;
+                    .context(error::DeleteClusterResourcesSnafu)?;
 
                 // delete all created pods for testing.
                 info!(
@@ -260,13 +263,13 @@ async fn run() -> Result<()> {
             );
                 process_pods_test(Action::Delete, &kube_config_path)
                     .await
-                    .context(error::DeletePod)?;
+                    .context(error::DeletePodSnafu)?;
 
                 // Delete tmp directory and kubeconfig.yaml if no input value for argument `kube_config_path`
                 if &args.kube_config_path == DEFAULT_KUBECONFIG_FILE_NAME {
                     info!("Deleting tmp directory and kubeconfig.yaml ...");
                     fs::remove_dir_all(get_kube_config_temp_dir_path(&args)?)
-                        .context(error::DeleteTmpDir)?;
+                        .context(error::DeleteTmpDirSnafu)?;
                 }
             }
         }
@@ -281,7 +284,7 @@ mod error {
     use snafu::Snafu;
 
     #[derive(Debug, Snafu)]
-    #[snafu(visibility = "pub(super)")]
+    #[snafu(visibility(pub(super)))]
     pub(super) enum Error {
         #[snafu(display("Failed to get eks cluster info: {}", source))]
         GetClusterInfo { source: ProviderError },

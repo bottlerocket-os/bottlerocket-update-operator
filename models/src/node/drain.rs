@@ -122,7 +122,7 @@ async fn find_target_pods(
             ..Default::default()
         })
         .await
-        .context(error::FindTargetPods {
+        .context(error::FindTargetPodsSnafu {
             node_name: node_name.to_string(),
         })?;
 
@@ -338,7 +338,7 @@ pub mod error {
     use tokio::time::Duration;
 
     #[derive(Debug, Snafu)]
-    #[snafu(visibility = "pub")]
+    #[snafu(visibility(pub))]
     pub enum DrainError {
         #[snafu(display("Unable to find drainable Pods for Node '{}': '{}'", node_name, source))]
         FindTargetPods {
@@ -354,7 +354,7 @@ pub mod error {
     }
 
     #[derive(Debug, Snafu)]
-    #[snafu(visibility = "pub")]
+    #[snafu(visibility(pub))]
     pub enum EvictionError {
         #[snafu(display("Unable to create eviction for Pod '{}': '{}'", pod_name, source))]
         /// An error occurred while attempting to evict a Pod. This may result in an attempt to retry the eviction.

@@ -144,20 +144,20 @@ impl<T: TokenReviewer> K8STokenAuthorizor<T> {
             .as_ref()
             .and_then(|user| user.extra.as_ref())
             .and_then(|extra| extra.get(POD_NAME_INFO_KEY))
-            .context(TokenReviewMissingPodName)?;
+            .context(TokenReviewMissingPodNameSnafu)?;
 
         // Only one Pod should own a given token. If multiple Pods are present in the response,
         // we should not proceed.
-        snafu::ensure!(pod_names.len() <= 1, TokenReviewMultiplePodNames);
+        snafu::ensure!(pod_names.len() <= 1, TokenReviewMultiplePodNamesSnafu);
         // Authorization should also fail if no Pods are present in the response.
-        let pod_name = pod_names.first().context(TokenReviewMissingPodName)?;
+        let pod_name = pod_names.first().context(TokenReviewMissingPodNameSnafu)?;
 
         let pod_node_name = self
             .pod_reader
             .get(&ObjectRef::new(pod_name).within(&self.namespace))
             .and_then(|pod| (*pod).clone().spec)
             .and_then(|pod_spec| pod_spec.node_name)
-            .context(NoSuchPod {
+            .context(NoSuchPodSnafu {
                 pod_name: pod_name.to_string(),
             })?;
 
@@ -213,7 +213,7 @@ impl TokenReviewer for K8STokenReviewer {
                 err_msg: format!("{}", err),
             })?
             .status
-            .context(TokenReviewMissingStatus {})?)
+            .context(TokenReviewMissingStatusSnafu {})?)
     }
 }
 

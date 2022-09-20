@@ -24,7 +24,7 @@ pub(crate) async fn create_bottlerocket_shadow_resource<T: BottlerocketShadowCli
         .node_client
         .create_node(&headers.node_selector)
         .await
-        .context(error::BottlerocketShadowCreate)?;
+        .context(error::BottlerocketShadowCreateSnafu)?;
 
     Ok(HttpResponse::Ok().body(format!("{}", json!(&br_node))))
 }
@@ -40,7 +40,7 @@ pub(crate) async fn update_bottlerocket_shadow_resource<T: BottlerocketShadowCli
         .node_client
         .update_node_status(&headers.node_selector, &node_status)
         .await
-        .context(error::BottlerocketShadowUpdate)?;
+        .context(error::BottlerocketShadowUpdateSnafu)?;
 
     Ok(HttpResponse::Ok().body(format!("{}", json!(&node_status))))
 }
@@ -50,7 +50,7 @@ pub(crate) async fn convert_bottlerocket_shadow_resource(
 ) -> Result<impl Responder> {
     event!(Level::INFO, ?conversion_req, "Original conversion request");
     let response = conversion_req.convert_resource();
-    let response_string = serde_json::to_string(&response).context(error::WebhookError)?;
+    let response_string = serde_json::to_string(&response).context(error::WebhookSnafu)?;
     event!(Level::INFO, ?response_string, "Converted response:");
 
     // Webhook will always respond with 200.

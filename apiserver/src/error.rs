@@ -8,7 +8,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 /// The crate-wide error type.
 #[derive(Debug, Snafu)]
-#[snafu(visibility = "pub")]
+#[snafu(visibility(pub))]
 pub enum Error {
     #[snafu(display("Unable to create client: '{}'", source))]
     ClientCreate { source: kube::Error },
