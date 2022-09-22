@@ -11,8 +11,7 @@ use crate::{
 };
 use models::{
     constants::{
-        APISERVER_SERVICE_NAME, APISERVER_SERVICE_PORT, NAMESPACE, PUBLIC_KEY_NAME,
-        TLS_KEY_MOUNT_PATH,
+        APISERVER_SERVICE_NAME, APISERVER_SERVICE_PORT, CA_NAME, NAMESPACE, TLS_KEY_MOUNT_PATH,
     },
     node::{BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowStatus},
 };
@@ -110,8 +109,8 @@ impl K8SAPIServerClient {
     fn https_client() -> Result<reqwest::Client> {
         let mut buf = Vec::new();
 
-        let public_key_path = format!("{}/{}", TLS_KEY_MOUNT_PATH, PUBLIC_KEY_NAME);
-        std::fs::File::open(public_key_path)
+        let ca_path = format!("{}/{}", TLS_KEY_MOUNT_PATH, CA_NAME);
+        std::fs::File::open(ca_path)
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
             .context(error::IOError)?
             .read_to_end(&mut buf)
