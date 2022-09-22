@@ -2,12 +2,16 @@ use super::{
     metrics::{BrupopControllerMetrics, BrupopHostsData},
     statemachine::determine_next_node_spec,
 };
+use models::constants::{BRUPOP_INTERFACE_VERSION, LABEL_BRUPOP_INTERFACE_NAME, NAMESPACE};
 use models::node::{
     brs_name_from_node_name, BottlerocketShadow, BottlerocketShadowClient, BottlerocketShadowState,
     Selector,
 };
 
+use k8s_openapi::api::core::v1::Node;
+use kube::api::DeleteParams;
 use kube::runtime::reflector::Store;
+use kube::Api;
 use kube::ResourceExt;
 use opentelemetry::global;
 use snafu::ResultExt;
@@ -30,27 +34,45 @@ type Result<T> = std::result::Result<T, controllerclient_error::Error>;
 
 /// The BrupopController orchestrates updates across a cluster of Bottlerocket nodes.
 pub struct BrupopController<T: BottlerocketShadowClient> {
+    k8s_client: kube::client::Client,
     node_client: T,
     brs_reader: Store<BottlerocketShadow>,
+    node_reader: Store<Node>,
     metrics: BrupopControllerMetrics,
 }
 
 impl<T: BottlerocketShadowClient> BrupopController<T> {
-    pub fn new(node_client: T, brs_reader: Store<BottlerocketShadow>) -> Self {
+    pub fn new(
+        k8s_client: kube::client::Client,
+        node_client: T,
+        brs_reader: Store<BottlerocketShadow>,
+        node_reader: Store<Node>,
+    ) -> Self {
         // Creates brupop-controller meter via the configured
         // GlobalMeterProvider which is setup in PrometheusExporter
         let meter = global::meter("brupop-controller");
         let metrics = BrupopControllerMetrics::new(meter);
         BrupopController {
+            k8s_client,
             node_client,
             brs_reader,
+            node_reader,
             metrics,
         }
     }
 
-    /// Returns a list of all `BottlerocketShadow` objects in the cluster.
-    fn all_nodes(&self) -> Vec<BottlerocketShadow> {
+    /// Returns a list of all custom definition resource `BottlerocketShadow`/`brs` objects in the cluster.
+    fn all_brss(&self) -> Vec<BottlerocketShadow> {
         self.brs_reader
+            .state()
+            .iter()
+            .map(|arc_brs| (**arc_brs).clone())
+            .collect()
+    }
+
+    /// Returns a list of all bottlerocket nodes in the cluster.
+    fn all_nodes(&self) -> Vec<Node> {
+        self.node_reader
             .state()
             .iter()
             .map(|arc_brs| (**arc_brs).clone())
@@ -62,8 +84,8 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
     /// Nodes are being acted upon if they are not in the `WaitingForUpdate` state, or if their desired state does
     /// not match their current state.
     #[instrument(skip(self))]
-    fn active_node_set(&self) -> BTreeMap<String, BottlerocketShadow> {
-        self.all_nodes()
+    fn active_brs_set(&self) -> BTreeMap<String, BottlerocketShadow> {
+        self.all_brss()
             .iter()
             .filter(|brs| {
                 brs.status.as_ref().map_or(false, |brs_status| {
@@ -117,8 +139,8 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
     /// The state transition is then attempted. If successful, this node should be detected as part of the active
     /// set during the next iteration of the controller's event loop.
     #[instrument(skip(self))]
-    async fn find_and_update_ready_node(&self) -> Result<Option<BottlerocketShadow>> {
-        let mut shadows: Vec<BottlerocketShadow> = self.all_nodes();
+    async fn find_and_update_ready_brs(&self) -> Result<Option<BottlerocketShadow>> {
+        let mut shadows: Vec<BottlerocketShadow> = self.all_brss();
 
         sort_shadows(&mut shadows, &get_associated_bottlerocketshadow_name()?);
         for brs in shadows.drain(..) {
@@ -153,7 +175,7 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
         let mut hosts_version_count_map = HashMap::new();
         let mut hosts_state_count_map = HashMap::new();
 
-        for brs in self.all_nodes() {
+        for brs in self.all_brss() {
             if let Some(brs_status) = brs.status {
                 let current_version = brs_status.current_version().to_string();
                 let current_state = brs_status.current_state;
@@ -175,6 +197,40 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
         ))
     }
 
+    #[instrument(skip(self, nodes, brss_name))]
+    async fn bottlerocketshadows_cleanup(
+        &self,
+        nodes: Vec<Node>,
+        brss_name: Vec<String>,
+    ) -> Result<()> {
+        let unlabeled_nodes = find_unlabeled_nodes(nodes);
+
+        for unlabeled_node in unlabeled_nodes {
+            let associated_bottlerocketshadow = brs_name_from_node_name(&unlabeled_node);
+            if brss_name
+                .iter()
+                .any(|x| x == &associated_bottlerocketshadow)
+            {
+                event!(
+                    Level::INFO,
+                    name = &associated_bottlerocketshadow.as_str(),
+                    "Begin deleting brs."
+                );
+                let bottlerocket_shadows: Api<BottlerocketShadow> =
+                    Api::namespaced(self.k8s_client.clone(), NAMESPACE);
+
+                bottlerocket_shadows
+                    .delete(
+                        associated_bottlerocketshadow.as_str(),
+                        &DeleteParams::default(),
+                    )
+                    .await
+                    .context(controllerclient_error::DeleteNode)?;
+            }
+        }
+        Ok(())
+    }
+
     /// Runs the event loop for the Brupop controller.
     ///
     /// Because the controller wants to gate the number of simultaneously updating nodes, we can't allow the update state machine
@@ -190,15 +246,15 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
         loop {
             // Brupop typically only operates on a single node at a time. Here we find the set of nodes which is currently undergoing
             // change, to ensure that errors resulting in multiple nodes changing state simultaneously is not unrecoverable.
-            let active_set = self.active_node_set();
+            let active_set = self.active_brs_set();
             let active_set_size = active_set.len();
             event!(Level::TRACE, ?active_set, "Found active set of nodes.");
 
             if !active_set.is_empty() {
                 // Try to push forward all active nodes, gathering results along the way.
-                let mut nodes: Vec<BottlerocketShadow> = active_set.into_values().collect();
+                let mut active_brss: Vec<BottlerocketShadow> = active_set.into_values().collect();
 
-                for brs in nodes.drain(..) {
+                for brs in active_brss.drain(..) {
                     // Timeouts and errors are logged by instrumentation in `progress_node()`.
                     #[allow(unused_must_use)]
                     {
@@ -210,11 +266,16 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
             // Bring one more node each time if the active nodes size is less than MAX_CONCURRENT_UPDATE setting.
             if active_set_size < get_max_concurrent_update()? {
                 // If there's nothing to operate on, check to see if any other nodes are ready for action.
-                let new_active_node = self.find_and_update_ready_node().await?;
+                let new_active_node = self.find_and_update_ready_brs().await?;
                 if let Some(brs) = new_active_node {
                     event!(Level::INFO, name = %brs.name(), "Began updating new node.")
                 }
             }
+
+            // Cleanup BRS when the operator is removed from a node
+            let brss_name = self.all_brss().into_iter().map(|brs| brs.name()).collect();
+            let nodes = self.all_nodes();
+            self.bottlerocketshadows_cleanup(nodes, brss_name).await?;
 
             // Emit metrics at the end of the loop in case the loop didn't progress any nodes.
             self.emit_metrics()?;
@@ -244,7 +305,7 @@ fn get_associated_bottlerocketshadow_name() -> Result<String> {
 /// sort shadows list which uses to determine the order of node update
 /// logic1: sort shadows by crash count
 /// logic2: move the shadow which associated bottlerocketshadow node hosts controller pod to the last
-#[instrument(skip())]
+#[instrument(skip(shadows))]
 fn sort_shadows(shadows: &mut Vec<BottlerocketShadow>, associated_brs_name: &str) {
     // sort shadows by crash count
     shadows.sort_by(|a, b| a.compare_crash_count(b));
@@ -296,10 +357,33 @@ fn is_initial_state(brs: &BottlerocketShadow) -> bool {
         Some(status) => status.current_state == BottlerocketShadowState::default(),
     }
 }
+
+#[instrument(skip(nodes))]
+fn find_unlabeled_nodes(mut nodes: Vec<Node>) -> Vec<String> {
+    let mut unlabeled_nodes: Vec<String> = Vec::new();
+    for node in nodes.drain(..) {
+        if !node_has_label(&node.clone()) {
+            unlabeled_nodes.push(node.name());
+        }
+    }
+
+    unlabeled_nodes
+}
+
+#[instrument(skip(node))]
+fn node_has_label(node: &Node) -> bool {
+    return node.labels().get_key_value(LABEL_BRUPOP_INTERFACE_NAME)
+        == Some((
+            &LABEL_BRUPOP_INTERFACE_NAME.to_string(),
+            &BRUPOP_INTERFACE_VERSION.to_string(),
+        ));
+}
+
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
     use chrono::{TimeZone, Utc};
+    use maplit::btreemap;
     use semver::Version;
     use std::str::FromStr;
 
@@ -442,7 +526,33 @@ pub(crate) mod test {
             assert_eq!(get_max_concurrent_update().unwrap(), target_val);
         }
     }
+
+    #[tokio::test]
+    async fn test_node_has_label() {
+        let labeled_node = Node {
+            metadata: ObjectMeta {
+                name: Some("test".to_string()),
+                labels: Some(btreemap! {
+                    LABEL_BRUPOP_INTERFACE_NAME.to_string() => BRUPOP_INTERFACE_VERSION.to_string(),
+                }),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let unlabeled_node = Node {
+            metadata: ObjectMeta {
+                name: Some("test".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        assert_eq!(node_has_label(&labeled_node), true);
+        assert_eq!(node_has_label(&unlabeled_node), false);
+    }
 }
+
 pub mod controllerclient_error {
     use crate::controller::MAX_CONCURRENT_UPDATE_ENV_VAR;
     use models::node::BottlerocketShadowError;
@@ -456,6 +566,9 @@ pub mod controllerclient_error {
             msg: String,
             source: serde_plain::Error,
         },
+
+        #[snafu(display("Failed to delete node via kubernetes API: '{}'", source))]
+        DeleteNode { source: kube::Error },
 
         #[snafu(display("Unable to get host controller pod node name: {}", source))]
         GetNodeName { source: std::env::VarError },
@@ -482,5 +595,7 @@ pub mod controllerclient_error {
             source
         ))]
         MaxConcurrentUpdateParseError { source: std::num::ParseIntError },
+        #[snafu(display("Unable to get Node UID because of missing Node `UID` value"))]
+        MissingNodeUid {},
     }
 }

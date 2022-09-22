@@ -7,6 +7,7 @@ use models::{
 use actix_web::{web::Data, App, HttpServer};
 
 use futures::StreamExt;
+use k8s_openapi::api::core::v1::Node;
 use kube::{
     api::{Api, ListParams},
     runtime::{reflector, utils::try_flatten_touched, watcher::watcher},
@@ -43,13 +44,9 @@ async fn main() -> Result<()> {
     // in order to setup global meter provider properly
     let exporter = opentelemetry_prometheus::exporter().init();
 
-    // Setup and run the controller.
-    let controller = BrupopController::new(node_client, brs_reader);
-    let controller_runner = controller.run();
-
     // Setup and run a reflector, ensuring that `BottlerocketShadow` updates are reflected to the controller.
     let brs_reflector = reflector::reflector(brs_store, watcher(brss, ListParams::default()));
-    let drainer = try_flatten_touched(brs_reflector)
+    let brs_drainer = try_flatten_touched(brs_reflector)
         .filter_map(|x| async move { std::result::Result::ok(x) })
         .for_each(|brs| {
             event!(
@@ -59,6 +56,21 @@ async fn main() -> Result<()> {
             );
             futures::future::ready(())
         });
+
+    let nodes: Api<Node> = Api::all(k8s_client.clone());
+    let nodes_store = reflector::store::Writer::<Node>::default();
+    let node_reader = nodes_store.as_reader();
+    let node_reflector = reflector::reflector(nodes_store, watcher(nodes, ListParams::default()));
+    let node_drainer = try_flatten_touched(node_reflector)
+        .filter_map(|x| async move { std::result::Result::ok(x) })
+        .for_each(|_node| {
+            event!(Level::DEBUG, "Processed event for node");
+            futures::future::ready(())
+        });
+
+    // Setup and run the controller.
+    let controller = BrupopController::new(k8s_client, node_client, brs_reader, node_reader);
+    let controller_runner = controller.run();
 
     // Setup Http server to vend prometheus metrics
     let prometheus_server = HttpServer::new(move || {
@@ -70,13 +82,16 @@ async fn main() -> Result<()> {
     .context(controller_error::PrometheusServerError)?
     .run();
 
-    // TODO if any of these fails, we should write to the k8s termination log and exit.
     tokio::select! {
-        _ = drainer => {
-            event!(Level::ERROR, "reflector drained");
+        _ = brs_drainer => {
+            event!(Level::ERROR, "brs reflector drained");
+        },
+        _ = node_drainer => {
+            event!(Level::ERROR, "node reflector drained");
         },
         _ = controller_runner => {
             event!(Level::ERROR, "controller exited");
+
         },
         _ = prometheus_server => {
             event!(Level::ERROR, "metric server exited");
@@ -102,6 +117,7 @@ fn init_telemetry() -> Result<()> {
 }
 
 pub mod controller_error {
+    use controller::controllerclient_error;
     use snafu::Snafu;
 
     #[derive(Debug, Snafu)]
@@ -110,6 +126,17 @@ pub mod controller_error {
         #[snafu(display("Unable to create client: '{}'", source))]
         ClientCreate { source: kube::Error },
 
+        #[snafu(display("Error running controller server: '{}'", source))]
+        ControllerError {
+            source: controllerclient_error::Error,
+        },
+
+        #[snafu(display("Unable to get associated node name: {}", source))]
+        GetNodeName { source: std::env::VarError },
+
+        #[snafu(display("The Kubernetes WATCH on {} objects has failed.", object))]
+        KubernetesWatcherFailed { object: String },
+
         #[snafu(display("Error configuring tracing: '{}'", source))]
         TracingConfiguration {
             source: tracing::subscriber::SetGlobalDefaultError,
@@ -117,5 +144,8 @@ pub mod controller_error {
 
         #[snafu(display("Error running prometheus HTTP server: '{}'", source))]
         PrometheusServerError { source: std::io::Error },
+
+        #[snafu(display("Failed to run prometheus on controller"))]
+        PrometheusError,
     }
 }
