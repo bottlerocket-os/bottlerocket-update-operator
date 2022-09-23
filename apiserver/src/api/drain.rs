@@ -20,13 +20,13 @@ pub(crate) async fn cordon_and_drain<T: BottlerocketShadowClient>(
         .node_client
         .cordon_node(&headers.node_selector)
         .await
-        .context(error::BottlerocketShadowCordon)?;
+        .context(error::BottlerocketShadowCordonSnafu)?;
 
     settings
         .node_client
         .drain_node(&headers.node_selector)
         .await
-        .context(error::BottlerocketShadowDrain)?;
+        .context(error::BottlerocketShadowDrainSnafu)?;
 
     Ok(HttpResponse::Ok())
 }
@@ -41,7 +41,7 @@ pub(crate) async fn uncordon<T: BottlerocketShadowClient>(
         .node_client
         .uncordon_node(&headers.node_selector)
         .await
-        .context(error::BottlerocketShadowCordon)?;
+        .context(error::BottlerocketShadowCordonSnafu)?;
 
     Ok(HttpResponse::Ok())
 }
@@ -56,7 +56,7 @@ pub(crate) async fn exclude<T: BottlerocketShadowClient>(
         .node_client
         .exclude_node_from_lb(&headers.node_selector)
         .await
-        .context(error::BottlerocketShadowDrain)?;
+        .context(error::BottlerocketShadowDrainSnafu)?;
 
     Ok(HttpResponse::Ok())
 }
@@ -71,7 +71,7 @@ pub(crate) async fn remove_exclusion<T: BottlerocketShadowClient>(
         .node_client
         .remove_node_exclusion_from_lb(&headers.node_selector)
         .await
-        .context(error::BottlerocketShadowDrain)?;
+        .context(error::BottlerocketShadowDrainSnafu)?;
 
     Ok(HttpResponse::Ok())
 }

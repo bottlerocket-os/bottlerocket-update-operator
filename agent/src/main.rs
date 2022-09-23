@@ -45,17 +45,17 @@ async fn run_agent() -> Result<()> {
 
     let k8s_client = kube::client::Client::try_default()
         .await
-        .context(agent_error::ClientCreate)?;
+        .context(agent_error::ClientCreateSnafu)?;
 
     // Configure our brupop apiserver client to use the auth token mounted to our Pod.
     let token_path = Path::new(TOKEN_PROJECTION_MOUNT_PATH).join(AGENT_TOKEN_PATH);
-    let token_path = token_path.to_str().context(agent_error::Assertion {
+    let token_path = token_path.to_str().context(agent_error::AssertionSnafu {
         message: "Token path (defined in models/agent.rs) is not valid unicode.",
     })?;
     let apiserver_client = K8SAPIServerClient::new(token_path.to_string());
 
     // Get node and BottlerocketShadow names
-    let associated_node_name = env::var("MY_NODE_NAME").context(agent_error::GetNodeName)?;
+    let associated_node_name = env::var("MY_NODE_NAME").context(agent_error::GetNodeNameSnafu)?;
     let associated_bottlerocketshadow_name = brs_name_from_node_name(&associated_node_name);
 
     // Generate reflector to watch and cache BottlerocketShadow
@@ -108,7 +108,7 @@ async fn run_agent() -> Result<()> {
         },
         res = agent_runner => {
             event!(Level::ERROR, "Agent runner exited");
-            res.context(agent_error::AgentError)?
+            res.context(agent_error::AgentSnafu)?
         },
     };
     Ok(())
@@ -125,7 +125,7 @@ pub fn init_telemetry() -> Result<()> {
         .with(JsonStorageLayer)
         .with(stdio_formatting_layer);
     tracing::subscriber::set_global_default(subscriber)
-        .context(agent_error::TracingConfiguration)?;
+        .context(agent_error::TracingConfigurationSnafu)?;
 
     Ok(())
 }
@@ -135,7 +135,7 @@ pub mod agent_error {
     use snafu::Snafu;
 
     #[derive(Debug, Snafu)]
-    #[snafu(visibility = "pub")]
+    #[snafu(visibility(pub))]
     pub enum Error {
         #[snafu(display("Error running agent server: '{}'", source))]
         AgentError { source: agentclient_error::Error },

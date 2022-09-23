@@ -7,7 +7,7 @@ pub type Result<T> = std::result::Result<T, ClientError>;
 
 /// Error type representing issues using an apiserver client.
 #[derive(Debug, Snafu)]
-#[snafu(visibility = "pub")]
+#[snafu(visibility(pub))]
 pub enum ClientError {
     #[snafu(display(
         "API server responded with an error status code {}: '{}'",

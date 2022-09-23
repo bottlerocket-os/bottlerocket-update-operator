@@ -121,11 +121,11 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
                 .update_node_spec(
                     &node
                         .selector()
-                        .context(controllerclient_error::NodeSelectorCreation)?,
+                        .context(controllerclient_error::NodeSelectorCreationSnafu)?,
                     &desired_spec,
                 )
                 .await
-                .context(controllerclient_error::UpdateNodeSpec)
+                .context(controllerclient_error::UpdateNodeSpecSnafu)
         } else {
             // Otherwise, we need to ensure that the node is making progress in a timely fashion.
 
@@ -183,7 +183,7 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
                 *hosts_version_count_map.entry(current_version).or_default() += 1;
                 *hosts_state_count_map
                     .entry(serde_plain::to_string(&current_state).context(
-                        controllerclient_error::Assertion {
+                        controllerclient_error::AssertionSnafu {
                             msg: "unable to parse current_state".to_string(),
                         },
                     )?)
@@ -225,7 +225,7 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
                         &DeleteParams::default(),
                     )
                     .await
-                    .context(controllerclient_error::DeleteNode)?;
+                    .context(controllerclient_error::DeleteNodeSnafu)?;
             }
         }
         Ok(())
@@ -290,7 +290,7 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
 #[instrument]
 fn get_associated_bottlerocketshadow_name() -> Result<String> {
     let associated_node_name =
-        env::var("MY_NODE_NAME").context(controllerclient_error::GetNodeName)?;
+        env::var("MY_NODE_NAME").context(controllerclient_error::GetNodeNameSnafu)?;
     let associated_bottlerocketshadow_name = brs_name_from_node_name(&associated_node_name);
 
     event!(
@@ -336,7 +336,7 @@ fn sort_shadows(shadows: &mut Vec<BottlerocketShadow>, associated_brs_name: &str
 /// Fetch the environment variable to determine the max concurrent update nodes number.
 fn get_max_concurrent_update() -> Result<usize> {
     let max_concurrent_update = env::var(MAX_CONCURRENT_UPDATE_ENV_VAR)
-        .context(controllerclient_error::MissingEnvVariable {
+        .context(controllerclient_error::MissingEnvVariableSnafu {
             variable: MAX_CONCURRENT_UPDATE_ENV_VAR.to_string(),
         })?
         .to_lowercase();
@@ -346,7 +346,7 @@ fn get_max_concurrent_update() -> Result<usize> {
     } else {
         max_concurrent_update
             .parse::<usize>()
-            .context(controllerclient_error::MaxConcurrentUpdateParseError)
+            .context(controllerclient_error::MaxConcurrentUpdateParseSnafu)
     }
 }
 
@@ -559,7 +559,7 @@ pub mod controllerclient_error {
     use snafu::Snafu;
 
     #[derive(Debug, Snafu)]
-    #[snafu(visibility = "pub")]
+    #[snafu(visibility(pub))]
     pub enum Error {
         #[snafu(display("Controller failed due to {}: '{}'", msg, source))]
         Assertion {

@@ -79,7 +79,7 @@ impl K8SAPIServerClient {
     fn auth_token(&self) -> Result<String> {
         fs::read_to_string(&self.k8s_projected_token_path)
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-            .context(error::IOError)
+            .context(error::IOSnafu)
     }
 
     /// Protocol scheme for communicating with the server.
@@ -113,18 +113,18 @@ impl K8SAPIServerClient {
         let public_key_path = format!("{}/{}", TLS_KEY_MOUNT_PATH, PUBLIC_KEY_NAME);
         std::fs::File::open(public_key_path)
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-            .context(error::IOError)?
+            .context(error::IOSnafu)?
             .read_to_end(&mut buf)
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-            .context(error::IOError)?;
+            .context(error::IOSnafu)?;
 
-        let cert = reqwest::Certificate::from_pem(&buf).context(error::CreateClientError)?;
+        let cert = reqwest::Certificate::from_pem(&buf).context(error::CreateClientSnafu)?;
 
         let client = reqwest::Client::builder()
             .add_root_certificate(cert)
             .connection_verbose(true)
             .build()
-            .context(error::CreateClientError)?;
+            .context(error::CreateClientSnafu)?;
         Ok(client)
     }
 }
@@ -154,7 +154,7 @@ impl APIServerClient for K8SAPIServerClient {
                 .send()
                 .await
                 .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-                .context(error::CreateBottlerocketShadowResource {
+                .context(error::CreateBottlerocketShadowResourceSnafu {
                     selector: req.node_selector.clone(),
                 })?;
 
@@ -164,7 +164,7 @@ impl APIServerClient for K8SAPIServerClient {
                     .json::<BottlerocketShadow>()
                     .await
                     .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-                    .context(error::CreateBottlerocketShadowResource {
+                    .context(error::CreateBottlerocketShadowResourceSnafu {
                         selector: req.node_selector.clone(),
                     })?;
                 Ok(node)
@@ -176,7 +176,7 @@ impl APIServerClient for K8SAPIServerClient {
                         .await
                         .unwrap_or("<empty response>".to_string()),
                 }) as Box<dyn std::error::Error>)
-                .context(error::CreateBottlerocketShadowResource {
+                .context(error::CreateBottlerocketShadowResourceSnafu {
                     selector: req.node_selector.clone(),
                 })
             }
@@ -206,7 +206,7 @@ impl APIServerClient for K8SAPIServerClient {
                 .send()
                 .await
                 .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-                .context(error::UpdateBottlerocketShadowResource {
+                .context(error::UpdateBottlerocketShadowResourceSnafu {
                     selector: req.node_selector.clone(),
                 })?;
 
@@ -216,7 +216,7 @@ impl APIServerClient for K8SAPIServerClient {
                     .json::<BottlerocketShadowStatus>()
                     .await
                     .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-                    .context(error::UpdateBottlerocketShadowResource {
+                    .context(error::UpdateBottlerocketShadowResourceSnafu {
                         selector: req.node_selector.clone(),
                     })?;
 
@@ -229,7 +229,7 @@ impl APIServerClient for K8SAPIServerClient {
                         .await
                         .unwrap_or("<empty response>".to_string()),
                 }) as Box<dyn std::error::Error>)
-                .context(error::UpdateBottlerocketShadowResource {
+                .context(error::UpdateBottlerocketShadowResourceSnafu {
                     selector: req.node_selector.clone(),
                 })
             }
@@ -258,7 +258,7 @@ impl APIServerClient for K8SAPIServerClient {
                 .send()
                 .await
                 .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-                .context(error::CordonAndDrainNodeResource {
+                .context(error::CordonAndDrainNodeResourceSnafu {
                     selector: req.node_selector.clone(),
                 })?;
 
@@ -273,7 +273,7 @@ impl APIServerClient for K8SAPIServerClient {
                         .await
                         .unwrap_or("<empty response>".to_string()),
                 }) as Box<dyn std::error::Error>)
-                .context(error::CordonAndDrainNodeResource {
+                .context(error::CordonAndDrainNodeResourceSnafu {
                     selector: req.node_selector.clone(),
                 })
             }
@@ -299,7 +299,7 @@ impl APIServerClient for K8SAPIServerClient {
                 .send()
                 .await
                 .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-                .context(error::CordonAndDrainNodeResource {
+                .context(error::CordonAndDrainNodeResourceSnafu {
                     selector: req.node_selector.clone(),
                 })?;
 
@@ -314,7 +314,7 @@ impl APIServerClient for K8SAPIServerClient {
                         .await
                         .unwrap_or("<empty response>".to_string()),
                 }) as Box<dyn std::error::Error>)
-                .context(error::CordonAndDrainNodeResource {
+                .context(error::CordonAndDrainNodeResourceSnafu {
                     selector: req.node_selector.clone(),
                 })
             }
@@ -339,7 +339,7 @@ impl APIServerClient for K8SAPIServerClient {
                 .send()
                 .await
                 .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-                .context(error::ExcludeNodeFromLB {
+                .context(error::ExcludeNodeFromLBSnafu {
                     selector: req.node_selector.clone(),
                 })?;
 
@@ -354,7 +354,7 @@ impl APIServerClient for K8SAPIServerClient {
                         .await
                         .unwrap_or("<empty response>".to_string()),
                 }) as Box<dyn std::error::Error>)
-                .context(error::ExcludeNodeFromLB {
+                .context(error::ExcludeNodeFromLBSnafu {
                     selector: req.node_selector.clone(),
                 })
             }
@@ -382,7 +382,7 @@ impl APIServerClient for K8SAPIServerClient {
                 .send()
                 .await
                 .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-                .context(error::RemoveNodeExclusionFromLB {
+                .context(error::RemoveNodeExclusionFromLBSnafu {
                     selector: req.node_selector.clone(),
                 })?;
 
@@ -397,7 +397,7 @@ impl APIServerClient for K8SAPIServerClient {
                         .await
                         .unwrap_or("<empty response>".to_string()),
                 }) as Box<dyn std::error::Error>)
-                .context(error::RemoveNodeExclusionFromLB {
+                .context(error::RemoveNodeExclusionFromLBSnafu {
                     selector: req.node_selector.clone(),
                 })
             }

@@ -56,7 +56,7 @@ pub(crate) struct ApiserverCommonHeaders {
 fn extract_header_string(headers: &HeaderMap, key: &'static str) -> Result<String> {
     Ok(headers
         .get(key)
-        .context(error::HTTPHeaderParse {
+        .context(error::HTTPHeaderParseSnafu {
             missing_header: key,
         })?
         .to_str()
@@ -138,7 +138,7 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
     // Use IP for KUBERNETES_SERVICE_HOST to decide the IP family for the cluster,
     // Match API server IP family same as cluster
     let k8s_service_addr =
-        env::var("KUBERNETES_SERVICE_HOST").context(error::MissingClusterIPFamiliy)?;
+        env::var("KUBERNETES_SERVICE_HOST").context(error::MissingClusterIPFamiliySnafu)?;
     let server_addr = if k8s_service_addr.contains(":") {
         // IPv6 format
         format!("[::]:{}", server_port)
@@ -149,17 +149,17 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
 
     event!(Level::DEBUG, ?server_addr, "Server addr localhost.");
 
-    let mut builder = SslAcceptor::mozilla_modern_v5(SslMethod::tls()).context(error::SSLError)?;
+    let mut builder = SslAcceptor::mozilla_modern_v5(SslMethod::tls()).context(error::SSLSnafu)?;
 
     builder
         .set_certificate_chain_file(format!("{}/{}", TLS_KEY_MOUNT_PATH, PUBLIC_KEY_NAME))
-        .context(error::SSLError)?;
+        .context(error::SSLSnafu)?;
     builder
         .set_private_key_file(
             format!("{}/{}", TLS_KEY_MOUNT_PATH, PRIVATE_KEY_NAME),
             SslFiletype::PEM,
         )
-        .context(error::SSLError)?;
+        .context(error::SSLSnafu)?;
 
     let server = HttpServer::new(move || {
         App::new()
@@ -206,7 +206,7 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
             )
     })
     .bind_openssl(server_addr, builder)
-    .context(error::HttpServerError)?
+    .context(error::HttpServerSnafu)?
     .run();
 
     tokio::select! {
@@ -216,7 +216,7 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
         },
         res = server => {
             event!(Level::ERROR, "server exited");
-            res.context(error::HttpServerError)?;
+            res.context(error::HttpServerSnafu)?;
         },
     };
 

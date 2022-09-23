@@ -106,7 +106,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                         if error_response.code == 404 {
                             return Ok(false);
                         } else {
-                            return agentclient_error::FetchBottlerocketShadowErrorCode {
+                            return agentclient_error::FetchBottlerocketShadowErrorCodeSnafu {
                                 code: error_response.code,
                             }
                             .fail();
@@ -114,9 +114,11 @@ impl<T: APIServerClient> BrupopAgent<T> {
                     }
                     // Any other type of errors can not present that associated BottlerocketShadow doesn't exist, need return error
                     _ => {
-                        return Err(e).context(agentclient_error::UnableFetchBottlerocketShadow {
-                            node_name: &self.associated_bottlerocketshadow_name.clone(),
-                        });
+                        return Err(e).context(
+                            agentclient_error::UnableFetchBottlerocketShadowSnafu {
+                                node_name: &self.associated_bottlerocketshadow_name.clone(),
+                            },
+                        );
                     }
                 }
             }
@@ -140,7 +142,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                     .metadata
                     .uid
                     .as_ref()
-                    .context(agentclient_error::MissingNodeUid)?;
+                    .context(agentclient_error::MissingNodeUidSnafu)?;
                 return Ok(BottlerocketShadowSelector {
                     node_name: self.associated_node_name.clone(),
                     node_uid: associated_node_uid.to_string(),
@@ -186,10 +188,10 @@ impl<T: APIServerClient> BrupopAgent<T> {
     ) -> Result<BottlerocketShadowStatus> {
         let os_info = get_os_info()
             .await
-            .context(agentclient_error::BottlerocketShadowStatusVersion)?;
+            .context(agentclient_error::BottlerocketShadowStatusVersionSnafu)?;
         let update_version = match get_chosen_update()
             .await
-            .context(agentclient_error::BottlerocketShadowStatusChosenUpdate)?
+            .context(agentclient_error::BottlerocketShadowStatusChosenUpdateSnafu)?
         {
             Some(chosen_update) => chosen_update.version,
             // if chosen update is null which means current node already in latest version, assign current version value to it.
@@ -215,7 +217,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                 node_selector: selector.clone(),
             })
             .await
-            .context(agentclient_error::CreateBottlerocketShadowResource)?;
+            .context(agentclient_error::CreateBottlerocketShadowResourceSnafu)?;
         event!(Level::INFO, brs_name = ?selector.node_name, "Brs has been created.");
         Ok(())
     }
@@ -234,7 +236,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                 node_status: current_metadata,
             })
             .await
-            .context(agentclient_error::UpdateBottlerocketShadowResource)?;
+            .context(agentclient_error::UpdateBottlerocketShadowResourceSnafu)?;
         event!(Level::INFO, brs_name = ?selector.node_name, brs_status = ?brs_update, "Brs status has been updated.");
         Ok(())
     }
@@ -262,18 +264,18 @@ impl<T: APIServerClient> BrupopAgent<T> {
                 node_selector: selector,
             })
             .await
-            .context(agentclient_error::CordonAndDrainNode)?;
+            .context(agentclient_error::CordonAndDrainNodeSnafu)?;
 
         Ok(())
     }
 
     fn get_exclude_from_lb_time(&self) -> Result<u64> {
         let wait_time: u64 = env::var("EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC")
-            .context(agentclient_error::EnvVarNotExist {
+            .context(agentclient_error::EnvVarNotExistSnafu {
                 variable: "EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC".to_string(),
             })?
             .parse()
-            .context(agentclient_error::ExcludeFromLBWaitTimeParseError)?;
+            .context(agentclient_error::ExcludeFromLBWaitTimeParseSnafu)?;
         Ok(wait_time)
     }
 
@@ -286,7 +288,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                 node_selector: selector,
             })
             .await
-            .context(agentclient_error::ExcludeNodeFromLB)?;
+            .context(agentclient_error::ExcludeNodeFromLBSnafu)?;
 
         Ok(())
     }
@@ -300,7 +302,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                 node_selector: selector,
             })
             .await
-            .context(agentclient_error::RemoveNodeExclusionFromLB)?;
+            .context(agentclient_error::RemoveNodeExclusionFromLBSnafu)?;
 
         Ok(())
     }
@@ -314,7 +316,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                 node_selector: selector,
             })
             .await
-            .context(agentclient_error::UncordonNode)?;
+            .context(agentclient_error::UncordonNodeSnafu)?;
 
         Ok(())
     }
@@ -347,7 +349,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
         let bottlerocket_shadow_status = bottlerocket_shadow
             .status
             .as_ref()
-            .context(agentclient_error::MissingBottlerocketShadowStatus)?;
+            .context(agentclient_error::MissingBottlerocketShadowStatusSnafu)?;
 
         let updated_node_status = self
             .shadow_status_with_refreshed_system_matadata(state, shadow_error_info)
@@ -400,7 +402,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
         let bottlerocket_shadow_status = bottlerocket_shadow
             .status
             .as_ref()
-            .context(agentclient_error::MissingBottlerocketShadowStatus)?;
+            .context(agentclient_error::MissingBottlerocketShadowStatusSnafu)?;
         let bottlerocket_shadow_spec = &bottlerocket_shadow.spec;
 
         // Determine if the spec on the system's BottlerocketShadow demands the node take action. If so, begin taking that action.
@@ -428,14 +430,18 @@ impl<T: APIServerClient> BrupopAgent<T> {
                 },
                 BottlerocketShadowState::StagedAndPerformedUpdate => {
                     event!(Level::INFO, "Preparing update");
-                    prepare().await.context(agentclient_error::UpdateActions {
-                        action: "Prepare".to_string(),
-                    })?;
+                    prepare()
+                        .await
+                        .context(agentclient_error::UpdateActionsSnafu {
+                            action: "Prepare".to_string(),
+                        })?;
 
                     event!(Level::INFO, "Performing update");
-                    update().await.context(agentclient_error::UpdateActions {
-                        action: "Perform".to_string(),
-                    })?;
+                    update()
+                        .await
+                        .context(agentclient_error::UpdateActionsSnafu {
+                            action: "Perform".to_string(),
+                        })?;
                 }
                 BottlerocketShadowState::RebootedIntoUpdate => {
                     event!(Level::INFO, "Rebooting node to complete update");
@@ -456,7 +462,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                         self.prepare_for_update().await?;
                         boot_update()
                             .await
-                            .context(agentclient_error::UpdateActions {
+                            .context(agentclient_error::UpdateActionsSnafu {
                                 action: "Reboot".to_string(),
                             })?;
                     }
@@ -469,7 +475,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                 BottlerocketShadowState::ErrorReset => {
                     // Spec state should never be ErrorReset
                     event!(Level::ERROR, "Spec state should never be ErrorReset");
-                    return agentclient_error::Assertion {
+                    return agentclient_error::AssertionSnafu {
                         message: "Spec state should never be ErrorReset.".to_string(),
                     }
                     .fail();
@@ -517,7 +523,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
             let bottlerocket_shadow_status = bottlerocket_shadow
                 .status
                 .as_ref()
-                .context(agentclient_error::MissingBottlerocketShadowStatus)?;
+                .context(agentclient_error::MissingBottlerocketShadowStatusSnafu)?;
 
             match self.handle_state_transition(&bottlerocket_shadow).await {
                 Ok(()) => {
@@ -560,7 +566,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                             event!(Level::WARN, "An error occurred when updating BottlerocketShadow status. Restarting event loop.");
                         }
                         agentclient_error::Error::Assertion { message: msg } => {
-                            return agentclient_error::Assertion { message: msg }.fail();
+                            return agentclient_error::AssertionSnafu { message: msg }.fail();
                         }
                         _ => {
                             event!(
@@ -598,7 +604,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
 async fn running_desired_version(spec: &BottlerocketShadowSpec) -> Result<bool> {
     let os_info = get_os_info()
         .await
-        .context(agentclient_error::BottlerocketShadowStatusVersion)?;
+        .context(agentclient_error::BottlerocketShadowStatusVersionSnafu)?;
     Ok(match spec.version() {
         Some(spec_version) => os_info.version_id == spec_version,
         None => false,
@@ -617,7 +623,7 @@ pub mod agentclient_error {
     use snafu::Snafu;
 
     #[derive(Debug, Snafu)]
-    #[snafu(visibility = "pub")]
+    #[snafu(visibility(pub))]
     pub enum Error {
         #[snafu(display("Unable to drain and cordon this node: '{}'", source))]
         CordonAndDrainNode {
@@ -684,7 +690,7 @@ pub mod agentclient_error {
     }
 
     #[derive(Debug, Snafu)]
-    #[snafu(visibility = "pub")]
+    #[snafu(visibility(pub))]
     pub enum BottlerocketShadowRWError {
         #[snafu(display("Unable to gather system version metadata: '{}'", source))]
         BottlerocketShadowStatusVersion { source: apiclient_error::Error },

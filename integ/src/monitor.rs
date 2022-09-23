@@ -54,7 +54,7 @@ impl BrupopClient for IntegBrupopClient {
         let brss_object_list = brss
             .list(&ListParams::default())
             .await
-            .context(monitor_error::FindBrupopPods {})?;
+            .context(monitor_error::FindBrupopPodsSnafu {})?;
 
         Ok(brss_object_list)
     }
@@ -64,7 +64,7 @@ impl BrupopClient for IntegBrupopClient {
         let pods_objectlist = pods
             .list(&ListParams::default())
             .await
-            .context(monitor_error::FindBrupopPods {})?;
+            .context(monitor_error::FindBrupopPodsSnafu {})?;
 
         Ok(pods_objectlist)
     }
@@ -119,7 +119,7 @@ impl<T: BrupopClient> BrupopMonitor<T> {
             let bottlerocket_shadow_status = bottlerocketshadow
                 .status
                 .as_ref()
-                .context(monitor_error::MissingBottlerocketShadowStatus)?;
+                .context(monitor_error::MissingBottlerocketShadowStatusSnafu)?;
             if bottlerocket_shadow_status.current_version().to_string()
                 != bottlerocket_shadow_status.target_version().to_string()
                 || bottlerocket_shadow_status.current_state != BottlerocketShadowState::Idle
@@ -132,7 +132,7 @@ impl<T: BrupopClient> BrupopMonitor<T> {
                     .metadata
                     .name
                     .as_ref()
-                    .context(monitor_error::BottlerocketShadowName)?,
+                    .context(monitor_error::BottlerocketShadowNameSnafu)?,
                 bottlerocket_shadow_status.current_version().to_string(),
                 bottlerocket_shadow_status.current_state
             );
@@ -173,7 +173,7 @@ impl<T: BrupopClient> Monitor for BrupopMonitor<T> {
             // terminate monitor loop if time exceeds estimated update time
             if start_time
                 .elapsed()
-                .context(monitor_error::TimeElapsed {})?
+                .context(monitor_error::TimeElapsedSnafu {})?
                 >= Duration::from_secs(estimate_expire_time(
                     bottlerocketshadows.into_iter().len() as i32
                 ) as u64)
@@ -243,7 +243,7 @@ pub mod monitor_error {
     use snafu::Snafu;
 
     #[derive(Debug, Snafu)]
-    #[snafu(visibility = "pub")]
+    #[snafu(visibility(pub))]
     pub enum Error {
         #[snafu(display("Unable to find Brupop pods: {}", source))]
         FindBrupopPods { source: kube::Error },

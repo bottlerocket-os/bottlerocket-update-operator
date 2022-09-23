@@ -148,7 +148,7 @@ impl BottlerocketShadowSpec {
                 DateTime::parse_from_rfc3339(ts_str)
                     // Convert `DateTime<FixedOffset>` into `DateTime<Utc>`
                     .map(|ts| ts.into())
-                    .context(error::TimestampFormat)
+                    .context(error::TimestampFormatSnafu)
             })
             .transpose()
     }

@@ -30,7 +30,7 @@ async fn main() -> Result<()> {
 
     let k8s_client = kube::client::Client::try_default()
         .await
-        .context(controller_error::ClientCreate)?;
+        .context(controller_error::ClientCreateSnafu)?;
 
     // The `BrupopController` needs a `reflector::Store`, which is updated by a reflector
     // that runs concurrently. We'll create the store and run the reflector here.
@@ -79,7 +79,7 @@ async fn main() -> Result<()> {
             .service(vending_metrics)
     })
     .bind(format!("0.0.0.0:{}", CONTROLLER_INTERNAL_PORT))
-    .context(controller_error::PrometheusServerError)?
+    .context(controller_error::PrometheusServerSnafu)?
     .run();
 
     tokio::select! {
@@ -111,7 +111,7 @@ fn init_telemetry() -> Result<()> {
         .with(JsonStorageLayer)
         .with(stdio_formatting_layer);
     tracing::subscriber::set_global_default(subscriber)
-        .context(controller_error::TracingConfiguration)?;
+        .context(controller_error::TracingConfigurationSnafu)?;
 
     Ok(())
 }
@@ -121,7 +121,7 @@ pub mod controller_error {
     use snafu::Snafu;
 
     #[derive(Debug, Snafu)]
-    #[snafu(visibility = "pub")]
+    #[snafu(visibility(pub))]
     pub enum Error {
         #[snafu(display("Unable to create client: '{}'", source))]
         ClientCreate { source: kube::Error },
