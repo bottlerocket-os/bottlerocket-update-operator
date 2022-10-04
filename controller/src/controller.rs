@@ -15,11 +15,8 @@ use kube::Api;
 use kube::ResourceExt;
 use opentelemetry::global;
 use snafu::ResultExt;
+use std::collections::{BTreeMap, HashMap};
 use std::env;
-use std::{
-    collections::{BTreeMap, HashMap},
-    convert::TryInto,
-};
 use tokio::time::{sleep, Duration};
 use tracing::{event, instrument, Level};
 
@@ -321,7 +318,7 @@ fn sort_shadows(shadows: &mut Vec<BottlerocketShadow>, associated_brs_name: &str
     match associated_brs_node_position {
         Some(position) => {
             let last_brs = shadows[position].clone();
-            shadows.remove(position.clone());
+            shadows.remove(position);
             shadows.push(last_brs);
         }
         None => {
@@ -342,7 +339,7 @@ fn get_max_concurrent_update() -> Result<usize> {
         .to_lowercase();
 
     if max_concurrent_update.eq("unlimited") {
-        return Ok(usize::MAX);
+        Ok(usize::MAX)
     } else {
         max_concurrent_update
             .parse::<usize>()
@@ -528,6 +525,7 @@ pub(crate) mod test {
     }
 
     #[tokio::test]
+    #[allow(clippy::bool_assert_comparison)]
     async fn test_node_has_label() {
         let labeled_node = Node {
             metadata: ObjectMeta {
@@ -548,7 +546,7 @@ pub(crate) mod test {
             ..Default::default()
         };
 
-        assert_eq!(node_has_label(&labeled_node), true);
+        assert!(node_has_label(&labeled_node));
         assert_eq!(node_has_label(&unlabeled_node), false);
     }
 }
