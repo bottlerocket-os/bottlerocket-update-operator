@@ -19,13 +19,10 @@ async fn main() {
     let termination_log =
         env::var("TERMINATION_LOG").unwrap_or_else(|_| TERMINATION_LOG.to_string());
 
-    match run_server().await {
-        Err(error) => {
-            event!(Level::ERROR, %error, "brupop apiserver failed.");
-            fs::write(&termination_log, format!("{}", error))
-                .expect("Could not write k8s termination log.");
-        }
-        Ok(()) => {}
+    if let Err(error) = run_server().await {
+        event!(Level::ERROR, %error, "brupop apiserver failed.");
+        fs::write(&termination_log, format!("{}", error))
+            .expect("Could not write k8s termination log.");
     }
 
     opentelemetry::global::shutdown_tracer_provider();
