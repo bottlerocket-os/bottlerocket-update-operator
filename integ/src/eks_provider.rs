@@ -165,29 +165,25 @@ async fn dns_ip(
             let ipv4_cidr = kubernetes_network_config.service_ipv4_cidr;
 
             match ipv4_cidr {
-                Some(dns_ip) => {
-                    return Ok((
-                        IpFamily::Ipv4,
-                        Some(transform_dns_ip(dns_ip, IPV4_DIVIDER, IPV4_OCTET)),
-                    ))
-                }
-                None => return Ok((IpFamily::Ipv4, None)),
+                Some(dns_ip) => Ok((
+                    IpFamily::Ipv4,
+                    Some(transform_dns_ip(dns_ip, IPV4_DIVIDER, IPV4_OCTET)),
+                )),
+                None => Ok((IpFamily::Ipv4, None)),
             }
         }
         IpFamily::Ipv6 => {
             let ipv6_cidr = kubernetes_network_config.service_ipv6_cidr;
 
             match ipv6_cidr {
-                Some(dns_ip) => {
-                    return Ok((
-                        IpFamily::Ipv6,
-                        Some(transform_dns_ip(dns_ip, IPV6_DIVIDER, IPV6_HEXTET)),
-                    ))
-                }
-                None => return Ok((IpFamily::Ipv6, None)),
+                Some(dns_ip) => Ok((
+                    IpFamily::Ipv6,
+                    Some(transform_dns_ip(dns_ip, IPV6_DIVIDER, IPV6_HEXTET)),
+                )),
+                None => Ok((IpFamily::Ipv6, None)),
             }
         }
-        _ => return Err(ProviderError::new_with_context("Invalid dns ip")),
+        _ => Err(ProviderError::new_with_context("Invalid dns ip")),
     }
 }
 

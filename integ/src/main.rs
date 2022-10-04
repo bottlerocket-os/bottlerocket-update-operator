@@ -88,7 +88,7 @@ pub struct IntegrationTestArgs {
 
 async fn generate_kubeconfig(arguments: &Arguments) -> Result<String> {
     // default kube config path is /temp/{CLUSTER_NAME}-{REGION}/kubeconfig.yaml
-    let kube_config_path = generate_kubeconfig_file_path(&arguments).await?;
+    let kube_config_path = generate_kubeconfig_file_path(arguments).await?;
 
     // decode and write kubeconfig
     info!("decoding and writing kubeconfig ...");
@@ -108,7 +108,7 @@ async fn generate_kubeconfig(arguments: &Arguments) -> Result<String> {
 }
 
 async fn generate_kubeconfig_file_path(arguments: &Arguments) -> Result<String> {
-    let unique_kube_config_temp_dir = get_kube_config_temp_dir_path(&arguments)?;
+    let unique_kube_config_temp_dir = get_kube_config_temp_dir_path(arguments)?;
 
     fs::create_dir_all(&unique_kube_config_temp_dir).context(error::CreateDirSnafu)?;
 
@@ -135,9 +135,7 @@ fn args_validation(args: &Arguments) -> Result<()> {
     match &args.subcommand {
         SubCommand::IntegrationTest(integ_test_args) => {
             ensure!(
-                ARCHES.contains(&ArchitectureValues::from(
-                    integ_test_args.ami_arch.as_str().clone()
-                )),
+                ARCHES.contains(&ArchitectureValues::from(integ_test_args.ami_arch.as_str())),
                 error::InvalidArchInputSnafu {
                     input: integ_test_args.ami_arch.clone()
                 }
@@ -266,7 +264,7 @@ async fn run() -> Result<()> {
                     .context(error::DeletePodSnafu)?;
 
                 // Delete tmp directory and kubeconfig.yaml if no input value for argument `kube_config_path`
-                if &args.kube_config_path == DEFAULT_KUBECONFIG_FILE_NAME {
+                if args.kube_config_path == DEFAULT_KUBECONFIG_FILE_NAME {
                     info!("Deleting tmp directory and kubeconfig.yaml ...");
                     fs::remove_dir_all(get_kube_config_temp_dir_path(&args)?)
                         .context(error::DeleteTmpDirSnafu)?;
@@ -274,7 +272,7 @@ async fn run() -> Result<()> {
             }
         }
     }
-    Ok({})
+    Ok(())
 }
 
 mod error {
