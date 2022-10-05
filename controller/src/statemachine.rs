@@ -39,7 +39,7 @@ pub fn determine_next_node_spec(brs: &BottlerocketShadow) -> BottlerocketShadowS
                         if node_allowed_to_update(node_status) {
                             BottlerocketShadowSpec::new_starting_now(
                                 BottlerocketShadowState::StagedAndPerformedUpdate,
-                                Some(target_version.clone()),
+                                Some(target_version),
                             )
                         } else {
                             // Do nothing if not reach the wait time
@@ -103,18 +103,16 @@ mod tests {
 
     #[test]
     fn exponential_backoff_hit_limit() {
-        assert_eq!(true, exponential_backoff_time_with_upper_limit(15, 4, 8));
+        assert!(exponential_backoff_time_with_upper_limit(15, 4, 8));
     }
     #[test]
+    #[allow(clippy::bool_assert_comparison)]
     fn exponential_backoff_not_hit_limit() {
         assert_eq!(
             false,
             exponential_backoff_time_with_upper_limit(30, 5, 1024)
         );
 
-        assert_eq!(
-            true,
-            exponential_backoff_time_with_upper_limit(244, 5, 1024)
-        )
+        assert!(exponential_backoff_time_with_upper_limit(244, 5, 1024))
     }
 }

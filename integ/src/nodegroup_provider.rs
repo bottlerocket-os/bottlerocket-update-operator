@@ -74,14 +74,13 @@ pub async fn create_nodegroup(
     // Prepare ami id
     //default eks_version to the version that matches cluster
     let eks_version = &cluster.version;
-    let node_ami = find_ami_id(&ssm_client, ami_arch, bottlerocket_version, &eks_version).await?;
+    let node_ami = find_ami_id(&ssm_client, ami_arch, bottlerocket_version, eks_version).await?;
 
     // Prepare instance type
     let instance_type = instance_type(&ec2_client, &node_ami).await?;
 
     // create one time iam instance profile for nodegroup
-    let iam_instance_profile_arn =
-        create_iam_instance_profile(&iam_client, &nodegroup_name).await?;
+    let iam_instance_profile_arn = create_iam_instance_profile(&iam_client, nodegroup_name).await?;
 
     // Mapping one time iam identity to eks cluster
     cluster_iam_identity_mapping(&cluster.name, &cluster.region, &iam_instance_profile_arn).await?;
@@ -92,7 +91,7 @@ pub async fn create_nodegroup(
         &node_ami,
         &instance_type,
         &cluster.clone(),
-        &nodegroup_name,
+        nodegroup_name,
     )
     .await?;
 
@@ -106,7 +105,7 @@ pub async fn create_nodegroup(
                 .build(),
         )
         .labels(LABEL_BRUPOP_INTERFACE_NAME, BRUPOP_INTERFACE_VERSION)
-        .nodegroup_name(nodegroup_name.clone())
+        .nodegroup_name(nodegroup_name)
         .cluster_name(&cluster.name)
         .subnets(first_subnet_id(&cluster.private_subnet_ids)?)
         .node_role(&iam_instance_profile_arn)
@@ -141,7 +140,7 @@ pub async fn terminate_nodegroup(cluster: ClusterInfo, nodegroup_name: &str) -> 
     // Delete nodegroup from cluster
     eks_client
         .delete_nodegroup()
-        .nodegroup_name(nodegroup_name.clone())
+        .nodegroup_name(nodegroup_name)
         .cluster_name(&cluster.name)
         .send()
         .await
@@ -156,7 +155,7 @@ pub async fn terminate_nodegroup(cluster: ClusterInfo, nodegroup_name: &str) -> 
     .context("Timed-out waiting for instances to be fully deleted")??;
 
     // Delete one time iam instance profile for nodegroup which created by integration test.
-    delete_iam_instance_profile(&iam_client, &nodegroup_name).await?;
+    delete_iam_instance_profile(&iam_client, nodegroup_name).await?;
 
     // Delete nodegroup launch template which created by integration test.
     delete_launch_template(&ec2_client, nodegroup_name).await?;
@@ -528,7 +527,7 @@ async fn non_conforming_nodegroup(
             }
         }
         "delete" => confirm_nodegroup_deleted(eks_client, cluster_name, nodegroup_name).await,
-        _ => return Err(ProviderError::new_with_context("Invalid action input")),
+        _ => Err(ProviderError::new_with_context("Invalid action input")),
     }
 }
 

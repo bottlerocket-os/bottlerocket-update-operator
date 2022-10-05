@@ -109,7 +109,7 @@ pub fn convert_request_to_response(req: &ConversionRequest) -> ConversionRespons
             ConversionResponse {
                 kind: req.kind.clone(),
                 api_version: req.api_version.clone(),
-                response: response,
+                response,
             }
         }
         Err(e) => {
@@ -122,7 +122,7 @@ pub fn convert_request_to_response(req: &ConversionRequest) -> ConversionRespons
             ConversionResponse {
                 kind: req.kind.clone(),
                 api_version: req.api_version.clone(),
-                response: response,
+                response,
             }
         }
     }
@@ -166,8 +166,8 @@ struct BRSObject {
 
 impl BRSObject {
     fn get_version(&self) -> Result<String> {
-        Ok(serde_json::from_value(self.object["apiVersion"].clone())
-            .context(SourceVersionNotExistInRequestSnafu)?)
+        serde_json::from_value(self.object["apiVersion"].clone())
+            .context(SourceVersionNotExistInRequestSnafu)
     }
 
     fn to_v2(source_obj: BRSObject) -> Result<BRSObject> {

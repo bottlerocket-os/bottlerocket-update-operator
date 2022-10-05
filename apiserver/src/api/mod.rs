@@ -139,7 +139,7 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
     // Match API server IP family same as cluster
     let k8s_service_addr =
         env::var("KUBERNETES_SERVICE_HOST").context(error::MissingClusterIPFamiliySnafu)?;
-    let server_addr = if k8s_service_addr.contains(":") {
+    let server_addr = if k8s_service_addr.contains(':') {
         // IPv6 format
         format!("[::]:{}", server_port)
     } else {

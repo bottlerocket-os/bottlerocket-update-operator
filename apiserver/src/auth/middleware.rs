@@ -167,8 +167,8 @@ mod test {
         let create_status = ret_status.clone();
         token_reviewer
             .expect_create_token_review()
-            .with(mockall::predicate::eq(create_review.clone()))
-            .return_const(Ok(create_status.clone()));
+            .with(mockall::predicate::eq(create_review))
+            .return_const(Ok(create_status));
 
         token_reviewer
     }

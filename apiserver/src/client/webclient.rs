@@ -174,7 +174,7 @@ impl APIServerClient for K8SAPIServerClient {
                     response: response
                         .text()
                         .await
-                        .unwrap_or("<empty response>".to_string()),
+                        .unwrap_or_else(|_| "<empty response>".to_string()),
                 }) as Box<dyn std::error::Error>)
                 .context(error::CreateBottlerocketShadowResourceSnafu {
                     selector: req.node_selector.clone(),
@@ -227,7 +227,7 @@ impl APIServerClient for K8SAPIServerClient {
                     response: response
                         .text()
                         .await
-                        .unwrap_or("<empty response>".to_string()),
+                        .unwrap_or_else(|_| "<empty response>".to_string()),
                 }) as Box<dyn std::error::Error>)
                 .context(error::UpdateBottlerocketShadowResourceSnafu {
                     selector: req.node_selector.clone(),
@@ -271,7 +271,7 @@ impl APIServerClient for K8SAPIServerClient {
                     response: response
                         .text()
                         .await
-                        .unwrap_or("<empty response>".to_string()),
+                        .unwrap_or_else(|_| "<empty response>".to_string()),
                 }) as Box<dyn std::error::Error>)
                 .context(error::CordonAndDrainNodeResourceSnafu {
                     selector: req.node_selector.clone(),
@@ -312,7 +312,7 @@ impl APIServerClient for K8SAPIServerClient {
                     response: response
                         .text()
                         .await
-                        .unwrap_or("<empty response>".to_string()),
+                        .unwrap_or_else(|_| "<empty response>".to_string()),
                 }) as Box<dyn std::error::Error>)
                 .context(error::CordonAndDrainNodeResourceSnafu {
                     selector: req.node_selector.clone(),
@@ -352,7 +352,7 @@ impl APIServerClient for K8SAPIServerClient {
                     response: response
                         .text()
                         .await
-                        .unwrap_or("<empty response>".to_string()),
+                        .unwrap_or_else(|_| "<empty response>".to_string()),
                 }) as Box<dyn std::error::Error>)
                 .context(error::ExcludeNodeFromLBSnafu {
                     selector: req.node_selector.clone(),
@@ -395,7 +395,7 @@ impl APIServerClient for K8SAPIServerClient {
                     response: response
                         .text()
                         .await
-                        .unwrap_or("<empty response>".to_string()),
+                        .unwrap_or_else(|_| "<empty response>".to_string()),
                 }) as Box<dyn std::error::Error>)
                 .context(error::RemoveNodeExclusionFromLBSnafu {
                     selector: req.node_selector.clone(),

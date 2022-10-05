@@ -88,7 +88,6 @@ pub(crate) async fn drain_node(
     stream::iter(target_pods)
         .for_each_concurrent(CONCURRENT_EVICTIONS, move |pod| {
             let k8s_client = k8s_client.clone();
-            let pod = pod.clone();
             async move {
                 // If an eviction for a Pod fails, it's either because:
                 // * The eviction would never succeed (the Pod doesn't exist, we lack permissions to evict them, etc)
@@ -169,7 +168,7 @@ fn filter_pods<F: Iterator<Item = Pod>>(pods: F) -> impl Iterator<Item = Pod> {
             }
         }
 
-        return true;
+        true
     })
 }
 
@@ -226,7 +225,7 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
                         Ok(StatusCode::NOT_FOUND) => {
                             return Err(error::EvictionError::NonRetriableEviction {
                                 source: kube::Error::Api(e.clone()),
-                                pod_name: pod.name().to_string(),
+                                pod_name: pod.name(),
                             });
                         }
                         Ok(StatusCode::FORBIDDEN) => {
@@ -235,7 +234,7 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
                             // API error statuses to determine if we can proceed, so we ignore these.
                             return Err(error::EvictionError::NonRetriableEviction {
                                 source: kube::Error::Api(e.clone()),
-                                pod_name: pod.name().to_string(),
+                                pod_name: pod.name(),
                             });
                         }
                         Ok(_) => {
@@ -247,7 +246,7 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
                             );
                             return Err(error::EvictionError::RetriableEviction {
                                 source: kube::Error::Api(e.clone()),
-                                pod_name: pod.name().to_string(),
+                                pod_name: pod.name(),
                             });
                         }
                         Err(_) => {
@@ -258,7 +257,7 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
                             );
                             return Err(error::EvictionError::RetriableEviction {
                                 source: kube::Error::Api(e.clone()),
-                                pod_name: pod.name().to_string(),
+                                pod_name: pod.name(),
                             });
                         }
                     }
@@ -267,7 +266,7 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
                     event!(Level::ERROR, "Eviction failed: '{}'. Retrying...", e);
                     return Err(error::EvictionError::RetriableEviction {
                         source: e,
-                        pod_name: pod.name().to_string(),
+                        pod_name: pod.name(),
                     });
                 }
             }
@@ -328,7 +327,7 @@ async fn wait_for_deletion(k8s_client: &kube::Client, pod: &Pod) -> Result<(), e
 /// Creates a kube::Api<Pod> for interacting with Pods in the namespace associated with the given Pod.
 fn namespaced_pod_api(k8s_client: &kube::Client, pod: &Pod) -> Api<Pod> {
     match pod.metadata.namespace.as_ref() {
-        Some(ns) => Api::namespaced(k8s_client.clone(), &ns),
+        Some(ns) => Api::namespaced(k8s_client.clone(), ns),
         None => Api::default_namespaced(k8s_client.clone()),
     }
 }

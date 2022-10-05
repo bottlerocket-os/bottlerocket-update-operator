@@ -29,14 +29,12 @@ type Result<T> = std::result::Result<T, agent_error::Error>;
 
 #[tokio::main]
 async fn main() {
-    let termination_log = env::var("TERMINATION_LOG").unwrap_or(TERMINATION_LOG.to_string());
+    let termination_log =
+        env::var("TERMINATION_LOG").unwrap_or_else(|_| TERMINATION_LOG.to_string());
 
-    match run_agent().await {
-        Err(error) => {
-            fs::write(&termination_log, format!("{}", error))
-                .expect("Could not write k8s termination log.");
-        }
-        Ok(()) => {}
+    if let Err(error) = run_agent().await {
+        fs::write(&termination_log, format!("{}", error))
+            .expect("Could not write k8s termination log.");
     }
 }
 

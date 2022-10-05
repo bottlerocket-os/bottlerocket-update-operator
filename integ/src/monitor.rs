@@ -91,16 +91,16 @@ impl<T: BrupopClient> BrupopMonitor<T> {
     // verify if Brupop pods (agent, api-server, controller) are in `running` status.
     fn check_pods_health(&self, pods: &ObjectList<Pod>) -> bool {
         if pods.items.is_empty() {
-            return false;
+            false
         } else {
-            return pods.iter().all(|pod| is_pod_running(pod));
+            return pods.iter().all(is_pod_running);
         }
     }
 
     // verify if brs has been created properly and initialized `status`.
     fn check_shadows_health(&self, bottlerocketshadows: &ObjectList<BottlerocketShadow>) -> bool {
         if bottlerocketshadows.items.is_empty() {
-            return false;
+            false
         } else {
             return bottlerocketshadows
                 .iter()
@@ -124,7 +124,7 @@ impl<T: BrupopClient> BrupopMonitor<T> {
                 != bottlerocket_shadow_status.target_version().to_string()
                 || bottlerocket_shadow_status.current_state != BottlerocketShadowState::Idle
             {
-                update_success = update_success & false;
+                update_success &= false;
             }
             println!(
                 "brs: {:?}      current_version: {:?}       current_state: {:?}",
@@ -225,9 +225,7 @@ pub mod mock {
 // compute the estimated update time to trigger monitor exit
 // formula: number_of_node*300 secs + 300 secs
 fn estimate_expire_time(number_of_brs: i32) -> i32 {
-    let expire_time = number_of_brs * ESTIMATED_UPDATE_TIME_EACH_NODE + EXTRA_TIME;
-
-    expire_time
+    number_of_brs * ESTIMATED_UPDATE_TIME_EACH_NODE + EXTRA_TIME
 }
 
 fn is_pod_running(pod: &Pod) -> bool {

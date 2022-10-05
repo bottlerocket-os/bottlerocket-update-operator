@@ -101,7 +101,7 @@ fn get_raw_args(mut args: Vec<String>) -> Vec<String> {
     let mut subcommand_args = vec!["raw".to_string(), "-u".to_string()];
     subcommand_args.append(&mut args);
 
-    return subcommand_args;
+    subcommand_args
 }
 
 /// Extract error statuscode from stderr string
@@ -112,9 +112,7 @@ fn extract_status_code_from_error(error: &str) -> &str {
     let error_content_split_by_whitespace: Vec<&str> = error_content_split_by_status[1]
         .split_whitespace()
         .collect();
-    let error_statuscode = error_content_split_by_whitespace[0];
-
-    error_statuscode
+    error_content_split_by_whitespace[0]
 }
 
 /// Apiclient binary has been volume mounted into the agent container, so agent is able to
@@ -209,7 +207,7 @@ pub async fn refresh_updates() -> Result<Output> {
         "POST".to_string(),
     ];
 
-    Ok(invoke_apiclient(get_raw_args(raw_args)).await?)
+    invoke_apiclient(get_raw_args(raw_args)).await
 }
 
 pub async fn prepare_update() -> Result<()> {
@@ -239,7 +237,7 @@ pub async fn activate_update() -> Result<()> {
 pub async fn reboot() -> Result<Output> {
     let raw_args = vec![REBOOT_URI.to_string(), "-m".to_string(), "POST".to_string()];
 
-    Ok(invoke_apiclient(get_raw_args(raw_args)).await?)
+    invoke_apiclient(get_raw_args(raw_args)).await
 }
 
 // get chosen update which contains latest Bottlerocket OS can update to.
@@ -323,7 +321,7 @@ pub async fn boot_update() -> Result<Output> {
         }
     );
 
-    Ok(reboot().await?)
+    reboot().await
 }
 
 pub mod apiclient_error {

@@ -77,14 +77,13 @@ impl BottlerocketShadowState {
 impl From<BottlerocketShadowStateV1> for BottlerocketShadowState {
     fn from(previous_state: BottlerocketShadowStateV1) -> Self {
         // TODO: Remap the state when merge PR with preventing controller from being unscheduled
-        let new_state = match previous_state {
+        match previous_state {
             BottlerocketShadowStateV1::Idle => Self::Idle,
             BottlerocketShadowStateV1::StagedUpdate => Self::StagedAndPerformedUpdate,
             BottlerocketShadowStateV1::PerformedUpdate => Self::StagedAndPerformedUpdate,
             BottlerocketShadowStateV1::RebootedIntoUpdate => Self::RebootedIntoUpdate,
             BottlerocketShadowStateV1::MonitoringUpdate => Self::MonitoringUpdate,
-        };
-        new_state
+        }
     }
 }
 
@@ -290,13 +289,11 @@ impl From<BottleRocketShadowV1> for BottlerocketShadow {
         let previous_spec = previous_shadow.spec;
         let previous_status = previous_shadow.status;
 
-        let status = match previous_status {
-            None => None,
-            Some(previous_status) => Some(BottlerocketShadowStatus::from(previous_status)),
-        };
+        let status = previous_status.map(BottlerocketShadowStatus::from);
 
         let spec = BottlerocketShadowSpec::from(previous_spec);
-        let new_shadow = BottlerocketShadow {
+
+        BottlerocketShadow {
             metadata: ObjectMeta {
                 /// The converted object has to maintain the same name, namespace and uid
                 name: previous_metadata.name,
@@ -307,8 +304,7 @@ impl From<BottleRocketShadowV1> for BottlerocketShadow {
             },
             spec,
             status,
-        };
-        new_shadow
+        }
     }
 }
 

@@ -89,7 +89,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
         // store(either associated BottlerocketShadow doesn't exist or store data delays), make the API call for second round check.
 
         let associated_bottlerocketshadow = self.brs_reader.state().clone();
-        if associated_bottlerocketshadow.len() != 0 {
+        if !associated_bottlerocketshadow.is_empty() {
             Ok(true)
         } else {
             let bottlerocket_shadows: Api<BottlerocketShadow> =
@@ -136,8 +136,8 @@ impl<T: APIServerClient> BrupopAgent<T> {
         Retry::spawn(retry_strategy(), || async {
             // Agent specifies node reflector only watch and cache the node that agent pod currently lives on,
             // so vector of nodes_reader only have one object. Therefore, get_node_selector uses index 0 to extract node object.
-            let node = self.node_reader.state().clone();
-            if node.len() != 0 {
+            let node = self.node_reader.state();
+            if !node.is_empty() {
                 let associated_node_uid = node[0]
                     .metadata
                     .uid
@@ -167,7 +167,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
             // Agent specifies node reflector only watch and cache the BottlerocketShadow which is associated with the node that agent pod currently lives on,
             // so vector of brs_reader only have one object. Therefore, fetch_custom_resource uses index 0 to extract BottlerocketShadow object.
             let associated_bottlerocketshadow = self.brs_reader.state();
-            if associated_bottlerocketshadow.len() != 0 {
+            if !associated_bottlerocketshadow.is_empty() {
                 return Ok((*associated_bottlerocketshadow[0]).clone());
             }
 
@@ -450,7 +450,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                         // Make sure the status in BottlerocketShadow is up-to-date from the reboot
                         self.update_status_in_shadow(
                             bottlerocket_shadow,
-                            bottlerocket_shadow_spec.state.clone(),
+                            bottlerocket_shadow_spec.state,
                             ShadowErrorInfo::new(
                                 bottlerocket_shadow_status.crash_count(),
                                 bottlerocket_shadow_status.failure_timestamp().unwrap(),
@@ -527,23 +527,18 @@ impl<T: APIServerClient> BrupopAgent<T> {
 
             match self.handle_state_transition(&bottlerocket_shadow).await {
                 Ok(()) => {
-                    let shadow_error_info;
-                    match bottlerocket_shadow_status.current_state {
+                    let shadow_error_info = match bottlerocket_shadow_status.current_state {
                         // Reset crash_count and state_transition_failure_timestamp for a successful update loop
-                        BottlerocketShadowState::MonitoringUpdate => {
-                            shadow_error_info = ShadowErrorInfo::default();
-                        }
-                        _ => {
-                            shadow_error_info = ShadowErrorInfo::new(
-                                bottlerocket_shadow_status.crash_count(),
-                                bottlerocket_shadow_status.failure_timestamp().unwrap(),
-                            )
-                        }
-                    }
+                        BottlerocketShadowState::MonitoringUpdate => ShadowErrorInfo::default(),
+                        _ => ShadowErrorInfo::new(
+                            bottlerocket_shadow_status.crash_count(),
+                            bottlerocket_shadow_status.failure_timestamp().unwrap(),
+                        ),
+                    };
                     match self
                         .update_status_in_shadow(
                             &bottlerocket_shadow,
-                            bottlerocket_shadow.spec.state.clone(),
+                            bottlerocket_shadow.spec.state,
                             shadow_error_info,
                         )
                         .await
