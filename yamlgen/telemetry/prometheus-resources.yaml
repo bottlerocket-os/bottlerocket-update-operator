@@ -48,6 +48,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus-config
+  namespace: brupop-bottlerocket-aws
 data:
   prometheus.yml: |
     global:
