@@ -8,7 +8,7 @@ publish = false
 [dependencies]
 models = { path = "../models", version = "0.1.0" }
 
-aws-config = "0.13.0"
+aws-config = "0.15.0"
 aws-sdk-ec2 = "0.13.0"
 aws-sdk-eks = "0.13.0"
 aws-sdk-iam = "0.13.0"
