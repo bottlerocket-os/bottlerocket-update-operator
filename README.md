@@ -24,7 +24,7 @@ kubectl apply -f ./bottlerocket-update-operator.yaml
 
 This will create the required namespace, custom resource definition, roles, deployments, etc., and use the latest update operator image available in [Amazon ECR Public](https://gallery.ecr.aws/bottlerocket/bottlerocket-update-operator).
 
-Note: The above link is set to use the configuration for the latest version of the Update Operator, `v0.2.1`.
+Note: The above link is set to use the configuration for the latest version of the Update Operator, `v0.2.2`.
 Be sure to use the git tag for the Update Operator release that you plan to deploy.
 
 #### Configuration
@@ -231,7 +231,7 @@ You may also choose to pull from regional Amazon ECR repositories such as the fo
 
 Example regional image URI:
 ```
-328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-update-operator:v0.2.1
+328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-update-operator:v0.2.2
 ```
 
 ### Current Limitations
@@ -245,7 +245,7 @@ Example regional image URI:
 
 ## Troubleshooting
 
-When installed with the [default deployment](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/v0.2.1/yamlgen/deploy/bottlerocket-update-operator.yaml), the logs can be fetched through Kubernetes deployment logs.
+When installed with the [default deployment](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/v0.2.2/yamlgen/deploy/bottlerocket-update-operator.yaml), the logs can be fetched through Kubernetes deployment logs.
 Because mutations to a node are orchestrated through the API server component, searching those deployment logs for a node ID can be useful.
 To get logs for the API server, run the following:
 
