@@ -15,8 +15,8 @@ use crate::{
     telemetry,
 };
 use models::constants::{
-    AGENT, APISERVER_HEALTH_CHECK_ROUTE, APISERVER_SERVICE_NAME, LABEL_COMPONENT, NAMESPACE,
-    PRIVATE_KEY_NAME, PUBLIC_KEY_NAME, TLS_KEY_MOUNT_PATH,
+    AGENT, APISERVER_HEALTH_CHECK_ROUTE, APISERVER_SERVICE_NAME, CA_NAME, LABEL_COMPONENT,
+    NAMESPACE, PRIVATE_KEY_NAME, PUBLIC_KEY_NAME, TLS_KEY_MOUNT_PATH,
 };
 use models::node::{BottlerocketShadowClient, BottlerocketShadowSelector};
 
@@ -152,7 +152,13 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
     let mut builder = SslAcceptor::mozilla_modern_v5(SslMethod::tls()).context(error::SSLSnafu)?;
 
     builder
-        .set_certificate_chain_file(format!("{}/{}", TLS_KEY_MOUNT_PATH, PUBLIC_KEY_NAME))
+        .set_certificate_chain_file(format!("{}/{}", TLS_KEY_MOUNT_PATH, CA_NAME))
+        .context(error::SSLSnafu)?;
+    builder
+        .set_certificate_file(
+            format!("{}/{}", TLS_KEY_MOUNT_PATH, PUBLIC_KEY_NAME),
+            SslFiletype::PEM,
+        )
         .context(error::SSLSnafu)?;
     builder
         .set_private_key_file(
