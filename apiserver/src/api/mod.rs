@@ -1,6 +1,7 @@
 //! This module contains the brupop API server. Endpoints are stored in submodules, separated
 //! by the resource on which they act.
 mod drain;
+pub mod error;
 mod node;
 mod ping;
 
@@ -11,7 +12,6 @@ use crate::{
         HEADER_BRUPOP_NODE_NAME, HEADER_BRUPOP_NODE_UID, NODE_CORDON_AND_DRAIN_ENDPOINT,
         NODE_RESOURCE_ENDPOINT, NODE_UNCORDON_ENDPOINT, REMOVE_NODE_EXCLUSION_TO_LB_ENDPOINT,
     },
-    error::{self, Result},
     telemetry,
 };
 use models::constants::{
@@ -45,6 +45,9 @@ use std::convert::TryFrom;
 
 // The set of API endpoints for which `tracing::Span`s will not be recorded.
 pub const NO_TELEMETRY_ENDPOINTS: &[&str] = &[APISERVER_HEALTH_CHECK_ROUTE];
+
+/// The API module-wide result type.
+type Result<T> = std::result::Result<T, error::Error>;
 
 /// A struct containing information intended to be passed to the apiserver via HTTP headers.
 pub(crate) struct ApiserverCommonHeaders {

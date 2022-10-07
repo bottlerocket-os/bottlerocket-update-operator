@@ -1,6 +1,5 @@
 use crate::api::NO_TELEMETRY_ENDPOINTS;
 use crate::constants::HEADER_BRUPOP_NODE_NAME;
-use crate::error::{self, Result};
 use models::constants::APISERVER;
 
 use actix_web::dev::{ServiceRequest, ServiceResponse};
@@ -55,7 +54,7 @@ impl RootSpanBuilder for BrupopApiserverRootSpanBuilder {
 }
 
 /// Initializes global tracing and telemetry state for the apiserver.
-pub fn init_telemetry() -> Result<()> {
+pub fn init_telemetry() -> Result<(), telemetry_error::Error> {
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
 
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
@@ -65,7 +64,20 @@ pub fn init_telemetry() -> Result<()> {
         .with(JsonStorageLayer)
         .with(stdio_formatting_layer);
     tracing::subscriber::set_global_default(subscriber)
-        .context(error::TracingConfigurationSnafu)?;
+        .context(telemetry_error::TracingConfigurationSnafu)?;
 
     Ok(())
+}
+
+pub mod telemetry_error {
+    use snafu::Snafu;
+
+    #[derive(Debug, Snafu)]
+    #[snafu(visibility(pub))]
+    pub enum Error {
+        #[snafu(display("Error configuring tracing: '{}'", source))]
+        TracingConfiguration {
+            source: tracing::subscriber::SetGlobalDefaultError,
+        },
+    }
 }
