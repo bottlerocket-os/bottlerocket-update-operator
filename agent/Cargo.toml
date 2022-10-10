@@ -11,7 +11,7 @@ apiserver = { path = "../apiserver", version = "0.1.0", default-features = false
 
 dotenv = "0.15"
 futures = "0.3"
-opentelemetry = { version = "0.16", features = ["rt-tokio-current-thread"] }
+opentelemetry = { version = "0.17", features = ["rt-tokio-current-thread"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
 tracing-bunyan-formatter = "0.3"

@@ -18,7 +18,7 @@ models = { path = "../models", version = "0.1.0" }
 actix-web = { version = "4.0.0-beta.9", features = ["openssl"], default-features = false }
 actix-web-opentelemetry = { version = "0.11.0-beta.5", features = ["metrics"] }
 openssl = { version = "0.10" }
-opentelemetry = { version = "0.16", features = ["rt-tokio-current-thread"]}
+opentelemetry = { version = "0.17", features = ["rt-tokio-current-thread"]}
 opentelemetry-prometheus = "0.9"
 tracing = "0.1"
 tracing-actix-web = "0.4.0-beta.14"
