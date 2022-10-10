@@ -15,7 +15,7 @@ kube = { version = "0.71.0", default-features = true, features = [ "derive", "ru
 
 lazy_static = "1.4"
 maplit = "1.0"
-mockall = { version = "0.10", optional = true }
+mockall = { version = "0.11", optional = true }
 regex = "1.6"
 reqwest = "0.11"
 schemars = "0.8.10"

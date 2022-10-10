@@ -35,7 +35,7 @@ async-trait = "0.1"
 futures = "0.3"
 lazy_static = "1.4"
 log = "0.4"
-mockall = { version = "0.10", optional = true }
+mockall = { version = "0.11", optional = true }
 reqwest = { version = "0.11", features =  [ "json", "native-tls" ] }
 schemars = "0.8.10"
 serde = { version = "1", features = [ "derive" ] }
@@ -47,5 +47,5 @@ tokio-retry = "0.3"
 [dev-dependencies]
 http = "0.2"
 maplit = "1.0"
-mockall = "0.10"
+mockall = "0.11"
 models = { path = "../models", version = "0.1.0", features = [ "mockall" ] }
