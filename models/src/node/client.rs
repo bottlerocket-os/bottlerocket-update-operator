@@ -1,7 +1,4 @@
-use super::{
-    drain,
-    error::{self, Result},
-};
+use super::drain;
 use super::{
     BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowSpec,
     BottlerocketShadowStatus, K8S_NODE_KIND,
@@ -18,6 +15,9 @@ use tracing::instrument;
 
 #[cfg(feature = "mockall")]
 use mockall::{mock, predicate::*};
+
+/// The client module-wide result type.
+type Result<T> = std::result::Result<T, client_error::Error>;
 
 #[async_trait]
 /// A trait providing an interface to interact with BottlerocketShadow objects. This is provided as a trait
@@ -219,7 +219,7 @@ impl BottlerocketShadowClient for K8SBottlerocketShadowClient {
             .create(&PostParams::default(), &br_node)
             .await
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-            .context(error::CreateBottlerocketShadowSnafu {
+            .context(client_error::CreateBottlerocketShadowSnafu {
                 selector: selector.clone(),
             })?;
 
@@ -247,7 +247,7 @@ impl BottlerocketShadowClient for K8SBottlerocketShadowClient {
         )
         .await
         .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-        .context(error::UpdateBottlerocketShadowStatusSnafu {
+        .context(client_error::UpdateBottlerocketShadowStatusSnafu {
             selector: selector.clone(),
         })?;
 
@@ -265,7 +265,7 @@ impl BottlerocketShadowClient for K8SBottlerocketShadowClient {
             ..Default::default()
         };
         let br_node_spec_patch =
-            serde_json::to_value(br_node_spec_patch).context(error::CreateK8SPatchSnafu)?;
+            serde_json::to_value(br_node_spec_patch).context(client_error::CreateK8SPatchSnafu)?;
 
         let api: Api<BottlerocketShadow> =
             Api::namespaced(self.k8s_client.clone(), constants::NAMESPACE);
@@ -277,7 +277,7 @@ impl BottlerocketShadowClient for K8SBottlerocketShadowClient {
         )
         .await
         .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-        .context(error::UpdateBottlerocketShadowSpecSnafu {
+        .context(client_error::UpdateBottlerocketShadowSpecSnafu {
             selector: selector.clone(),
         })?;
         Ok(())
@@ -291,7 +291,7 @@ impl BottlerocketShadowClient for K8SBottlerocketShadowClient {
             .cordon(&selector.node_name)
             .await
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-            .context(error::UpdateBottlerocketShadowSpecSnafu {
+            .context(client_error::UpdateBottlerocketShadowSpecSnafu {
                 selector: selector.clone(),
             })?;
 
@@ -304,7 +304,7 @@ impl BottlerocketShadowClient for K8SBottlerocketShadowClient {
         drain::drain_node(&self.k8s_client, &selector.node_name)
             .await
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-            .context(error::DrainBottlerocketShadowSnafu {
+            .context(client_error::DrainBottlerocketShadowSnafu {
                 selector: selector.clone(),
             })?;
         Ok(())
@@ -318,7 +318,7 @@ impl BottlerocketShadowClient for K8SBottlerocketShadowClient {
             .uncordon(&selector.node_name)
             .await
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-            .context(error::UncordonBottlerocketShadowSnafu {
+            .context(client_error::UncordonBottlerocketShadowSnafu {
                 selector: selector.clone(),
             })?;
 
@@ -347,7 +347,7 @@ impl BottlerocketShadowClient for K8SBottlerocketShadowClient {
             )
             .await
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-            .context(error::ExcludeNodeFromLBSnafu {
+            .context(client_error::ExcludeNodeFromLBSnafu {
                 selector: selector.clone(),
             })?;
         Ok(())
@@ -378,10 +378,99 @@ impl BottlerocketShadowClient for K8SBottlerocketShadowClient {
             )
             .await
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
-            .context(error::RemoveNodeExclusionFromLBSnafu {
+            .context(client_error::RemoveNodeExclusionFromLBSnafu {
                 selector: selector.clone(),
             })?;
 
         Ok(())
+    }
+}
+
+pub mod client_error {
+    use super::BottlerocketShadowSelector;
+    use snafu::Snafu;
+
+    #[derive(Debug, Snafu)]
+    #[snafu(visibility(pub))]
+    pub enum Error {
+        #[snafu(display(
+            "Unable to create BottlerocketShadow ({}, {}): '{}'",
+            selector.node_name,
+            selector.node_uid,
+            source
+        ))]
+        CreateBottlerocketShadow {
+            source: Box<dyn std::error::Error>,
+            selector: BottlerocketShadowSelector,
+        },
+
+        #[snafu(display(
+            "Unable to update BottlerocketShadow status ({}, {}): '{}'",
+            selector.node_name,
+            selector.node_uid,
+            source
+        ))]
+        UpdateBottlerocketShadowStatus {
+            source: Box<dyn std::error::Error>,
+            selector: BottlerocketShadowSelector,
+        },
+
+        #[snafu(display(
+            "Unable to update BottlerocketShadow spec ({}, {}): '{}'",
+            selector.node_name,
+            selector.node_uid,
+            source
+        ))]
+        UpdateBottlerocketShadowSpec {
+            source: Box<dyn std::error::Error>,
+            selector: BottlerocketShadowSelector,
+        },
+
+        #[snafu(display(
+            "Unable to drain BottlerocketShadow ({}, {}): '{}'",
+            selector.node_name,
+            selector.node_uid,
+            source
+        ))]
+        DrainBottlerocketShadow {
+            source: Box<dyn std::error::Error>,
+            selector: BottlerocketShadowSelector,
+        },
+
+        #[snafu(display(
+            "Unable to exclude node from load balancer ({}, {}): '{}'",
+            selector.node_name,
+            selector.node_uid,
+            source
+        ))]
+        ExcludeNodeFromLB {
+            source: Box<dyn std::error::Error>,
+            selector: BottlerocketShadowSelector,
+        },
+
+        #[snafu(display(
+            "Unable to remove node exclusion from load balancer ({}, {}): '{}'",
+            selector.node_name,
+            selector.node_uid,
+            source
+        ))]
+        RemoveNodeExclusionFromLB {
+            source: Box<dyn std::error::Error>,
+            selector: BottlerocketShadowSelector,
+        },
+
+        #[snafu(display(
+            "Unable to uncordon BottlerocketShadow ({}, {}): '{}'",
+            selector.node_name,
+            selector.node_uid,
+            source
+        ))]
+        UncordonBottlerocketShadow {
+            source: Box<dyn std::error::Error>,
+            selector: BottlerocketShadowSelector,
+        },
+
+        #[snafu(display("Unable to create patch to send to Kubernetes API: '{}'", source))]
+        CreateK8SPatch { source: serde_json::error::Error },
     }
 }

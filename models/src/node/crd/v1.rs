@@ -1,5 +1,6 @@
 use super::BottlerocketShadowResource;
-use crate::node::{error, SEMVER_RE};
+use super::{error, Result};
+use crate::node::SEMVER_RE;
 
 use chrono::{DateTime, Utc};
 use kube::CustomResource;
@@ -141,7 +142,7 @@ impl BottlerocketShadowSpec {
 
     /// JsonSchema cannot appropriately handle DateTime objects. This accessor returns the transition timestamp
     /// as a DateTime.
-    pub fn state_timestamp(&self) -> error::Result<Option<DateTime<Utc>>> {
+    pub fn state_timestamp(&self) -> Result<Option<DateTime<Utc>>> {
         self.state_transition_timestamp
             .as_ref()
             .map(|ts_str| {

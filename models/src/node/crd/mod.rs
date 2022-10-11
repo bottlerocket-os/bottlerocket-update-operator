@@ -1,3 +1,4 @@
+pub mod error;
 /// A package aim to enable migrations to new Custom Resource Definitions.
 /// Each edition in BottlerocketShadowSpec, BottlerocketShadowState, BottlerocketShadowStatus
 /// should result into a new version for BottlerocketShadow.
@@ -37,6 +38,10 @@
 pub mod v1;
 pub mod v2;
 
+/// CRD module wide result type
+pub type Result<T> = std::result::Result<T, error::Error>;
+
+use self::error::Error;
 pub use self::v2::{
     BottlerocketShadow, BottlerocketShadowSpec, BottlerocketShadowState, BottlerocketShadowStatus,
 };
@@ -44,7 +49,6 @@ use crate::constants::{
     APISERVER_CRD_CONVERT_ENDPOINT, APISERVER_SERVICE_NAME, APISERVER_SERVICE_PORT,
     CERTIFICATE_NAME, NAMESPACE,
 };
-use crate::node::{error, error::Error};
 
 use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::{
     CustomResourceConversion, CustomResourceDefinition, ServiceReference, WebhookClientConfig,
@@ -71,11 +75,11 @@ lazy_static! {
 pub trait BottlerocketShadowResource: kube::ResourceExt {}
 
 pub trait Selector {
-    fn selector(&self) -> error::Result<BottlerocketShadowSelector>;
+    fn selector(&self) -> Result<BottlerocketShadowSelector>;
 }
 
 impl<T: BottlerocketShadowResource> Selector for T {
-    fn selector(&self) -> error::Result<BottlerocketShadowSelector> {
+    fn selector(&self) -> Result<BottlerocketShadowSelector> {
         let node_owner = self
             .meta()
             .owner_references

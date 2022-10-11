@@ -1,4 +1,4 @@
-use models::node::{error, BottlerocketShadowError};
+use models::node::{error, BottlerocketShadowClientError};
 
 use actix_web::error::ResponseError;
 use snafu::Snafu;
@@ -13,10 +13,14 @@ pub enum Error {
     MissingClusterIPFamiliy { source: std::env::VarError },
 
     #[snafu(display("Error creating BottlerocketShadow: '{}'", source))]
-    BottlerocketShadowCreate { source: BottlerocketShadowError },
+    BottlerocketShadowCreate {
+        source: BottlerocketShadowClientError,
+    },
 
     #[snafu(display("Error patching BottlerocketShadow: '{}'", source))]
-    BottlerocketShadowUpdate { source: BottlerocketShadowError },
+    BottlerocketShadowUpdate {
+        source: BottlerocketShadowClientError,
+    },
 
     #[snafu(display("Error running HTTP server: '{}'", source))]
     HttpServerError { source: std::io::Error },
@@ -25,10 +29,14 @@ pub enum Error {
     KubernetesWatcherFailed {},
 
     #[snafu(display("Failed to cordon Node: '{}'", source))]
-    BottlerocketShadowCordon { source: BottlerocketShadowError },
+    BottlerocketShadowCordon {
+        source: BottlerocketShadowClientError,
+    },
 
     #[snafu(display("Failed to drain Node: '{}'", source))]
-    BottlerocketShadowDrain { source: BottlerocketShadowError },
+    BottlerocketShadowDrain {
+        source: BottlerocketShadowClientError,
+    },
 
     #[snafu(display("Failed to read certificate."))]
     ReadCertificateFailed { source: error::Error },
