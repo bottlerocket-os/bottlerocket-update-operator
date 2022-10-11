@@ -74,6 +74,12 @@ pub enum Error {
     },
 
     #[snafu(display(
+        "IO error occurred while attempting to use APIServerClient: '{}'",
+        source
+    ))]
+    IOError { source: Box<dyn std::error::Error> },
+
+    #[snafu(display(
         "Unable to remove node exclusion from load balancer ({}, {}): '{}'",
         selector.node_name,
         selector.node_uid,

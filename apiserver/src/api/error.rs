@@ -1,4 +1,4 @@
-use models::node::BottlerocketShadowError;
+use models::node::{error, BottlerocketShadowError};
 
 use actix_web::error::ResponseError;
 use snafu::Snafu;
@@ -29,6 +29,12 @@ pub enum Error {
 
     #[snafu(display("Failed to drain Node: '{}'", source))]
     BottlerocketShadowDrain { source: BottlerocketShadowError },
+
+    #[snafu(display("Failed to read certificate."))]
+    ReadCertificateFailed { source: error::Error },
+
+    #[snafu(display("Failed to reload certificate."))]
+    ReloadCertificateFailed {},
 
     #[snafu(display("Failed to set up SslAcceptorBuilder : {:?}", source))]
     SSLError { source: openssl::error::ErrorStack },

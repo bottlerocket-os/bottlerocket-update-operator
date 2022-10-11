@@ -18,10 +18,10 @@ use models::constants::{
     AGENT, APISERVER_HEALTH_CHECK_ROUTE, APISERVER_SERVICE_NAME, CA_NAME, LABEL_COMPONENT,
     NAMESPACE, PRIVATE_KEY_NAME, PUBLIC_KEY_NAME, TLS_KEY_MOUNT_PATH,
 };
-use models::node::{BottlerocketShadowClient, BottlerocketShadowSelector};
+use models::node::{read_certificate, BottlerocketShadowClient, BottlerocketShadowSelector};
 
 use actix_web::{
-    dev::ServiceRequest,
+    dev::{Server, ServiceRequest},
     http::{self, HeaderMap},
     web::{self, Data},
     App, HttpServer,
@@ -38,6 +38,7 @@ use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use opentelemetry::global::meter;
 use snafu::{OptionExt, ResultExt};
 use std::env;
+use tokio::time::{sleep, Duration};
 use tracing::{event, Level};
 use tracing_actix_web::TracingLogger;
 
@@ -45,6 +46,8 @@ use std::convert::TryFrom;
 
 // The set of API endpoints for which `tracing::Span`s will not be recorded.
 pub const NO_TELEMETRY_ENDPOINTS: &[&str] = &[APISERVER_HEALTH_CHECK_ROUTE];
+
+const CERTIFICATE_DETECTOR_SLEEP_DURATION: Duration = Duration::from_secs(60);
 
 /// The API module-wide result type.
 type Result<T> = std::result::Result<T, error::Error>;
@@ -101,6 +104,10 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
     k8s_client: kube::Client,
     prometheus_exporter: Option<opentelemetry_prometheus::PrometheusExporter>,
 ) -> Result<()> {
+    let public_key_path = format!("{}/{}", TLS_KEY_MOUNT_PATH, PUBLIC_KEY_NAME);
+    let certificate_cache =
+        read_certificate(&public_key_path).context(error::ReadCertificateFailedSnafu)?;
+
     let server_port = settings.server_port;
 
     // Set up a reflector to watch all kubernetes pods in the namespace.
@@ -223,6 +230,10 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
             event!(Level::ERROR, "reflector drained");
             return Err(error::Error::KubernetesWatcherFailed {});
         },
+        _ = reload_certificate(server.clone(), &public_key_path, certificate_cache)=> {
+            event!(Level::ERROR, "certificate refreshed");
+            return Err(error::Error::ReloadCertificateFailed {});
+        },
         res = server => {
             event!(Level::ERROR, "server exited");
             res.context(error::HttpServerSnafu)?;
@@ -230,6 +241,29 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
     };
 
     Ok(())
+}
+
+// The certificate is refreshed periodically (default 60 days). Once the certificate is renewed, the apiserver
+// needs to stop in order to reload the new certificate.
+// We cache the certificate initially when brupop starts the server, and compare it to the update-to-date certificate periodically.
+// If they don't match, we recognize it as a new certificate, so the server needs to be restarted.
+async fn reload_certificate(
+    server: Server,
+    public_key_path: &str,
+    certificate_cache: Vec<u8>,
+) -> Result<()> {
+    loop {
+        let current_certificate =
+            read_certificate(public_key_path).context(error::ReadCertificateFailedSnafu)?;
+        if current_certificate != certificate_cache {
+            event!(
+                Level::INFO,
+                "Certificate has been renewed, restarting server to reload new certificate"
+            );
+            server.stop(true).await
+        }
+        sleep(CERTIFICATE_DETECTOR_SLEEP_DURATION).await;
+    }
 }
 
 #[cfg(test)]
