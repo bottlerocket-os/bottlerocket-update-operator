@@ -1,5 +1,6 @@
+use super::error;
+use super::Result;
 use super::{APIServerSettings, ApiserverCommonHeaders};
-use crate::error::{self, Result};
 use models::node::BottlerocketShadowClient;
 
 use actix_web::{

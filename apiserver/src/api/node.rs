@@ -1,5 +1,4 @@
 use super::{APIServerSettings, ApiserverCommonHeaders};
-use crate::error::{self, Result};
 use crate::webhook::ConversionRequest;
 
 use models::node::{BottlerocketShadowClient, BottlerocketShadowStatus};
@@ -13,6 +12,9 @@ use serde_json::json;
 use snafu::ResultExt;
 use std::convert::TryFrom;
 use tracing::{event, Level};
+
+use super::error;
+use super::Result;
 
 /// HTTP endpoint which creates BottlerocketShadow custom resources on behalf of the caller.
 pub(crate) async fn create_bottlerocket_shadow_resource<T: BottlerocketShadowClient>(
