@@ -234,6 +234,10 @@ pub fn controller_service() -> Service {
             labels: Some(brupop_labels!(CONTROLLER)),
             name: Some(CONTROLLER_SERVICE_NAME.to_string()),
             namespace: Some(NAMESPACE.to_string()),
+            annotations: Some(btreemap! {
+                "prometheus.io/scrape".to_string() => true.to_string(),
+                "prometheus.io/port".to_string() => "8080".to_string(),
+            }),
             ..Default::default()
         },
 
