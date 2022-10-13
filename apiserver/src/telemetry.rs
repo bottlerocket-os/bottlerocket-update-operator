@@ -8,8 +8,7 @@ use opentelemetry::sdk::propagation::TraceContextPropagator;
 use snafu::ResultExt;
 use tracing::Span;
 use tracing_actix_web::{DefaultRootSpanBuilder, RootSpanBuilder};
-use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
-use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
+use tracing_subscriber::{fmt, layer::SubscriberExt, EnvFilter, Registry};
 
 use std::collections::HashSet;
 
@@ -58,10 +57,9 @@ pub fn init_telemetry() -> Result<(), telemetry_error::Error> {
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
 
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-    let stdio_formatting_layer = BunyanFormattingLayer::new(APISERVER.into(), std::io::stdout);
+    let stdio_formatting_layer = fmt::layer().pretty();
     let subscriber = Registry::default()
         .with(env_filter)
-        .with(JsonStorageLayer)
         .with(stdio_formatting_layer);
     tracing::subscriber::set_global_default(subscriber)
         .context(telemetry_error::TracingConfigurationSnafu)?;
