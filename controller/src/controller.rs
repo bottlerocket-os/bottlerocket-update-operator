@@ -553,6 +553,7 @@ pub(crate) mod test {
 
 pub mod controllerclient_error {
     use crate::controller::MAX_CONCURRENT_UPDATE_ENV_VAR;
+    use models::node::BottlerocketShadowClientError;
     use models::node::BottlerocketShadowError;
     use snafu::Snafu;
 
@@ -572,7 +573,9 @@ pub mod controllerclient_error {
         GetNodeName { source: std::env::VarError },
 
         #[snafu(display("Failed to update node spec via kubernetes API: '{}'", source))]
-        UpdateNodeSpec { source: BottlerocketShadowError },
+        UpdateNodeSpec {
+            source: BottlerocketShadowClientError,
+        },
 
         #[snafu(display("Could not determine selector for node: '{}'", source))]
         NodeSelectorCreation { source: BottlerocketShadowError },

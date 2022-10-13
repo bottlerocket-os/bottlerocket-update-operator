@@ -1,12 +1,14 @@
 mod client;
 mod crd;
 mod drain;
-pub mod error;
 
+pub use self::client::client_error::Error as BottlerocketShadowClientError;
 pub use self::client::*;
 pub use self::crd::*;
 pub use self::error::Error as BottlerocketShadowError;
-use error::Result;
+
+/// The module-wide result type.
+type Result<T> = std::result::Result<T, error::Error>;
 
 use lazy_static::lazy_static;
 pub use semver::Version;
