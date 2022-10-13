@@ -16,8 +16,7 @@ use kube::{
 use opentelemetry::sdk::propagation::TraceContextPropagator;
 use snafu::ResultExt;
 use tracing::{event, Level};
-use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
-use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
+use tracing_subscriber::{fmt, layer::SubscriberExt, EnvFilter, Registry};
 
 const DEFAULT_TRACE_LEVEL: &str = "info";
 
@@ -105,10 +104,9 @@ fn init_telemetry() -> Result<()> {
 
     let env_filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(DEFAULT_TRACE_LEVEL));
-    let stdio_formatting_layer = BunyanFormattingLayer::new(CONTROLLER.into(), std::io::stdout);
+    let stdio_formatting_layer = fmt::layer().pretty();
     let subscriber = Registry::default()
         .with(env_filter)
-        .with(JsonStorageLayer)
         .with(stdio_formatting_layer);
     tracing::subscriber::set_global_default(subscriber)
         .context(controller_error::TracingConfigurationSnafu)?;

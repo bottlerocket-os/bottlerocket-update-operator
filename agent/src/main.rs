@@ -15,8 +15,7 @@ use models::node::{brs_name_from_node_name, BottlerocketShadow};
 use opentelemetry::sdk::propagation::TraceContextPropagator;
 use snafu::{OptionExt, ResultExt};
 use tracing::{event, Level};
-use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
-use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
+use tracing_subscriber::{fmt, layer::SubscriberExt, EnvFilter, Registry};
 
 use std::env;
 use std::fs;
@@ -117,10 +116,9 @@ pub fn init_telemetry() -> Result<()> {
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
 
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-    let stdio_formatting_layer = BunyanFormattingLayer::new(AGENT.into(), std::io::stdout);
+    let stdio_formatting_layer = fmt::layer().pretty();
     let subscriber = Registry::default()
         .with(env_filter)
-        .with(JsonStorageLayer)
         .with(stdio_formatting_layer);
     tracing::subscriber::set_global_default(subscriber)
         .context(agent_error::TracingConfigurationSnafu)?;
