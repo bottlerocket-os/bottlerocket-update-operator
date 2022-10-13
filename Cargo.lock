@@ -233,7 +233,7 @@ dependencies = [
  "models",
  "opentelemetry",
  "reqwest",
- "semver 1.0.4",
+ "semver 1.0.14",
  "serde",
  "serde_json",
  "snafu",
@@ -860,7 +860,7 @@ dependencies = [
  "opentelemetry",
  "opentelemetry-prometheus",
  "prometheus",
- "semver 1.0.4",
+ "semver 1.0.14",
  "serde_plain",
  "snafu",
  "tokio",
@@ -1545,7 +1545,7 @@ dependencies = [
  "maplit",
  "mockall",
  "models",
- "semver 1.0.4",
+ "semver 1.0.14",
  "serde",
  "serde_json",
  "snafu",
@@ -1910,7 +1910,7 @@ dependencies = [
  "regex",
  "reqwest",
  "schemars",
- "semver 1.0.4",
+ "semver 1.0.14",
  "serde",
  "serde_json",
  "snafu",
@@ -2489,7 +2489,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
 dependencies = [
- "semver 1.0.4",
+ "semver 1.0.14",
 ]
 
 [[package]]
@@ -2675,9 +2675,9 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "1.0.4"
+version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "568a8e6258aa33c13358f81fd834adb854c6f7c9468520910a9b1e8fac068012"
+checksum = "e25dfac463d778e353db5be2449d1cce89bd6fd23c9f1ea21310ce6e5a1b29c4"
 dependencies = [
  "serde",
 ]
