@@ -19,7 +19,7 @@ tracing-opentelemetry = "0.16"
 # k8s-openapi must match the version required by kube and enable a k8s version feature
 k8s-openapi = { version = "0.14.0", default-features = false, features = ["v1_20"] }
 # "rustls-tls" feature must be used kube 0.71.0 to build correct k8s client for IPv6 cluster
-kube = { version = "0.71.0", default-features = true, features = [ "derive", "runtime", "rustls-tls" ] }
+kube = { version = "0.74.0", default-features = true, features = [ "derive", "runtime", "rustls-tls" ] }
 
 semver = { version = "1.0", features = [ "serde" ] }
 serde = { version = "1", features = [ "derive" ] }
