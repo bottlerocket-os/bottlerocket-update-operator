@@ -1,6 +1,6 @@
 use controller::{telemetry::vending_metrics, BrupopController};
 use models::{
-    constants::{CONTROLLER, CONTROLLER_INTERNAL_PORT, NAMESPACE},
+    constants::{CONTROLLER_INTERNAL_PORT, NAMESPACE},
     node::{BottlerocketShadow, K8SBottlerocketShadowClient},
 };
 
@@ -10,7 +10,7 @@ use futures::StreamExt;
 use k8s_openapi::api::core::v1::Node;
 use kube::{
     api::{Api, ListParams},
-    runtime::{reflector, utils::try_flatten_touched, watcher::watcher},
+    runtime::{reflector, watcher::watcher, WatchStreamExt},
     ResourceExt,
 };
 use opentelemetry::sdk::propagation::TraceContextPropagator;
@@ -45,12 +45,13 @@ async fn main() -> Result<()> {
 
     // Setup and run a reflector, ensuring that `BottlerocketShadow` updates are reflected to the controller.
     let brs_reflector = reflector::reflector(brs_store, watcher(brss, ListParams::default()));
-    let brs_drainer = try_flatten_touched(brs_reflector)
+    let brs_drainer = brs_reflector
+        .touched_objects()
         .filter_map(|x| async move { std::result::Result::ok(x) })
         .for_each(|brs| {
             event!(
                 Level::TRACE,
-                brs_name = %brs.name(),
+                brs_name = %brs.name_any(),
                 "Processed a k8s event for a BottlerocketShadow object."
             );
             futures::future::ready(())
@@ -60,7 +61,8 @@ async fn main() -> Result<()> {
     let nodes_store = reflector::store::Writer::<Node>::default();
     let node_reader = nodes_store.as_reader();
     let node_reflector = reflector::reflector(nodes_store, watcher(nodes, ListParams::default()));
-    let node_drainer = try_flatten_touched(node_reflector)
+    let node_drainer = node_reflector
+        .touched_objects()
         .filter_map(|x| async move { std::result::Result::ok(x) })
         .for_each(|_node| {
             event!(Level::DEBUG, "Processed event for node");

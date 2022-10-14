@@ -4,11 +4,11 @@ use futures::StreamExt;
 use k8s_openapi::api::core::v1::Node;
 use kube::api::ListParams;
 use kube::runtime::reflector;
-use kube::runtime::utils::try_flatten_touched;
 use kube::runtime::watcher::watcher;
+use kube::runtime::WatchStreamExt;
 use kube::Api;
 use models::agent::{AGENT_TOKEN_PATH, TOKEN_PROJECTION_MOUNT_PATH};
-use models::constants::{AGENT, NAMESPACE};
+use models::constants::NAMESPACE;
 
 use models::node::{brs_name_from_node_name, BottlerocketShadow};
 
@@ -62,7 +62,8 @@ async fn run_agent() -> Result<()> {
     let brs_store = reflector::store::Writer::<BottlerocketShadow>::default();
     let brs_reader = brs_store.as_reader();
     let brs_reflector = reflector::reflector(brs_store, watcher(brss, brs_lp));
-    let brs_drainer = try_flatten_touched(brs_reflector)
+    let brs_drainer = brs_reflector
+        .touched_objects()
         .filter_map(|x| async move { std::result::Result::ok(x) })
         .for_each(|_brs| {
             event!(Level::DEBUG, "Processed event for BottlerocketShadows");
@@ -76,7 +77,8 @@ async fn run_agent() -> Result<()> {
     let nodes_store = reflector::store::Writer::<Node>::default();
     let node_reader = nodes_store.as_reader();
     let node_reflector = reflector::reflector(nodes_store, watcher(nodes, node_lp));
-    let node_drainer = try_flatten_touched(node_reflector)
+    let node_drainer = node_reflector
+        .touched_objects()
         .filter_map(|x| async move { std::result::Result::ok(x) })
         .for_each(|_node| {
             event!(Level::DEBUG, "Processed event for node");

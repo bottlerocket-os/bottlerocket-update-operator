@@ -1,6 +1,5 @@
 use crate::api::NO_TELEMETRY_ENDPOINTS;
 use crate::constants::HEADER_BRUPOP_NODE_NAME;
-use models::constants::APISERVER;
 
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use lazy_static::lazy_static;

@@ -93,7 +93,7 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
             // kube-rs doesn't implement Ord or Hash on ObjectMeta, so we store these in a map indexed by name.
             // (which are unique within a namespace). `name()` is guaranteed not to panic, as these nodes are all populated
             // by our `reflector`.
-            .map(|brs| (brs.name(), brs.clone()))
+            .map(|brs| (brs.name_any(), brs.clone()))
             .collect()
     }
 
@@ -265,12 +265,16 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
                 // If there's nothing to operate on, check to see if any other nodes are ready for action.
                 let new_active_node = self.find_and_update_ready_brs().await?;
                 if let Some(brs) = new_active_node {
-                    event!(Level::INFO, name = %brs.name(), "Began updating new node.")
+                    event!(Level::INFO, name = %brs.name_any(), "Began updating new node.")
                 }
             }
 
             // Cleanup BRS when the operator is removed from a node
-            let brss_name = self.all_brss().into_iter().map(|brs| brs.name()).collect();
+            let brss_name = self
+                .all_brss()
+                .into_iter()
+                .map(|brs| brs.name_any())
+                .collect();
             let nodes = self.all_nodes();
             self.bottlerocketshadows_cleanup(nodes, brss_name).await?;
 
@@ -360,7 +364,7 @@ fn find_unlabeled_nodes(mut nodes: Vec<Node>) -> Vec<String> {
     let mut unlabeled_nodes: Vec<String> = Vec::new();
     for node in nodes.drain(..) {
         if !node_has_label(&node.clone()) {
-            unlabeled_nodes.push(node.name());
+            unlabeled_nodes.push(node.name_any());
         }
     }
 
