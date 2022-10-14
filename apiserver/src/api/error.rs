@@ -10,7 +10,7 @@ pub enum Error {
     HTTPHeaderParse { missing_header: &'static str },
 
     #[snafu(display("Unable to detect cluster IP family. For '{}'", source))]
-    MissingClusterIPFamiliy { source: std::env::VarError },
+    MissingClusterIPFamily { source: std::env::VarError },
 
     #[snafu(display("Error creating BottlerocketShadow: '{}'", source))]
     BottlerocketShadowCreate {
