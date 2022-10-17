@@ -150,7 +150,7 @@ fn filter_pods<F: Iterator<Item = Pod>>(pods: F) -> impl Iterator<Item = Pod> {
                 event!(
                     Level::INFO,
                     "Not draining Pod '{}': Pod is member of a DaemonSet",
-                    pod.name()
+                    pod.name_any()
                 );
                 return false;
             }
@@ -162,7 +162,7 @@ fn filter_pods<F: Iterator<Item = Pod>>(pods: F) -> impl Iterator<Item = Pod> {
                 event!(
                     Level::INFO,
                     "Not draining Pod '{}': Pod is a static Mirror Pod",
-                    pod.name()
+                    pod.name_any()
                 );
                 return false;
             }
@@ -189,12 +189,12 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
     // See https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node/#stuck-evictions for details.
     RetryIf::spawn(RetryStrategy::retry_strategy(), || async {
         loop {
-            event!(Level::INFO, "Attempting to evict pod {}", &pod.name());
-            let eviction_result = pod_api.evict(&pod.name(), &EvictParams::default()).await;
+            event!(Level::INFO, "Attempting to evict pod {}", &pod.name_any());
+            let eviction_result = pod_api.evict(&pod.name_any(), &EvictParams::default()).await;
 
             match eviction_result {
                 Ok(_) => {
-                    event!(Level::INFO, "Successfully evicted Pod '{}'", pod.name());
+                    event!(Level::INFO, "Successfully evicted Pod '{}'", pod.name_any());
                     break;
                 }
                 Err(kube::Error::Api(e)) => {
@@ -204,7 +204,7 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
                             event!(
                             Level::ERROR,
                             "Too many requests when creating Eviction for Pod '{}': '{}'. This is likely due to respecting a Pod Disruption Budget. Retrying in {:.2}s.",
-                            pod.name(),
+                            pod.name_any(),
                             e,
                             EVICTION_RETRY_INTERVAL.as_secs_f64()
                         );
@@ -215,7 +215,7 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
                             event!(
                             Level::ERROR,
                             "Error when evicting Pod '{}': '{}'. Check for misconfigured PodDisruptionBudgets. Retrying in {:.2}s.",
-                            pod.name(),
+                            pod.name_any(),
                             e,
                             EVICTION_RETRY_INTERVAL.as_secs_f64()
                         );
@@ -225,7 +225,7 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
                         Ok(StatusCode::NOT_FOUND) => {
                             return Err(error::EvictionError::NonRetriableEviction {
                                 source: kube::Error::Api(e.clone()),
-                                pod_name: pod.name(),
+                                pod_name: pod.name_any(),
                             });
                         }
                         Ok(StatusCode::FORBIDDEN) => {
@@ -234,19 +234,19 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
                             // API error statuses to determine if we can proceed, so we ignore these.
                             return Err(error::EvictionError::NonRetriableEviction {
                                 source: kube::Error::Api(e.clone()),
-                                pod_name: pod.name(),
+                                pod_name: pod.name_any(),
                             });
                         }
                         Ok(_) => {
                             event!(
                                 Level::ERROR,
                                 "Error when evicting Pod '{}': '{}'.",
-                                pod.name(),
+                                pod.name_any(),
                                 e
                             );
                             return Err(error::EvictionError::RetriableEviction {
                                 source: kube::Error::Api(e.clone()),
-                                pod_name: pod.name(),
+                                pod_name: pod.name_any(),
                             });
                         }
                         Err(_) => {
@@ -257,7 +257,7 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
                             );
                             return Err(error::EvictionError::RetriableEviction {
                                 source: kube::Error::Api(e.clone()),
-                                pod_name: pod.name(),
+                                pod_name: pod.name_any(),
                             });
                         }
                     }
@@ -266,7 +266,7 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
                     event!(Level::ERROR, "Eviction failed: '{}'. Retrying...", e);
                     return Err(error::EvictionError::RetriableEviction {
                         source: e,
-                        pod_name: pod.name(),
+                        pod_name: pod.name_any(),
                     });
                 }
             }
@@ -282,14 +282,14 @@ async fn wait_for_deletion(k8s_client: &kube::Client, pod: &Pod) -> Result<(), e
 
     let pod_api = namespaced_pod_api(k8s_client, pod);
     loop {
-        match pod_api.get(&pod.name()).await {
+        match pod_api.get(&pod.name_any()).await {
             Err(kube::Error::Api(e)) if e.code == 404 => {
-                event!(Level::INFO, "Pod {} deleted.", pod.name(),);
+                event!(Level::INFO, "Pod {} deleted.", pod.name_any(),);
                 break;
             }
 
             Ok(p) if p.uid() != pod.uid() => {
-                event!(Level::INFO, "Pod {} deleted.", p.name(),);
+                event!(Level::INFO, "Pod {} deleted.", p.name_any(),);
                 break;
             }
 
@@ -297,7 +297,7 @@ async fn wait_for_deletion(k8s_client: &kube::Client, pod: &Pod) -> Result<(), e
                 event!(
                     Level::DEBUG,
                     "Pod '{}' not yet deleted. Waiting {}s.",
-                    pod.name(),
+                    pod.name_any(),
                     DELETION_CHECK_INTERVAL.as_secs_f64()
                 );
             }
@@ -306,7 +306,7 @@ async fn wait_for_deletion(k8s_client: &kube::Client, pod: &Pod) -> Result<(), e
                 event!(
                     Level::ERROR,
                     "Could not determine if Pod '{}' has been deleted: '{}'. Waiting {}s.",
-                    pod.name(),
+                    pod.name_any(),
                     e,
                     DELETION_CHECK_INTERVAL.as_secs_f64()
                 );
@@ -314,7 +314,7 @@ async fn wait_for_deletion(k8s_client: &kube::Client, pod: &Pod) -> Result<(), e
         }
         if start_time.elapsed() > DELETION_TIMEOUT {
             return Err(error::DrainError::WaitForDeletion {
-                pod_name: pod.name(),
+                pod_name: pod.name_any(),
                 max_wait: DELETION_TIMEOUT,
             });
         } else {

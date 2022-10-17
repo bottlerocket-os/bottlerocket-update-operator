@@ -43,7 +43,10 @@ skip-tree = [
     { name = "structopt-derive", version = "0.4.18"},
     # use "rustls-tls" feature in kube to build correct k8s client for IPv6 cluster
     # with "rustls-tls" enabled, kube uses mixed versions of hyper-rustls
-    { name = "kube", version = "0.71.0"}
+    { name = "kube", version = "0.75.0"},
+    # aws-smithy-client brings in several lagging dependencies that can be ignored
+    # since it is only used in the integration tests
+    { name = "aws-smithy-client", version = "0.49.0" }
 ]
 
 [sources]

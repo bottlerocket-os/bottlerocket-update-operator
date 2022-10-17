@@ -31,7 +31,7 @@ use futures::StreamExt;
 use k8s_openapi::api::core::v1::Pod;
 use kube::{
     api::{Api, ListParams},
-    runtime::{reflector, utils::try_flatten_touched, watcher::watcher},
+    runtime::{reflector, watcher::watcher, WatchStreamExt},
     ResourceExt,
 };
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
@@ -124,7 +124,7 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
             ListParams::default().labels(&format!("{}={}", LABEL_COMPONENT, AGENT)),
         ),
     );
-    let drainer = try_flatten_touched(pod_reflector)
+    let drainer = pod_reflector.touched_objects()
         .filter_map(|x| async move {
             if let Err(err) = &x {
                 event!(Level::ERROR, %err, "Failed to process a Pod event");
@@ -132,7 +132,7 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
             std::result::Result::ok(x)
         })
         .for_each(|pod| {
-            event!(Level::TRACE, pod_name = %pod.name(), ?pod.spec, ?pod.status, "Processed event for Pod");
+            event!(Level::TRACE, pod_name = %pod.name_any(), ?pod.spec, ?pod.status, "Processed event for Pod");
             futures::future::ready(())
         });
 

@@ -84,9 +84,13 @@ impl<T: BottlerocketShadowResource> Selector for T {
             .meta()
             .owner_references
             .as_ref()
-            .ok_or(Error::MissingOwnerReference { name: self.name() })?
+            .ok_or(Error::MissingOwnerReference {
+                name: self.name_any(),
+            })?
             .first()
-            .ok_or(Error::MissingOwnerReference { name: self.name() })?;
+            .ok_or(Error::MissingOwnerReference {
+                name: self.name_any(),
+            })?;
 
         Ok(BottlerocketShadowSelector {
             node_name: node_owner.name.clone(),
