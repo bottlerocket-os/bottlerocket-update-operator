@@ -216,7 +216,7 @@ dependencies = [
  "opentelemetry",
  "opentelemetry-prometheus",
  "opentelemetry-semantic-conventions",
- "prometheus",
+ "prometheus 0.12.0",
  "serde",
 ]
 
@@ -869,7 +869,7 @@ dependencies = [
  "models",
  "opentelemetry",
  "opentelemetry-prometheus",
- "prometheus",
+ "prometheus 0.13.2",
  "semver 1.0.14",
  "serde_plain",
  "snafu",
@@ -2085,7 +2085,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ee9c06c1366665e7d4dba6540a42ea48900a9c92dc5b963f3ae05fbba76dc63"
 dependencies = [
  "opentelemetry",
- "prometheus",
+ "prometheus 0.12.0",
  "protobuf",
 ]
 
@@ -2309,6 +2309,21 @@ dependencies = [
  "lazy_static",
  "memchr",
  "parking_lot 0.11.2",
+ "protobuf",
+ "thiserror",
+]
+
+[[package]]
+name = "prometheus"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45c8babc29389186697fe5a2a4859d697825496b83db5d0b65271cdc0488e88c"
+dependencies = [
+ "cfg-if",
+ "fnv",
+ "lazy_static",
+ "memchr",
+ "parking_lot 0.12.0",
  "protobuf",
  "thiserror",
 ]
