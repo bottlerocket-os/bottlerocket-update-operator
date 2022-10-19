@@ -79,6 +79,31 @@ For example:
               value: "1"
 ```
 
+##### Set Up Update Time Window
+`UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` can be used to specify the time window in which updates are permitted.
+When `UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` is 0:0:0 (default), the feature is disabled.
+
+To enable this feature, go to `bottlerocket-update-operator.yaml`, change `UPDATE_WINDOW_START` and `UPDATE_WINDOW__STOP` to a `hour:minute:second` formate value (UTC (24-hour time notation)). Note that `UPDATE_WINDOW_START` is inclusive and `UPDATE_WINDOW_STOP` is exclusive.
+
+To avoid stopping an in-process node update when the update window stops, Bottlerocket update operator reserves 6 mins before `UPDATE_WINDOW_STOP` to finish remaining updates.
+
+Note: brupop uses UTC (24-hour time notation), please convert your local time to UTC.
+For example:
+```yaml
+      containers:
+        - command:
+            - "./controller"
+          env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: UPDATE_WINDOW_START
+              value: "9:0:0"
+            - name: UPDATE_WINDOW_STOP
+              value: "21:0:0"
+```
+
 ### Label nodes
 
 By default, each Workload resource constrains scheduling of the update operator by limiting pods to Bottlerocket nodes based on their labels.
