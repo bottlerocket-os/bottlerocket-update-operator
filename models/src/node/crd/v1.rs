@@ -1,8 +1,13 @@
+use super::v2::BottlerocketShadow as BottleRocketShadowV2;
+use super::v2::BottlerocketShadowSpec as BottlerocketShadowSpecV2;
+use super::v2::BottlerocketShadowState as BottlerocketShadowStateV2;
+use super::v2::BottlerocketShadowStatus as BottlerocketShadowStatusV2;
 use super::BottlerocketShadowResource;
 use super::{error, Result};
 use crate::node::SEMVER_RE;
 
 use chrono::{DateTime, Utc};
+use kube::api::ObjectMeta;
 use kube::CustomResource;
 use schemars::JsonSchema;
 pub use semver::Version;
@@ -64,6 +69,19 @@ impl BottlerocketShadowState {
             Self::PerformedUpdate => PERFORMED_UPDATE_TIMEOUT,
             Self::RebootedIntoUpdate => REBOOTED_INTO_UPDATE_TIMEOUT,
             Self::MonitoringUpdate => MONITORING_UPDATE_TIMEOUT,
+        }
+    }
+}
+
+impl From<BottlerocketShadowStateV2> for BottlerocketShadowState {
+    fn from(previous_state: BottlerocketShadowStateV2) -> Self {
+        // Note: Mapping v2 -> v1 drops fields in the PerformedUpdate field
+        match previous_state {
+            BottlerocketShadowStateV2::Idle => Self::Idle,
+            BottlerocketShadowStateV2::StagedAndPerformedUpdate => Self::StagedUpdate,
+            BottlerocketShadowStateV2::RebootedIntoUpdate => Self::RebootedIntoUpdate,
+            BottlerocketShadowStateV2::MonitoringUpdate => Self::MonitoringUpdate,
+            BottlerocketShadowStateV2::ErrorReset => Self::MonitoringUpdate,
         }
     }
 }
@@ -161,6 +179,16 @@ impl BottlerocketShadowSpec {
     }
 }
 
+impl From<BottlerocketShadowSpecV2> for BottlerocketShadowSpec {
+    fn from(previous_spec: BottlerocketShadowSpecV2) -> Self {
+        Self::new(
+            BottlerocketShadowState::from(previous_spec.state),
+            previous_spec.state_timestamp().unwrap(),
+            previous_spec.version(),
+        )
+    }
+}
+
 /// `BottlerocketShadowStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent,
 /// while the spec is updated by the brupop controller.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, PartialEq, JsonSchema)]
@@ -194,5 +222,200 @@ impl BottlerocketShadowStatus {
         // TODO This could panic if a custom `brs` is created with improperly specified versions; however, we are removing this
         // attribute in an impending iteration, so we won't fix it.
         Version::from_str(&self.target_version).unwrap()
+    }
+}
+
+impl From<BottlerocketShadowStatusV2> for BottlerocketShadowStatus {
+    fn from(previous_status: BottlerocketShadowStatusV2) -> Self {
+        Self::new(
+            // Note: converting from v2 to v1 drops the crash_count and state_transition_failure_timestamp
+            previous_status.current_version(),
+            previous_status.target_version(),
+            BottlerocketShadowState::from(previous_status.current_state),
+        )
+    }
+}
+
+impl From<BottleRocketShadowV2> for BottlerocketShadow {
+    fn from(previous_shadow: BottleRocketShadowV2) -> Self {
+        let previous_metadata = previous_shadow.metadata;
+        let previous_spec = previous_shadow.spec;
+        let previous_status = previous_shadow.status;
+
+        let status = previous_status.map(BottlerocketShadowStatus::from);
+
+        let spec = BottlerocketShadowSpec::from(previous_spec);
+
+        BottlerocketShadow {
+            metadata: ObjectMeta {
+                /// The converted object has to maintain the same name, namespace and uid
+                name: previous_metadata.name,
+                namespace: previous_metadata.namespace,
+                uid: previous_metadata.uid,
+                owner_references: previous_metadata.owner_references,
+                ..Default::default()
+            },
+            spec,
+            status,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BottleRocketShadowV2;
+    use super::BottlerocketShadow;
+    use super::BottlerocketShadowSpec;
+    use super::BottlerocketShadowSpecV2;
+    use super::BottlerocketShadowState;
+    use super::BottlerocketShadowStateV2;
+    use super::BottlerocketShadowStatus;
+    use super::BottlerocketShadowStatusV2;
+    use serde_json::json;
+
+    #[test]
+    fn test_state_convert() {
+        let original_target_state = vec![
+            (json!("Idle"), json!("Idle")),
+            (json!("StagedAndPerformedUpdate"), json!("StagedUpdate")),
+            (json!("RebootedIntoUpdate"), json!("RebootedIntoUpdate")),
+            (json!("MonitoringUpdate"), json!("MonitoringUpdate")),
+            (json!("ErrorReset"), json!("MonitoringUpdate")),
+        ];
+
+        for (original, target) in original_target_state.into_iter() {
+            let old_state: BottlerocketShadowStateV2 = serde_json::from_value(original).unwrap();
+            let new_state = BottlerocketShadowState::from(old_state);
+            assert_eq!(serde_json::to_value(new_state).unwrap(), target);
+        }
+    }
+
+    #[test]
+    fn test_spec_convert() {
+        let original_target_spec = vec![
+            (
+                json!({
+                    "state": "RebootedIntoUpdate",
+                    "state_transition_timestamp": "2022-07-09T19:32:38.609610964+00:00",
+                    "version": "1.8.0"
+                }),
+                json!({
+                    "state": "RebootedIntoUpdate",
+                    "state_transition_timestamp": "2022-07-09T19:32:38.609610964+00:00",
+                    "version": "1.8.0"
+                }),
+            ),
+            (
+                json!({
+                    "state": "RebootedIntoUpdate",
+                    "state_transition_timestamp": "2022-07-09T19:32:38.609610964+00:00",
+                    "version": "1.8.0"
+                }),
+                json!({
+                    "state": "RebootedIntoUpdate",
+                    "state_transition_timestamp": "2022-07-09T19:32:38.609610964+00:00",
+                    "version": "1.8.0"
+                }),
+            ),
+        ];
+
+        for (original, target) in original_target_spec.into_iter() {
+            let old_spec: BottlerocketShadowSpecV2 = serde_json::from_value(original).unwrap();
+            let new_spec = BottlerocketShadowSpec::from(old_spec);
+            assert_eq!(serde_json::to_value(new_spec).unwrap(), target);
+        }
+    }
+
+    #[test]
+    fn test_status_convert() {
+        let original_target_status = vec![(
+            json!({
+                "current_state": "RebootedIntoUpdate",
+                "current_version": "1.6.0",
+                "target_version": "1.8.0",
+                "crash_count":0,
+                "state_transition_failure_timestamp": null,
+            }),
+            json!({
+                "current_state": "RebootedIntoUpdate",
+                "current_version": "1.6.0",
+                "target_version": "1.8.0"
+            }),
+        )];
+
+        for (original, target) in original_target_status.into_iter() {
+            let old_status: BottlerocketShadowStatusV2 = serde_json::from_value(original).unwrap();
+            let new_status = BottlerocketShadowStatus::from(old_status);
+            assert_eq!(serde_json::to_value(new_status).unwrap(), target);
+        }
+    }
+
+    #[test]
+    fn test_convert_from_old_version() {
+        let original_target_version = vec![(
+            json!({
+                "apiVersion": "brupop.bottlerocket.aws/v2",
+                "kind": "BottlerocketShadow",
+                "metadata": {
+                    "name": "brs-ip-192-168-22-145.us-west-2.compute.internal",
+                    "namespace": "brupop-bottlerocket-aws",
+                    "uid": "3153df27-6619-4b6b-bc75-adbf92ef7266",
+                    "ownerReferences": [
+                        {
+                            "apiVersion": "v1",
+                            "kind": "Node",
+                            "name": "ip-192-168-22-145.us-west-2.compute.internal",
+                            "uid": "6b714046-3b20-4a79-aaa9-27cf626a2c12"
+                        }
+                    ]
+                },
+                "spec": {
+                    "state": "Idle",
+                    "state_transition_timestamp": null,
+                    "version": null
+                },
+                "status": {
+                    "current_state": "Idle",
+                    "target_version": "1.8.0",
+                    "current_version": "1.8.0",
+                    "crash_count": 0,
+                    "state_transition_failure_timestamp": null,
+                }
+            }),
+            json!({
+                "apiVersion": "brupop.bottlerocket.aws/v1",
+                "kind": "BottlerocketShadow",
+                "metadata": {
+                    "name": "brs-ip-192-168-22-145.us-west-2.compute.internal",
+                    "namespace": "brupop-bottlerocket-aws",
+                    "uid": "3153df27-6619-4b6b-bc75-adbf92ef7266",
+                    "ownerReferences": [
+                        {
+                            "apiVersion": "v1",
+                            "kind": "Node",
+                            "name": "ip-192-168-22-145.us-west-2.compute.internal",
+                            "uid": "6b714046-3b20-4a79-aaa9-27cf626a2c12"
+                        }
+                    ]
+                },
+                "spec": {
+                    "state": "Idle",
+                    "state_transition_timestamp": null,
+                    "version": null
+                },
+                "status": {
+                    "current_state": "Idle",
+                    "target_version": "1.8.0",
+                    "current_version": "1.8.0"
+                }
+            }),
+        )];
+
+        for (original, target) in original_target_version.into_iter() {
+            let old_brs: BottleRocketShadowV2 = serde_json::from_value(original).unwrap();
+            let new_brs = BottlerocketShadow::from(old_brs);
+            let new_version = serde_json::to_value(new_brs).unwrap();
+            assert_eq!(new_version, target);
+        }
     }
 }

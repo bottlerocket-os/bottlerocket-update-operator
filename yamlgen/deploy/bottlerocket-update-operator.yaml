@@ -17,8 +17,8 @@ spec:
           path: /crdconvert
           port: 443
       conversionReviewVersions:
-        - v1
         - v2
+        - v1
   group: brupop.bottlerocket.aws
   names:
     kind: BottlerocketShadow

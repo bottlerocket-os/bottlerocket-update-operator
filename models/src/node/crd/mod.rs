@@ -27,12 +27,13 @@ pub mod error;
 /// };
 /// ```
 ///
-/// Add the BottlerocketShadow version to the end of BOTTLEROCKETSHADOW_CRD_VERSIONS
-/// so the webhook conversion could set up proper conversion_review_versions
+/// Add the BottlerocketShadow version to the start of BOTTLEROCKETSHADOW_CRD_VERSIONS
+/// so the webhook conversion could set up proper conversion_review_versions.
+/// The API server will query the webhook for the first version found in this list.
 #[cfg_attr(doctest, doc = " ````no_test")]
 /// ```
 /// static ref BOTTLEROCKETSHADOW_CRD_VERSIONS: Vec<String> =
-///     vec!["v1".to_string(), "v2".to_string()];
+///     vec!["v2".to_string(), "v1".to_string()];
 /// ```
 ///
 pub mod v1;
@@ -69,7 +70,7 @@ lazy_static! {
         ]
     };
     static ref BOTTLEROCKETSHADOW_CRD_VERSIONS: Vec<String> =
-        vec!["v1".to_string(), "v2".to_string()];
+        vec!["v2".to_string(), "v1".to_string()];
 }
 
 pub trait BottlerocketShadowResource: kube::ResourceExt {}
@@ -145,7 +146,9 @@ fn combine_version_in_crds(
 }
 
 /// Generate webhook conversion from scratch since k8s_api didn't provide
-/// a decent way to set up CustomResourceConversion
+/// a decent way to set up CustomResourceConversion.
+/// Note the ordering of `conversionReviewVersions`: the first version is what the Kube API server
+/// will query the webhook for and both versions must be supported via the webhook converter.
 ///
 /// Sample generated config:
 /// conversion:
@@ -158,8 +161,8 @@ fn combine_version_in_crds(
 ///         path: /crdconvert
 ///         port: 443
 ///     conversionReviewVersions:
-///       - v1
 ///       - v2
+///       - v1
 fn generate_webhook_conversion() -> CustomResourceConversion {
     CustomResourceConversion {
         strategy: "Webhook".to_string(),
