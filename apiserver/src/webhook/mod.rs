@@ -176,10 +176,29 @@ impl BRSObject {
         )?))
     }
 
-    fn convert_to_next_version(self) -> Result<Self> {
+    fn to_v1(source_obj: BRSObject) -> Result<BRSObject> {
+        Self::try_from(BottleRocketShadowV1::from(BottlerocketShadowV2::try_from(
+            source_obj,
+        )?))
+    }
+
+    // Since we ware supporting/ship both v1 and v2 versions of the bottlerocketshadow CRD,
+    // the CRD conversion webhook needs to also support conversions between the two.
+    // Primarily, the kube-api server puts a "watcher" on both versions and will attempt
+    // to convert to the one found in it's "Stored Versions".
+    // This "pinwheel" converter ensures that we support a seamless transition between either.
+    //
+    // If we ever have the need to support many more versions,
+    // this pinwheel converter should use a single CRD version as the "hub" to convert to
+    // and from (preventing the need for a large matrix of supported conversions.
+    //
+    // For reference:
+    // https://book.kubebuilder.io/multiversion-tutorial/conversion-concepts.html
+    fn pinwheel_convert(self) -> Result<Self> {
         let version = self.get_version()?;
         match version.as_str() {
             "brupop.bottlerocket.aws/v1" => BRSObject::to_v2(self),
+            "brupop.bottlerocket.aws/v2" => BRSObject::to_v1(self),
             _ => InvalidVersionSnafu { version }.fail(),
         }
     }
@@ -189,8 +208,21 @@ impl BRSObject {
         let mut version = self.get_version()?;
         let mut source_object = self;
 
+        // Validates desired version can be accepted into the pinwheel converter
+        match desired_version.as_str() {
+            "brupop.bottlerocket.aws/v1" => {}
+            "brupop.bottlerocket.aws/v2" => {}
+            _ => {
+                return InvalidDesiredVersionSnafu {
+                    version: desired_version,
+                }
+                .fail()
+            }
+        }
+
+        // Enter the pinwheel converter
         while version != desired_version {
-            match source_object.convert_to_next_version() {
+            match source_object.pinwheel_convert() {
                 Ok(val) => source_object = val,
                 Err(_) => {
                     return ChainedConvertSnafu {
@@ -239,6 +271,18 @@ impl TryFrom<BottlerocketShadowV2> for BRSObject {
     }
 }
 
+impl TryFrom<BottleRocketShadowV1> for BRSObject {
+    type Error = WebhookConvertError;
+
+    fn try_from(shadow: BottleRocketShadowV1) -> Result<Self> {
+        Ok(BRSObject {
+            object: serde_json::to_value(shadow).context(BottlerocketShadowToJsonConvertSnafu {
+                version: "v1".to_string(),
+            })?,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -248,7 +292,7 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn test_convert_request_to_response_succeed() {
+    fn test_convert_upgrade_request_to_response_succeed() {
         let conversion_req = ConversionRequest {
             kind: "ConversionReview".to_string(),
             api_version: "apiextensions.k8s.io/v1".to_string(),
@@ -328,6 +372,88 @@ mod tests {
     }
 
     #[test]
+    fn test_convert_downgrade_request_to_response_succeed() {
+        let conversion_req = ConversionRequest {
+            kind: "ConversionReview".to_string(),
+            api_version: "apiextensions.k8s.io/v1".to_string(),
+            request: Request {
+                uid: "5a6adc7e-c74b-43c0-9718-293de1b104cb".to_string(),
+                desired_api_version: "brupop.bottlerocket.aws/v1".to_string(),
+                objects: vec![json!({
+                    "apiVersion": "brupop.bottlerocket.aws/v2",
+                    "kind": "BottlerocketShadow",
+                    "metadata": {
+                        "name": "brs-ip-192-168-22-145.us-west-2.compute.internal",
+                        "namespace": "brupop-bottlerocket-aws",
+                        "uid": "3153df27-6619-4b6b-bc75-adbf92ef7266",
+                        "ownerReferences": [
+                            {
+                                "apiVersion": "v1",
+                                "kind": "Node",
+                                "name": "ip-192-168-22-145.us-west-2.compute.internal",
+                                "uid": "6b714046-3b20-4a79-aaa9-27cf626a2c12"
+                            }
+                        ]
+                    },
+                    "spec": {
+                        "state": "Idle",
+                        "state_transition_timestamp": null,
+                        "version": null
+                    },
+                    "status": {
+                        "current_state": "Idle",
+                        "target_version": "1.8.0",
+                        "current_version": "1.8.0",
+                        "crash_count": 0,
+                        "state_transition_failure_timestamp": null,
+                    }
+
+                })],
+            },
+        };
+
+        let expected_response = ConversionResponse {
+            kind: conversion_req.kind.clone(),
+            api_version: conversion_req.api_version.clone(),
+            response: Response {
+                uid: conversion_req.request.uid.clone(),
+                result: ConvertResult::default(),
+                converted_objects: Some(vec![json!({
+                    "apiVersion": "brupop.bottlerocket.aws/v1",
+                    "kind": "BottlerocketShadow",
+                    "metadata": {
+                        "name": "brs-ip-192-168-22-145.us-west-2.compute.internal",
+                        "namespace": "brupop-bottlerocket-aws",
+                        "uid": "3153df27-6619-4b6b-bc75-adbf92ef7266",
+                        "ownerReferences": [
+                            {
+                                "apiVersion": "v1",
+                                "kind": "Node",
+                                "name": "ip-192-168-22-145.us-west-2.compute.internal",
+                                "uid": "6b714046-3b20-4a79-aaa9-27cf626a2c12"
+                            }
+                        ]
+                    },
+                    "spec": {
+                        "state": "Idle",
+                        "state_transition_timestamp": null,
+                        "version": null
+                    },
+                    "status": {
+                        "current_state": "Idle",
+                        "target_version": "1.8.0",
+                        "current_version": "1.8.0",
+                    }
+
+                })]),
+            },
+        };
+
+        let converted_response = convert_request_to_response(&conversion_req);
+        assert_eq!(converted_response, expected_response);
+    }
+
+    #[test]
     fn test_convert_request_to_response_failed() {
         let conversion_req = ConversionRequest {
             kind: "ConversionReview".to_string(),
@@ -370,7 +496,7 @@ mod tests {
             api_version: conversion_req.api_version.clone(),
             response: Response {
                 uid: conversion_req.request.uid.clone(),
-                result: ConvertResult::create_fail_result("Failed to convert from brupop.bottlerocket.aws/v2 to brupop.bottlerocket.aws/-v2 version".to_string()),
+                result: ConvertResult::create_fail_result("Desired version brupop.bottlerocket.aws/-v2 is not a valid BottlerocketShadow version".to_string()),
                 converted_objects: None,
             },
         };
@@ -404,6 +530,12 @@ pub enum WebhookConvertError {
         version: String,
         source: serde_json::error::Error,
     },
+
+    #[snafu(display(
+        "Desired version {} is not a valid BottlerocketShadow version",
+        version
+    ))]
+    InvalidDesiredVersionError { version: String },
 
     #[snafu(display("Version {} does not exist in converting logic", version))]
     InvalidVersionError { version: String },
