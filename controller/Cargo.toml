@@ -19,7 +19,7 @@ models = { path = "../models", version = "0.1.0" }
 opentelemetry = { version = "0.16", features = ["rt-tokio-current-thread"] }
 opentelemetry-prometheus = "0.9"
 prometheus = "0.12.0"
-serde_plain = "1.0.0"
+serde_plain = "1.0.1"
 
 snafu = "0.7"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
