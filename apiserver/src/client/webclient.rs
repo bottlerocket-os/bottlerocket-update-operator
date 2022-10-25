@@ -10,28 +10,28 @@ use crate::{
     UncordonBottlerocketShadowRequest, UpdateBottlerocketShadowRequest,
 };
 use models::{
-    constants::{
-        APISERVER_SERVICE_NAME, APISERVER_SERVICE_PORT, CA_NAME, NAMESPACE, TLS_KEY_MOUNT_PATH,
-    },
+    constants::{APISERVER_SERVICE_NAME, CA_NAME, NAMESPACE, TLS_KEY_MOUNT_PATH},
     node::{BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowStatus},
 };
 
 use async_trait::async_trait;
 use snafu::ResultExt;
-use std::fs;
 use std::io::Read;
+use std::{env, fs};
 use tokio::time::Duration;
 use tokio_retry::{
     strategy::{jitter, ExponentialBackoff},
     Retry,
 };
 use tracing::instrument;
+use tracing::{event, Level};
 
 // The web client uses exponential backoff.
 // These values configure how long to delay between tries.
 const RETRY_BASE_DELAY: Duration = Duration::from_millis(100);
 const RETRY_MAX_DELAY: Duration = Duration::from_secs(10);
 const NUM_RETRIES: usize = 5;
+const APISERVER_SERVICE_PORT_ENV_VAR: &str = "APISERVER_SERVICE_PORT";
 
 fn retry_strategy() -> impl Iterator<Item = Duration> {
     ExponentialBackoff::from_millis(RETRY_BASE_DELAY.as_millis() as u64)
@@ -65,13 +65,23 @@ pub trait APIServerClient {
 #[derive(Debug, Clone)]
 pub struct K8SAPIServerClient {
     k8s_projected_token_path: String,
+    service_port: u16,
 }
 
 impl K8SAPIServerClient {
-    pub fn new(k8s_projected_token_path: String) -> Self {
-        Self {
+    pub fn new(k8s_projected_token_path: String) -> Result<Self> {
+        let service_port: i32 = env::var(APISERVER_SERVICE_PORT_ENV_VAR)
+            .context(error::MissingEnvVariableSnafu {
+                variable: APISERVER_SERVICE_PORT_ENV_VAR.to_string(),
+            })?
+            .parse()
+            .context(error::CreateK8sClientSnafu)?;
+        event!(Level::INFO, %service_port, "Created K8s API Server client using service port");
+
+        Ok(Self {
             k8s_projected_token_path,
-        }
+            service_port: service_port as u16,
+        })
     }
 
     /// Reads a projected auth token from the configured path.
@@ -87,10 +97,10 @@ impl K8SAPIServerClient {
     }
 
     /// Returns the domain on which the server can be reached.
-    pub fn server_domain() -> String {
+    pub fn server_domain(&self) -> String {
         format!(
             "{}.{}.svc.cluster.local:{}",
-            APISERVER_SERVICE_NAME, NAMESPACE, APISERVER_SERVICE_PORT
+            APISERVER_SERVICE_NAME, NAMESPACE, self.service_port
         )
     }
 
@@ -142,7 +152,7 @@ impl APIServerClient for K8SAPIServerClient {
                 https_client.post(format!(
                     "{}://{}{}",
                     Self::scheme(),
-                    Self::server_domain(),
+                    Self::server_domain(self),
                     NODE_RESOURCE_ENDPOINT
                 )),
                 &req.node_selector,
@@ -194,7 +204,7 @@ impl APIServerClient for K8SAPIServerClient {
                 https_client.put(format!(
                     "{}://{}{}",
                     Self::scheme(),
-                    Self::server_domain(),
+                    Self::server_domain(self),
                     NODE_RESOURCE_ENDPOINT
                 )),
                 &req.node_selector,
@@ -247,7 +257,7 @@ impl APIServerClient for K8SAPIServerClient {
                 https_client.post(format!(
                     "{}://{}{}",
                     Self::scheme(),
-                    Self::server_domain(),
+                    Self::server_domain(self),
                     NODE_CORDON_AND_DRAIN_ENDPOINT
                 )),
                 &req.node_selector,
@@ -288,7 +298,7 @@ impl APIServerClient for K8SAPIServerClient {
                 https_client.post(format!(
                     "{}://{}{}",
                     Self::scheme(),
-                    Self::server_domain(),
+                    Self::server_domain(self),
                     NODE_UNCORDON_ENDPOINT
                 )),
                 &req.node_selector,
@@ -328,7 +338,7 @@ impl APIServerClient for K8SAPIServerClient {
                 https_client.post(format!(
                     "{}://{}{}",
                     Self::scheme(),
-                    Self::server_domain(),
+                    Self::server_domain(self),
                     EXCLUDE_NODE_FROM_LB_ENDPOINT
                 )),
                 &req.node_selector,
@@ -371,7 +381,7 @@ impl APIServerClient for K8SAPIServerClient {
                 https_client.post(format!(
                     "{}://{}{}",
                     Self::scheme(),
-                    Self::server_domain(),
+                    Self::server_domain(self),
                     REMOVE_NODE_EXCLUSION_TO_LB_ENDPOINT
                 )),
                 &req.node_selector,

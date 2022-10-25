@@ -381,6 +381,9 @@ spec:
       containers:
         - command:
             - "./apiserver"
+          env:
+            - name: APISERVER_INTERNAL_PORT
+              value: "8443"
           image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v0.2.2"
           livenessProbe:
             httpGet:
@@ -533,6 +536,8 @@ spec:
                   fieldPath: spec.nodeName
             - name: EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC
               value: "0"
+            - name: APISERVER_SERVICE_PORT
+              value: "443"
           image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v0.2.2"
           name: brupop
           resources:

@@ -47,8 +47,7 @@ pub use self::v2::{
     BottlerocketShadow, BottlerocketShadowSpec, BottlerocketShadowState, BottlerocketShadowStatus,
 };
 use crate::constants::{
-    APISERVER_CRD_CONVERT_ENDPOINT, APISERVER_SERVICE_NAME, APISERVER_SERVICE_PORT,
-    CERTIFICATE_NAME, NAMESPACE,
+    APISERVER_CRD_CONVERT_ENDPOINT, APISERVER_SERVICE_NAME, CERTIFICATE_NAME, NAMESPACE,
 };
 
 use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::{
@@ -163,7 +162,8 @@ fn combine_version_in_crds(
 ///     conversionReviewVersions:
 ///       - v2
 ///       - v1
-fn generate_webhook_conversion() -> CustomResourceConversion {
+fn generate_webhook_conversion(apiserver_service_port: String) -> CustomResourceConversion {
+    let apiserver_service_port_conv: i32 = apiserver_service_port.parse().unwrap();
     CustomResourceConversion {
         strategy: "Webhook".to_string(),
         webhook: Some(WebhookConversion {
@@ -172,7 +172,7 @@ fn generate_webhook_conversion() -> CustomResourceConversion {
                     name: APISERVER_SERVICE_NAME.to_string(),
                     namespace: NAMESPACE.to_string(),
                     path: Some(APISERVER_CRD_CONVERT_ENDPOINT.to_string()),
-                    port: Some(APISERVER_SERVICE_PORT),
+                    port: Some(apiserver_service_port_conv),
                 }),
                 ..Default::default()
             }),
@@ -199,8 +199,10 @@ fn generate_ca_annotations() -> BTreeMap<String, String> {
 /// Setup webhook conversion and add caBundle
 fn add_webhook_setting(
     mut combined_version_crds: CustomResourceDefinition,
+    apiserver_service_port: String,
 ) -> CustomResourceDefinition {
-    combined_version_crds.spec.conversion = Some(generate_webhook_conversion());
+    combined_version_crds.spec.conversion =
+        Some(generate_webhook_conversion(apiserver_service_port));
     combined_version_crds.metadata.annotations = Some(generate_ca_annotations());
     combined_version_crds
 }
@@ -213,13 +215,13 @@ fn remove_empty_categories(mut crds: CustomResourceDefinition) -> CustomResource
     crds
 }
 
-pub fn combined_crds() -> CustomResourceDefinition {
+pub fn combined_crds(apiserver_service_port: String) -> CustomResourceDefinition {
     let mut crds: Vec<CustomResourceDefinition> = BOTTLEROCKETSHADOW_CRD_METHODS
         .iter()
         .map(|crd_method| crd_method())
         .collect();
     let latest_crd = crds.pop().unwrap();
     let combined_version_crds = combine_version_in_crds(latest_crd, crds);
-    let crds_with_webhook = add_webhook_setting(combined_version_crds);
+    let crds_with_webhook = add_webhook_setting(combined_version_crds, apiserver_service_port);
     remove_empty_categories(crds_with_webhook)
 }

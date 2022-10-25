@@ -49,7 +49,8 @@ async fn run_agent() -> Result<()> {
     let token_path = token_path.to_str().context(agent_error::AssertionSnafu {
         message: "Token path (defined in models/agent.rs) is not valid unicode.",
     })?;
-    let apiserver_client = K8SAPIServerClient::new(token_path.to_string());
+    let apiserver_client =
+        K8SAPIServerClient::new(token_path.to_string()).context(agent_error::ApiClientSnafu)?;
 
     // Get node and BottlerocketShadow names
     let associated_node_name = env::var("MY_NODE_NAME").context(agent_error::GetNodeNameSnafu)?;
@@ -135,6 +136,11 @@ pub mod agent_error {
     #[derive(Debug, Snafu)]
     #[snafu(visibility(pub))]
     pub enum Error {
+        #[snafu(display("Error creating API server client: '{}'", source))]
+        ApiClientError {
+            source: apiserver::client::ClientError,
+        },
+
         #[snafu(display("Error running agent server: '{}'", source))]
         AgentError { source: agentclient_error::Error },
 

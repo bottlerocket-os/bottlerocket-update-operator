@@ -43,6 +43,3 @@ COPY --from=build \
     /usr/share/licenses/rust \
     /usr/share/licenses/openssl \
     /licenses/bottlerocket-sdk/
-
-# Expose apiserver port
-EXPOSE 8443

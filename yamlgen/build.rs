@@ -43,8 +43,14 @@ fn main() {
     let mut brupop_resources = File::create(&path).unwrap();
 
     // testsys-crd related K8S manifest
+    let apiserver_internal_port = env::var("APISERVER_INTERNAL_PORT").ok().unwrap();
+    let apiserver_service_port = env::var("APISERVER_SERVICE_PORT").ok().unwrap();
     brupop_resources.write_all(HEADER.as_bytes()).unwrap();
-    serde_yaml::to_writer(&brupop_resources, &combined_crds()).unwrap();
+    serde_yaml::to_writer(
+        &brupop_resources,
+        &combined_crds(apiserver_service_port.clone()),
+    )
+    .unwrap();
 
     let brupop_image = env::var("BRUPOP_CONTAINER_IMAGE").ok().unwrap();
     let brupop_image_pull_secrets = env::var("BRUPOP_CONTAINER_IMAGE_PULL_SECRET").ok();
@@ -84,10 +90,18 @@ fn main() {
     .unwrap();
     serde_yaml::to_writer(
         &brupop_resources,
-        &apiserver_deployment(brupop_image.clone(), brupop_image_pull_secrets.clone()),
+        &apiserver_deployment(
+            brupop_image.clone(),
+            brupop_image_pull_secrets.clone(),
+            apiserver_internal_port.clone(),
+        ),
     )
     .unwrap();
-    serde_yaml::to_writer(&brupop_resources, &apiserver_service()).unwrap();
+    serde_yaml::to_writer(
+        &brupop_resources,
+        &apiserver_service(apiserver_internal_port, apiserver_service_port.clone()),
+    )
+    .unwrap();
 
     // agent resources
     serde_yaml::to_writer(&brupop_resources, &agent_service_account()).unwrap();
@@ -99,6 +113,7 @@ fn main() {
             brupop_image.clone(),
             brupop_image_pull_secrets.clone(),
             exclude_from_lb_wait_time,
+            apiserver_service_port,
         ),
     )
     .unwrap();
