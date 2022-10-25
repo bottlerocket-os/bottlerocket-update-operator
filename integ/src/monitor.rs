@@ -166,7 +166,7 @@ impl<T: BrupopClient> Monitor for BrupopMonitor<T> {
 
             // verify if all instances are being updated
             if self.confirm_update_success(&bottlerocketshadows).await? {
-                println!("[Complete]: All nodes has been successfully updated to latest version!");
+                println!("[Complete]: All nodes have been successfully updated to latest version!");
                 return Ok(());
             }
 
