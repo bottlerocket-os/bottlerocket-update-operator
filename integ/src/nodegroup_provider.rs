@@ -42,18 +42,9 @@ const EKS_CNI_ARN: &str = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy";
 const EC2_CONTAINER_REGISTRY_ARN: &str =
     "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly";
 const SSM_MANAGED_INSTANCE_CORE_ARN: &str = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore";
-const EKS_ROLE_POLICY_DOCUMENT: &str = r#"{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Principal": {
-                "Service": "ec2.amazonaws.com"
-            },
-            "Action": "sts:AssumeRole"
-        }
-    ]
-}"#;
+const EKS_ROLE_POLICY_DOCUMENT_CN: &str = "ec2.amazonaws.com.cn";
+const EKS_ROLE_POLICY_DOCUMENT: &str = "ec2.amazonaws.com";
+const CHINA_REGION_PREFIX: &str = "cn-";
 
 // =^..^=   =^..^=   =^..^=   =^..^=   =^..^= Termination and Creation of NodeGroup  =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
 
@@ -80,7 +71,8 @@ pub async fn create_nodegroup(
     let instance_type = instance_type(&ec2_client, &node_ami).await?;
 
     // create one time iam instance profile for nodegroup
-    let iam_instance_profile_arn = create_iam_instance_profile(&iam_client, nodegroup_name).await?;
+    let iam_instance_profile_arn =
+        create_iam_instance_profile(&iam_client, nodegroup_name, &cluster.region).await?;
 
     // Mapping one time iam identity to eks cluster
     cluster_iam_identity_mapping(&cluster.name, &cluster.region, &iam_instance_profile_arn).await?;
@@ -252,6 +244,7 @@ async fn delete_launch_template(
 async fn create_iam_instance_profile(
     iam_client: &aws_sdk_iam::Client,
     nodegroup_name: &str,
+    region: &str,
 ) -> ProviderResult<String> {
     let iam_instance_profile_name = format!("{}-{}", IAM_INSTANCE_PROFILE_NAME, nodegroup_name);
     let get_instance_profile_result = iam_client
@@ -265,7 +258,7 @@ async fn create_iam_instance_profile(
         iam_client
             .create_role()
             .role_name(&iam_instance_profile_name.clone())
-            .assume_role_policy_document(EKS_ROLE_POLICY_DOCUMENT)
+            .assume_role_policy_document(eks_role_policy_document(region))
             .send()
             .await
             .context("Unable to create new role.")?;
@@ -619,4 +612,27 @@ async fn cluster_iam_identity_mapping(
         .context("Unable to map iam identity.")?;
 
     Ok(())
+}
+
+fn eks_role_policy_document(region: &str) -> String {
+    let principle = match region.starts_with(CHINA_REGION_PREFIX) {
+        true => EKS_ROLE_POLICY_DOCUMENT_CN,
+        false => EKS_ROLE_POLICY_DOCUMENT,
+    };
+
+    format!(
+        r#"{{
+            "Version": "2012-10-17",
+            "Statement": [
+                {{
+                    "Effect": "Allow",
+                    "Principal": {{
+                        "Service": "{}"
+                    }},
+                    "Action": "sts:AssumeRole"
+                }}
+            ]
+        }}"#,
+        principle
+    )
 }
