@@ -104,6 +104,7 @@ pub fn agent_daemonset(
     agent_image: String,
     image_pull_secret: Option<String>,
     exclude_from_lb_wait_time: u64,
+    apiserver_service_port: String,
 ) -> DaemonSet {
     let image_pull_secrets =
         image_pull_secret.map(|secret| vec![LocalObjectReference { name: Some(secret) }]);
@@ -184,6 +185,11 @@ pub fn agent_daemonset(
                             EnvVar {
                                 name: "EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC".to_string(),
                                 value: Some(exclude_from_lb_wait_time.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "APISERVER_SERVICE_PORT".to_string(),
+                                value: Some(apiserver_service_port),
                                 ..Default::default()
                             },
                         ]),

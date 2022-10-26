@@ -29,6 +29,43 @@ Be sure to use the git tag for the Update Operator release that you plan to depl
 
 #### Configuration
 
+##### Configure API server ports
+
+If you'd like to configure what ports the API server uses,
+adjust the value that is consumed in the container environment:
+
+```yaml
+      ...
+      containers:
+        - command:
+            - "./api-server"
+          env:
+            - name: APISERVER_INTERNAL_PORT
+              value: 999
+      ...
+```
+
+You'll then also need to adjust the various "port" entries in the manifest
+to correctly reflect what port the API server starts on and expects for its service port:
+
+```yaml
+    ...
+    webhook:
+      clientConfig:
+        service:
+          name: brupop-apiserver
+          namespace: brupop-bottlerocket-aws
+          path: /crdconvert
+          port: 123
+```
+
+The default values are generated from the `.env` file (and can be used when building the update operator from source to configure your own ports):
+- `APISERVER_INTERNAL_PORT = 8443` - This is the container port the API server starts on.
+  If this environment variable is _not_ found, the Brupop API server will fail to start.
+- `APISERVER_SERVICE_PORT = 443` - This is the port Brupop's Kubernetes Service uses to target the internal API Server port.
+  It is used by the node agents to access the API server.
+  If this environment variable is _not_ found, the Brupop agents will fail to start.
+
 ##### Exclude Nodes from Load Balancers Before Draining
 This configuration uses Kuberenetes [ServiceNodeExclusion](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/) feature.
 `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` can be used to enable the feature to exclude the node from load balancer before draining.

@@ -1,7 +1,6 @@
 use apiserver::api::{self, APIServerSettings};
 use apiserver::telemetry::init_telemetry;
 use apiserver_error::{StartServerSnafu, StartTelemetrySnafu};
-use models::constants::APISERVER_INTERNAL_PORT;
 use models::node::K8SBottlerocketShadowClient;
 use tracing::{event, Level};
 
@@ -13,6 +12,7 @@ use std::fs;
 // By default, errors resulting in termination of the apiserver are written to this file,
 // which is the location kubernetes uses by default to surface termination-causing errors.
 const TERMINATION_LOG: &str = "/dev/termination-log";
+const APISERVER_INTERNAL_PORT_ENV_VAR: &str = "APISERVER_INTERNAL_PORT";
 
 #[actix_web::main]
 async fn main() {
@@ -37,9 +37,17 @@ async fn run_server() -> Result<(), apiserver_error::Error> {
         .await
         .context(apiserver_error::K8sClientCreateSnafu)?;
 
+    let internal_port: i32 = env::var(APISERVER_INTERNAL_PORT_ENV_VAR)
+        .context(apiserver_error::MissingEnvVariableSnafu {
+            variable: APISERVER_INTERNAL_PORT_ENV_VAR.to_string(),
+        })?
+        .parse()
+        .context(apiserver_error::ParesePortSnafu)?;
+    event!(Level::INFO, %internal_port, "Started API server with port");
+
     let settings = APIServerSettings {
         node_client: K8SBottlerocketShadowClient::new(k8s_client.clone()),
-        server_port: APISERVER_INTERNAL_PORT as u16,
+        server_port: internal_port as u16,
     };
 
     api::run_server(settings, k8s_client, Some(prometheus_exporter))
@@ -53,8 +61,21 @@ pub mod apiserver_error {
     #[derive(Debug, Snafu)]
     #[snafu(visibility(pub))]
     pub enum Error {
+        #[snafu(display(
+            "Unable to get environment variable '{}' for API server due to : '{}'",
+            variable,
+            source
+        ))]
+        MissingEnvVariable {
+            source: std::env::VarError,
+            variable: String,
+        },
+
         #[snafu(display("Unable to create client: '{}'", source))]
         K8sClientCreate { source: kube::Error },
+
+        #[snafu(display("Unable to parse internal port: '{}'", source))]
+        ParesePort { source: std::num::ParseIntError },
 
         #[snafu(display("Unable to start API server telemetry: '{}'", source))]
         StartTelemetry {

@@ -1,15 +1,15 @@
 use crate::brupop_labels;
 use crate::constants::{
-    APISERVER, APISERVER_HEALTH_CHECK_ROUTE, APISERVER_INTERNAL_PORT, APISERVER_MAX_UNAVAILABLE,
-    APISERVER_SERVICE_NAME, APISERVER_SERVICE_PORT, APP_COMPONENT, APP_MANAGED_BY, APP_PART_OF,
-    BRUPOP, BRUPOP_DOMAIN_LIKE_NAME, LABEL_COMPONENT, NAMESPACE, SECRET_NAME, TLS_KEY_MOUNT_PATH,
+    APISERVER, APISERVER_HEALTH_CHECK_ROUTE, APISERVER_MAX_UNAVAILABLE, APISERVER_SERVICE_NAME,
+    APP_COMPONENT, APP_MANAGED_BY, APP_PART_OF, BRUPOP, BRUPOP_DOMAIN_LIKE_NAME, LABEL_COMPONENT,
+    NAMESPACE, SECRET_NAME, TLS_KEY_MOUNT_PATH,
 };
 use crate::node::{K8S_NODE_PLURAL, K8S_NODE_STATUS};
 use k8s_openapi::api::apps::v1::{
     Deployment, DeploymentSpec, DeploymentStrategy, RollingUpdateDeployment,
 };
 use k8s_openapi::api::core::v1::{
-    Affinity, Container, ContainerPort, HTTPGetAction, LocalObjectReference, NodeAffinity,
+    Affinity, Container, ContainerPort, EnvVar, HTTPGetAction, LocalObjectReference, NodeAffinity,
     NodeSelector, NodeSelectorRequirement, NodeSelectorTerm, PodSpec, PodTemplateSpec, Probe,
     SecretVolumeSource, Service, ServiceAccount, ServicePort, ServiceSpec, Volume, VolumeMount,
 };
@@ -159,9 +159,12 @@ pub fn apiserver_auth_delegator_cluster_role_binding() -> ClusterRoleBinding {
 pub fn apiserver_deployment(
     apiserver_image: String,
     image_pull_secret: Option<String>,
+    apiserver_internal_port: String,
 ) -> Deployment {
     let image_pull_secrets =
         image_pull_secret.map(|secret| vec![LocalObjectReference { name: Some(secret) }]);
+
+    let apiserver_internal_port_conv: i32 = apiserver_internal_port.parse().unwrap();
 
     Deployment {
         metadata: ObjectMeta {
@@ -233,14 +236,19 @@ pub fn apiserver_deployment(
                         image_pull_policy: None,
                         name: BRUPOP.to_string(),
                         command: Some(vec!["./apiserver".to_string()]),
+                        env: Some(vec![EnvVar {
+                            name: "APISERVER_INTERNAL_PORT".to_string(),
+                            value: Some(apiserver_internal_port),
+                            ..Default::default()
+                        }]),
                         ports: Some(vec![ContainerPort {
-                            container_port: APISERVER_INTERNAL_PORT,
+                            container_port: apiserver_internal_port_conv,
                             ..Default::default()
                         }]),
                         liveness_probe: Some(Probe {
                             http_get: Some(HTTPGetAction {
                                 path: Some(APISERVER_HEALTH_CHECK_ROUTE.to_string()),
-                                port: IntOrString::Int(APISERVER_INTERNAL_PORT),
+                                port: IntOrString::Int(apiserver_internal_port_conv),
                                 scheme: Some("HTTPS".to_string()),
                                 ..Default::default()
                             }),
@@ -250,7 +258,7 @@ pub fn apiserver_deployment(
                         readiness_probe: Some(Probe {
                             http_get: Some(HTTPGetAction {
                                 path: Some(APISERVER_HEALTH_CHECK_ROUTE.to_string()),
-                                port: IntOrString::Int(APISERVER_INTERNAL_PORT),
+                                port: IntOrString::Int(apiserver_internal_port_conv),
                                 scheme: Some("HTTPS".to_string()),
                                 ..Default::default()
                             }),
@@ -284,7 +292,13 @@ pub fn apiserver_deployment(
     }
 }
 
-pub fn apiserver_service() -> Service {
+pub fn apiserver_service(
+    apiserver_internal_port: String,
+    apiserver_service_port: String,
+) -> Service {
+    let apiserver_internal_port_conv: i32 = apiserver_internal_port.parse().unwrap();
+    let apiserver_service_port_conv: i32 = apiserver_service_port.parse().unwrap();
+
     Service {
         metadata: ObjectMeta {
             labels: Some(brupop_labels!(APISERVER)),
@@ -296,8 +310,8 @@ pub fn apiserver_service() -> Service {
         spec: Some(ServiceSpec {
             selector: Some(btreemap! { LABEL_COMPONENT.to_string() => APISERVER.to_string()}),
             ports: Some(vec![ServicePort {
-                port: APISERVER_SERVICE_PORT,
-                target_port: Some(IntOrString::Int(APISERVER_INTERNAL_PORT)),
+                port: apiserver_service_port_conv,
+                target_port: Some(IntOrString::Int(apiserver_internal_port_conv)),
                 ..Default::default()
             }]),
             ..Default::default()

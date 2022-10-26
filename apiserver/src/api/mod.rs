@@ -269,7 +269,6 @@ async fn reload_certificate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use models::constants::APISERVER_INTERNAL_PORT;
     use models::node::MockBottlerocketShadowClient;
 
     use std::sync::Arc;
@@ -281,6 +280,7 @@ mod tests {
     where
         F: FnOnce(&mut MockBottlerocketShadowClient),
     {
+        let apiserver_internal_port: i32 = 8443;
         let mut node_client = MockBottlerocketShadowClient::new();
         mock_expectations(&mut node_client);
 
@@ -290,7 +290,7 @@ mod tests {
 
         APIServerSettings {
             node_client,
-            server_port: APISERVER_INTERNAL_PORT as u16,
+            server_port: apiserver_internal_port as u16,
         }
     }
 }

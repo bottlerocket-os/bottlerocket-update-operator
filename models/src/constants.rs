@@ -56,8 +56,6 @@ pub const APP_CREATED_BY: &str = "app.kubernetes.io/created-by";
 
 // apiserver constants
 pub const APISERVER: &str = "apiserver";
-pub const APISERVER_INTERNAL_PORT: i32 = 8443; // The internal port on which the the apiservice is hosted.
-pub const APISERVER_SERVICE_PORT: i32 = 443; // The k8s service port hosting the apiserver.
 pub const APISERVER_MAX_UNAVAILABLE: &str = "33%"; // The maximum number of unavailable nodes for the apiserver deployment.
 pub const APISERVER_HEALTH_CHECK_ROUTE: &str = "/ping"; // Route used for apiserver k8s liveness and readiness checks.
 pub const APISERVER_CRD_CONVERT_ENDPOINT: &str = "/crdconvert"; // Custom Resource convert endpoint

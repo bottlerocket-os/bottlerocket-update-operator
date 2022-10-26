@@ -10,6 +10,16 @@ pub type Result<T> = std::result::Result<T, ClientError>;
 #[snafu(visibility(pub))]
 pub enum ClientError {
     #[snafu(display(
+        "Unable to get environment variable '{}' for client due to : '{}'",
+        variable,
+        source
+    ))]
+    MissingEnvVariable {
+        source: std::env::VarError,
+        variable: String,
+    },
+
+    #[snafu(display(
         "API server responded with an error status code {}: '{}'",
         status_code,
         response
@@ -67,6 +77,9 @@ pub enum ClientError {
         source
     ))]
     IOError { source: Box<dyn std::error::Error> },
+
+    #[snafu(display("Failed to create kubernetes client due to {}", source))]
+    CreateK8sClientError { source: std::num::ParseIntError },
 
     #[snafu(display("Failed to create https client due to {}", source))]
     CreateClientError { source: reqwest::Error },
