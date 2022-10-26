@@ -15,7 +15,9 @@ use integ::eks_provider::{get_cluster_info, write_kubeconfig};
 use integ::error::ProviderError;
 use integ::monitor::{BrupopMonitor, IntegBrupopClient, Monitor};
 use integ::nodegroup_provider::{create_nodegroup, terminate_nodegroup};
-use integ::updater::{nodes_exist, process_brupop_resources, process_pods_test, Action};
+use integ::updater::{
+    nodes_exist, process_brupop_resources, process_cert_manager, process_pods_test, Action,
+};
 
 type Result<T> = std::result::Result<T, error::Error>;
 
@@ -31,6 +33,8 @@ const AMI_ARCH: &str = "x86_64";
 
 // The default name for the nodegroup
 const NODEGROUP_NAME: &str = "brupop-integ-test-nodegroup";
+
+const WAIT_CERT_MANAGER_COMPLETE: tokio::time::Duration = tokio::time::Duration::from_secs(90);
 
 lazy_static! {
     static ref ARCHES: Vec<ArchitectureValues> =
@@ -186,7 +190,12 @@ async fn run() -> Result<()> {
                 .await
                 .context(error::CreatePodSnafu)?;
 
-            // install brupop on EKS cluster
+            // install cert-manager and brupop on EKS cluster
+            info!("Running cert-manager on existing EKS cluster ...");
+            process_cert_manager(Action::Apply, &kube_config_path)
+                .await
+                .context(error::RunBrupopSnafu)?;
+            tokio::time::sleep(WAIT_CERT_MANAGER_COMPLETE).await;
             info!("Running brupop on existing EKS cluster ...");
             process_brupop_resources(Action::Apply, &kube_config_path)
                 .await
@@ -248,9 +257,13 @@ async fn run() -> Result<()> {
                 .await
                 .context(error::RunBrupopSnafu)?
             {
-                // Clean up all brupop resources like namespace, deployment on brupop test
+                // Clean up cert-manager and all brupop resources like namespace, deployment on brupop test
                 info!("Deleting all brupop cluster resources created by integration test ...");
                 process_brupop_resources(Action::Delete, &kube_config_path)
+                    .await
+                    .context(error::DeleteClusterResourcesSnafu)?;
+                info!("Deleting cert-manager created by integration test ...");
+                process_cert_manager(Action::Delete, &kube_config_path)
                     .await
                     .context(error::DeleteClusterResourcesSnafu)?;
 

@@ -11,6 +11,8 @@ use kube::api::{Api, ListParams};
 const CURRENT_LOCATION_PATH: &str = "integ/src";
 const PODS_TEMPLATE: &str = "pods-template.yaml";
 const KUBECTL_BINARY: &str = "kubectl";
+const CERT_MANAGER_YAML: &str =
+    "https://github.com/cert-manager/cert-manager/releases/download/v1.8.2/cert-manager.yaml";
 
 #[derive(strum_macros::Display, Debug)]
 pub enum Action {
@@ -33,11 +35,11 @@ pub async fn process_brupop_resources(action: Action, kube_config_path: &str) ->
             kube_config_path,
         ])
         .status()
-        .context(update_error::BrupopProcessSnafu)?;
+        .context(update_error::ProcessBrupopSnafu)?;
 
     ensure!(
         brupop_resource_status.success(),
-        update_error::BrupopRunSnafu {
+        update_error::RunBrupopSnafu {
             action: action_string
         }
     );
@@ -72,6 +74,34 @@ pub async fn process_pods_test(action: Action, kube_config_path: &str) -> Update
     Ok(())
 }
 
+// =^..^=   =^..^=   =^..^=   =^..^=   =^..^= Deletion and Creation of cert manager  =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
+
+// install or destroy cert-manager
+pub async fn process_cert_manager(action: Action, kube_config_path: &str) -> UpdaterResult<()> {
+    let action_string: String = action.to_string();
+
+    // install cert-manager
+    let cert_manager_status = Command::new(KUBECTL_BINARY)
+        .args([
+            &action_string.to_lowercase(),
+            "-f",
+            CERT_MANAGER_YAML,
+            "--kubeconfig",
+            kube_config_path,
+        ])
+        .status()
+        .context(update_error::ProcessCertManagerSnafu)?;
+
+    ensure!(
+        cert_manager_status.success(),
+        update_error::RunBrupopSnafu {
+            action: action_string
+        }
+    );
+
+    Ok(())
+}
+
 // Find if any node is running in the cluster
 pub async fn nodes_exist(k8s_client: kube::client::Client) -> UpdaterResult<bool> {
     let nodes: Api<Node> = Api::all(k8s_client.clone());
@@ -93,11 +123,8 @@ pub mod update_error {
     #[derive(Debug, Snafu)]
     #[snafu(visibility(pub))]
     pub enum Error {
-        #[snafu(display("Failed to install brupop: {}", source))]
-        BrupopProcess { source: std::io::Error },
-
-        #[snafu(display("Failed to process brupop resources: {:?} brupop", action))]
-        BrupopRun { action: String },
+        #[snafu(display("Failed to run brupop resources: {:?} brupop", action))]
+        RunBrupop { action: String },
 
         #[snafu(display("Failed to {:?} pods", action))]
         ProcessPodsTest {
@@ -113,5 +140,11 @@ pub mod update_error {
 
         #[snafu(display("Fail to list EKS cluster nodes: {}", source))]
         FindNodes { source: kube::Error },
+
+        #[snafu(display("Failed to install brupop: {}", source))]
+        ProcessBrupop { source: std::io::Error },
+
+        #[snafu(display("Failed to install cert manager: {}", source))]
+        ProcessCertManager { source: std::io::Error },
     }
 }
