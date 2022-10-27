@@ -46,7 +46,7 @@ skip-tree = [
     { name = "kube", version = "0.75.0"},
     # aws-smithy-client brings in several lagging dependencies that can be ignored
     # since it is only used in the integration tests
-    { name = "aws-smithy-client", version = "0.49.0" }
+    { name = "aws-smithy-client", version = "0.51.0" }
 ]
 
 [sources]
