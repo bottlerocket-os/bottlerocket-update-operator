@@ -400,6 +400,13 @@ spec:
               port: 8443
               scheme: HTTPS
             initialDelaySeconds: 5
+          resources:
+            limits:
+              cpu: 10m
+              memory: 50Mi
+            requests:
+              cpu: 3m
+              memory: 8Mi
           volumeMounts:
             - mountPath: /etc/brupop-tls-keys
               name: bottlerocket-tls-keys
@@ -542,10 +549,11 @@ spec:
           name: brupop
           resources:
             limits:
-              memory: 50Mi
-            requests:
               cpu: 10m
               memory: 50Mi
+            requests:
+              cpu: 5m
+              memory: 8Mi
           securityContext:
             seLinuxOptions:
               level: s0
@@ -725,6 +733,13 @@ spec:
               value: "0:0:0"
           image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.0.0"
           name: brupop
+          resources:
+            limits:
+              cpu: 10m
+              memory: 50Mi
+            requests:
+              cpu: 3m
+              memory: 8Mi
       priorityClassName: brupop-controller-high-priority
       serviceAccountName: brupop-controller-service-account
 ---
