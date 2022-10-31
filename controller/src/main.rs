@@ -13,6 +13,9 @@ use kube::{
     runtime::{reflector, watcher::watcher, WatchStreamExt},
     ResourceExt,
 };
+
+use opentelemetry::sdk::export::metrics::aggregation;
+use opentelemetry::sdk::metrics::{controllers, processors, selectors};
 use opentelemetry::sdk::propagation::TraceContextPropagator;
 use snafu::ResultExt;
 use tracing::{event, Level};
@@ -39,9 +42,18 @@ async fn main() -> Result<()> {
 
     let node_client = K8SBottlerocketShadowClient::new(k8s_client.clone());
 
+    let controller = controllers::basic(
+        processors::factory(
+            selectors::simple::histogram([1.0, 2.0, 5.0, 10.0, 20.0, 50.0]),
+            aggregation::cumulative_temporality_selector(),
+        )
+        .with_memory(true),
+    )
+    .build();
+
     // Exporter has to be initialized before BrupopController
     // in order to setup global meter provider properly
-    let exporter = opentelemetry_prometheus::exporter().init();
+    let exporter = opentelemetry_prometheus::exporter(controller).init();
 
     // Setup and run a reflector, ensuring that `BottlerocketShadow` updates are reflected to the controller.
     let brs_reflector = reflector::reflector(brs_store, watcher(brss, ListParams::default()));

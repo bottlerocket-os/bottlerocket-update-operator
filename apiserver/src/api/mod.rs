@@ -21,12 +21,12 @@ use models::constants::{
 use models::node::{read_certificate, BottlerocketShadowClient, BottlerocketShadowSelector};
 
 use actix_web::{
-    dev::{Server, ServiceRequest},
-    http::{self, HeaderMap},
+    dev::ServerHandle,
+    http::header::HeaderMap,
     web::{self, Data},
     App, HttpServer,
 };
-use actix_web_opentelemetry::RequestMetrics;
+use actix_web_opentelemetry::{PrometheusMetricsHandler, RequestMetricsBuilder, RequestTracing};
 use futures::StreamExt;
 use k8s_openapi::api::core::v1::Pod;
 use kube::{
@@ -102,7 +102,7 @@ pub struct APIServerSettings<T: BottlerocketShadowClient> {
 pub async fn run_server<T: 'static + BottlerocketShadowClient>(
     settings: APIServerSettings<T>,
     k8s_client: kube::Client,
-    prometheus_exporter: Option<opentelemetry_prometheus::PrometheusExporter>,
+    prometheus_exporter: opentelemetry_prometheus::PrometheusExporter,
 ) -> Result<()> {
     let public_key_path = format!("{}/{}", TLS_KEY_MOUNT_PATH, PUBLIC_KEY_NAME);
     let certificate_cache =
@@ -136,12 +136,11 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
             futures::future::ready(())
         });
 
-    // Set up prometheus metrics
-    let request_metrics = RequestMetrics::new(
-        meter("apiserver"),
-        Some(|req: &ServiceRequest| req.path() == "/metrics" && req.method() == http::Method::GET),
-        prometheus_exporter,
-    );
+    // Build the metrics meter
+    let apiserver_meter = meter("apiserver");
+
+    // Set up metrics request builder
+    let request_metrics = RequestMetricsBuilder::new().build(apiserver_meter);
 
     // Set up the actix server.
 
@@ -189,7 +188,12 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
                 .exclude(APISERVER_HEALTH_CHECK_ROUTE)
                 .exclude(CRD_CONVERT_ENDPOINT),
             )
+            .wrap(RequestTracing::new())
             .wrap(request_metrics.clone())
+            .route(
+                "/metrics",
+                web::get().to(PrometheusMetricsHandler::new(prometheus_exporter.clone())),
+            )
             .wrap(TracingLogger::<telemetry::BrupopApiserverRootSpanBuilder>::new())
             .app_data(Data::new(settings.clone()))
             .service(
@@ -230,7 +234,7 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
             event!(Level::ERROR, "reflector drained");
             return Err(error::Error::KubernetesWatcherFailed {});
         },
-        _ = reload_certificate(server.clone(), &public_key_path, certificate_cache)=> {
+        _ = reload_certificate(server.handle(), &public_key_path, certificate_cache)=> {
             event!(Level::ERROR, "certificate refreshed");
             return Err(error::Error::ReloadCertificateFailed {});
         },
@@ -248,7 +252,7 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
 // We cache the certificate initially when brupop starts the server, and compare it to the update-to-date certificate periodically.
 // If they don't match, we recognize it as a new certificate, so the server needs to be restarted.
 async fn reload_certificate(
-    server: Server,
+    server_handler: ServerHandle,
     public_key_path: &str,
     certificate_cache: Vec<u8>,
 ) -> Result<()> {
@@ -260,7 +264,7 @@ async fn reload_certificate(
                 Level::INFO,
                 "Certificate has been renewed, restarting server to reload new certificate"
             );
-            server.stop(true).await
+            server_handler.stop(true).await;
         }
         sleep(CERTIFICATE_DETECTOR_SLEEP_DURATION).await;
     }

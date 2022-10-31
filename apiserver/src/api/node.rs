@@ -3,10 +3,7 @@ use crate::webhook::ConversionRequest;
 
 use models::node::{BottlerocketShadowClient, BottlerocketShadowStatus};
 
-use actix_web::{
-    web::{self},
-    HttpRequest, HttpResponse, Responder,
-};
+use actix_web::{web, HttpRequest, HttpResponse, Responder};
 
 use serde_json::json;
 use snafu::ResultExt;
@@ -72,13 +69,13 @@ mod tests {
         HEADER_BRUPOP_NODE_UID, NODE_RESOURCE_ENDPOINT,
     };
     use crate::webhook::{ConversionRequest, ConversionResponse, Request};
+    use actix_web::body::MessageBody;
     use models::node::{
         BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowSpec,
         BottlerocketShadowState, MockBottlerocketShadowClient, Version,
     };
 
     use actix_web::{
-        body::AnyBody,
         test,
         web::{self, Data},
         App,
@@ -132,13 +129,14 @@ mod tests {
 
         // The call returns a JSON-ified copy of the created node on success.
         assert!(resp.status().is_success());
-        if let AnyBody::Bytes(b) = resp.into_body() {
-            let brs: BottlerocketShadow =
-                serde_json::from_slice(&b).expect("Could not parse JSON response.");
-            assert_eq!(brs, expected_return_value);
-        } else {
-            panic!("Response did not return a body.");
-        }
+        match resp.into_body().try_into_bytes() {
+            Ok(body) => {
+                let brs: BottlerocketShadow =
+                    serde_json::from_slice(&body).expect("Could not parse JSON response.");
+                assert_eq!(brs, expected_return_value);
+            }
+            Err(_) => panic!("Response did not return a body."),
+        };
     }
 
     #[tokio::test]
@@ -196,13 +194,14 @@ mod tests {
         let resp = test::call_service(&app, req).await;
 
         assert!(resp.status().is_success());
-        if let AnyBody::Bytes(b) = resp.into_body() {
-            let return_status: BottlerocketShadowStatus =
-                serde_json::from_slice(&b).expect("Could not parse JSON response.");
-            assert_eq!(return_status, node_status);
-        } else {
-            panic!("Response did not return a body.");
-        }
+        match resp.into_body().try_into_bytes() {
+            Ok(body) => {
+                let return_status: BottlerocketShadowStatus =
+                    serde_json::from_slice(&body).expect("Could not parse JSON response.");
+                assert_eq!(return_status, node_status);
+            }
+            Err(_) => panic!("Response did not return a body."),
+        };
     }
 
     #[tokio::test]
@@ -255,13 +254,23 @@ mod tests {
         let resp = test::call_service(&app, req).await;
 
         assert!(resp.status().is_success());
-        if let AnyBody::Bytes(b) = resp.into_body() {
-            // Only check the response body can be converted to ConversionResponse.
-            // Contents of the ConversionResponse should be tested in convert_resource method.
-            serde_json::from_slice::<ConversionResponse>(&b)
-                .expect("Could not parse JSON response.");
-        } else {
-            panic!("Response did not return a body.");
-        }
+        //if let AnyBody::Bytes(b) = resp.into_body() {
+        // Only check the response body can be converted to ConversionResponse.
+        // Contents of the ConversionResponse should be tested in convert_resource method.
+        //serde_json::from_slice::<ConversionResponse>(&b)
+        //.expect("Could not parse JSON response.");
+        //} else {
+        //panic!("Response did not return a body.");
+        //}
+
+        match resp.into_body().try_into_bytes() {
+            Ok(body) => {
+                // Only check the response body can be converted to ConversionResponse.
+                // Contents of the ConversionResponse should be tested in convert_resource method.
+                serde_json::from_slice::<ConversionResponse>(&body)
+                    .expect("Could not parse JSON response.");
+            }
+            Err(_) => panic!("Response did not return a body."),
+        };
     }
 }
