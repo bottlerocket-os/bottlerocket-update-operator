@@ -213,7 +213,7 @@ dependencies = [
  "actix-web",
  "awc",
  "futures",
- "opentelemetry",
+ "opentelemetry 0.16.0",
  "opentelemetry-prometheus",
  "opentelemetry-semantic-conventions",
  "prometheus",
@@ -231,7 +231,7 @@ dependencies = [
  "k8s-openapi",
  "kube",
  "models",
- "opentelemetry",
+ "opentelemetry 0.16.0",
  "reqwest",
  "semver 1.0.14",
  "serde",
@@ -311,7 +311,7 @@ dependencies = [
  "mockall",
  "models",
  "openssl",
- "opentelemetry",
+ "opentelemetry 0.16.0",
  "opentelemetry-prometheus",
  "reqwest",
  "schemars",
@@ -868,7 +868,7 @@ dependencies = [
  "kube",
  "maplit",
  "models",
- "opentelemetry",
+ "opentelemetry 0.16.0",
  "opentelemetry-prometheus",
  "prometheus",
  "semver 1.0.14",
@@ -2054,12 +2054,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "opentelemetry"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6105e89802af13fdf48c49d7646d3b533a70e536d818aae7e78ba0433d01acb8"
+dependencies = [
+ "async-trait",
+ "crossbeam-channel",
+ "futures-channel",
+ "futures-executor",
+ "futures-util",
+ "js-sys",
+ "lazy_static",
+ "percent-encoding",
+ "pin-project",
+ "rand",
+ "thiserror",
+]
+
+[[package]]
 name = "opentelemetry-prometheus"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ee9c06c1366665e7d4dba6540a42ea48900a9c92dc5b963f3ae05fbba76dc63"
 dependencies = [
- "opentelemetry",
+ "opentelemetry 0.16.0",
  "prometheus",
  "protobuf",
 ]
@@ -2070,7 +2089,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffeac823339e8b0f27b961f4385057bf9f97f2863bc745bd015fd6091f2270e9"
 dependencies = [
- "opentelemetry",
+ "opentelemetry 0.16.0",
 ]
 
 [[package]]
@@ -3204,11 +3223,12 @@ dependencies = [
 
 [[package]]
 name = "tracing-opentelemetry"
-version = "0.16.0"
+version = "0.17.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ffbf13a0f8b054a4e59df3a173b818e9c6177c02789871f2073977fd0062076"
+checksum = "fbbe89715c1dbbb790059e2565353978564924ee85017b5fff365c872ff6721f"
 dependencies = [
- "opentelemetry",
+ "once_cell",
+ "opentelemetry 0.17.0",
  "tracing",
  "tracing-core",
  "tracing-log",

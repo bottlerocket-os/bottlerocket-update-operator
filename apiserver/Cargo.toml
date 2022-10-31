@@ -23,7 +23,7 @@ opentelemetry-prometheus = "0.9"
 tracing = "0.1"
 tracing-actix-web = "0.4.0-beta.14"
 tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
-tracing-opentelemetry = "0.16"
+tracing-opentelemetry = "0.17"
 
 # k8s-openapi must match the version required by kube and enable a k8s version feature
 k8s-openapi = { version = "0.16.0", default-features = false, features = ["v1_20"] }

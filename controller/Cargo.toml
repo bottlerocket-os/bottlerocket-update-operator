@@ -24,5 +24,5 @@ serde_plain = "1.0.1"
 snafu = "0.7"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 tracing = "0.1"
-tracing-opentelemetry = "0.16"
+tracing-opentelemetry = "0.17"
 tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
