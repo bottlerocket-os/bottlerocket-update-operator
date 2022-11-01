@@ -1,22 +1,27 @@
 # Bottlerocket Update Operator
 
-The Bottlerocket update operator is a [Kubernetes operator](https://Kubernetes.io/docs/concepts/extend-Kubernetes/operator/) that coordinates Bottlerocket updates on hosts in a cluster.
+The Bottlerocket update operator (or, for short, Brupop) is a [Kubernetes operator](https://Kubernetes.io/docs/concepts/extend-Kubernetes/operator/) that coordinates Bottlerocket updates on hosts in a cluster.
 When installed, the Bottlerocket update operator starts a controller deployment on one node, an agent daemon set on every Bottlerocket node, and an Update Operator API Server deployment.
 The controller orchestrates updates across your cluster, while the agent is responsible for periodically querying for Bottlerocket updates, draining the node, and performing the update when asked by the controller.
 The agent performs all cluster object mutation operations via the API Server, which performs additional authorization using the Kubernetes TokenReview API -- ensuring that any request associated with a node is being made by the agent pod running on that node.
+Further, `cert-manager` is required in order for the API server to use a CA certificate to communicate over SSL with the agents.
 Updates to Bottlerocket are rolled out in [waves](https://github.com/bottlerocket-os/bottlerocket/tree/develop/sources/updater/waves) to reduce the impact of issues; the nodes in your cluster may not all see updates at the same time.
+
+For a deep dive on installing Brupop, how it works, and it's integration with Bottlerocket, [check out this design deep dive document!](./design/1.0.0-release.md)
 
 ## Getting Started
 
 ### Installation
 
-We use [cert-manager](https://cert-manager.io) to manage self-signed certificates used by Bottlerocket update operator. To install cert-manager:
+1. Brupop uses [cert-manager](https://cert-manager.io) to manage self-signed certificates used by the Bottlerocket update operator. To install cert-manager:
 
 ```sh
-kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.8.2/cert-manager.yaml
+kubectl apply -f \
+  https://github.com/cert-manager/cert-manager/releases/download/v1.8.2/cert-manager.yaml
 ```
 
-We can install the Bottlerocket update operator using the recommended configuration defined in [bottlerocket-update-operator.yaml](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/0.2.2/yamlgen/deploy/bottlerocket-update-operator.yaml):
+2. The Bottlerocket update operator can then be installed using the recommended configuration defined in [bottlerocket-update-operator.yaml](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/1.0.0/yamlgen/deploy/bottlerocket-update-operator.yaml).
+This YAML file can also be found in the [Brupop release artifacts](https://github.com/bottlerocket-os/bottlerocket-update-operator/releases):
 
 ```sh
 kubectl apply -f ./bottlerocket-update-operator.yaml
@@ -24,12 +29,19 @@ kubectl apply -f ./bottlerocket-update-operator.yaml
 
 This will create the required namespace, custom resource definition, roles, deployments, etc., and use the latest update operator image available in [Amazon ECR Public](https://gallery.ecr.aws/bottlerocket/bottlerocket-update-operator).
 
-Note: The above link is set to use the configuration for the latest version of the Update Operator, `v0.2.2`.
+Note: The above link points to the latest version of the Update Operator, `v1.0.0`.
 Be sure to use the git tag for the Update Operator release that you plan to deploy.
 
-#### Configuration
+3. Label nodes with `bottlerocket.aws/updater-interface-version=2.0.0` to indicate they should be automatically updated.
+Only bottlerocket nodes with this label will be updated. For more information on labeling, refer to the [Label nodes section of this readme.](https://github.com/bottlerocket-os/bottlerocket-update-operator#label-nodes)
 
-##### Configure API server ports
+```sh
+kubectl label node MY_NODE_NAME bottlerocket.aws/updater-interface-version=2.0.0
+```
+
+### Configuration
+
+#### Configure API server ports
 
 If you'd like to configure what ports the API server uses,
 adjust the value that is consumed in the container environment:
@@ -42,10 +54,9 @@ adjust the value that is consumed in the container environment:
           env:
             - name: APISERVER_INTERNAL_PORT
               value: 999
-      ...
 ```
 
-You'll then also need to adjust the various "port" entries in the manifest
+You'll then also need to adjust the various "port" entries in the YAML manifest
 to correctly reflect what port the API server starts on and expects for its service port:
 
 ```yaml
@@ -59,18 +70,18 @@ to correctly reflect what port the API server starts on and expects for its serv
           port: 123
 ```
 
-The default values are generated from the `.env` file (and can be used when building the update operator from source to configure your own ports):
+The default values are generated from the [`.env`](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/develop/.env) file (and can be used when building the update operator from source to configure your own ports):
 - `APISERVER_INTERNAL_PORT = 8443` - This is the container port the API server starts on.
   If this environment variable is _not_ found, the Brupop API server will fail to start.
 - `APISERVER_SERVICE_PORT = 443` - This is the port Brupop's Kubernetes Service uses to target the internal API Server port.
   It is used by the node agents to access the API server.
   If this environment variable is _not_ found, the Brupop agents will fail to start.
 
-##### Exclude Nodes from Load Balancers Before Draining
-This configuration uses Kuberenetes [ServiceNodeExclusion](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/) feature.
+#### Exclude Nodes from Load Balancers Before Draining
+This configuration uses the Kuberenetes [ServiceNodeExclusion](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/) feature.
 `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` can be used to enable the feature to exclude the node from load balancer before draining.
 When `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` is 0 (default), the feature is disabled.
-When `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` is set to a positive integer, bottlerocket update operater will exclude the node from 
+When `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` is set to a positive integer, bottlerocket update operator will exclude the node from
 load balancer and then wait `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` seconds before draining the pods on the node.
 
 To enable this feature, go to `bottlerocket-update-operator.yaml`, change `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` to a positive integer value.
@@ -90,16 +101,16 @@ For example:
       ...
 ```
 
-##### Set Up Max Concurrent Update
+#### Set Up Max Concurrent Update
 `MAX_CONCURRENT_UPDATE` can be used to specify the max concurrent updates during updating.
-When `MAX_CONCURRENT_UPDATE` is a positive integer number, bottlerocket update operator
+When `MAX_CONCURRENT_UPDATE` is a positive integer, the bottlerocket update operator
 will concurrently update up to `MAX_CONCURRENT_UPDATE` nodes respecting [PodDisruptionBudgets](https://kubernetes.io/docs/tasks/run-application/configure-pdb/).
 When `MAX_CONCURRENT_UPDATE` is set to `unlimited`, bottlerocket update operator
 will concurrently update all nodes respecting [PodDisruptionBudgets](https://kubernetes.io/docs/tasks/run-application/configure-pdb/).
 
 Note: The `MAX_CONCURRENT_UPDATE` configuration does not work well with `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` 
 configuration, especially when `MAX_CONCURRENT_UPDATE` is set to `unlimited`, it could potentially exclude all 
-nodes from load balancer at the same time..
+nodes from load balancer at the same time.
 
 To enable this feature, go to `bottlerocket-update-operator.yaml`, change `MAX_CONCURRENT_UPDATE` to a positive integer value or `unlimited`.
 For example:
@@ -116,11 +127,11 @@ For example:
               value: "1"
 ```
 
-##### Set Up Update Time Window
+#### Set an Update Time Window
 `UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` can be used to specify the time window in which updates are permitted.
-When `UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` is 0:0:0 (default), the feature is disabled.
+When `UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` are both 0:0:0 (default), the feature is disabled.
 
-To enable this feature, go to `bottlerocket-update-operator.yaml`, change `UPDATE_WINDOW_START` and `UPDATE_WINDOW__STOP` to a `hour:minute:second` formate value (UTC (24-hour time notation)). Note that `UPDATE_WINDOW_START` is inclusive and `UPDATE_WINDOW_STOP` is exclusive.
+To enable this feature, go to `bottlerocket-update-operator.yaml`, change `UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` to a `hour:minute:second` formatted value (UTC (24-hour time notation)). Note that `UPDATE_WINDOW_START` is inclusive and `UPDATE_WINDOW_STOP` is exclusive.
 
 To avoid stopping an in-process node update when the update window stops, Bottlerocket update operator reserves 6 mins before `UPDATE_WINDOW_STOP` to finish remaining updates.
 
@@ -144,7 +155,7 @@ For example:
 ### Label nodes
 
 By default, each Workload resource constrains scheduling of the update operator by limiting pods to Bottlerocket nodes based on their labels.
-These labels are not applied on nodes automatically and will need to be set on each using `kubectl`.
+These labels are not applied on nodes automatically and will need to be set on each desired node using `kubectl`.
 The agent relies on each node's updater components and schedules its pods based on their interface supported.
 The node indicates its updater interface version in a label called `bottlerocket.aws/updater-interface-version`.
 Agent deployments, respective to the interface version, are scheduled using this label and target only a single version in each.
@@ -178,17 +189,15 @@ If all nodes in the cluster are running Bottlerocket and require the same `updat
 kubectl label node $(kubectl get nodes -o jsonpath='{.items[*].metadata.name}') bottlerocket.aws/updater-interface-version=2.0.0
 ```
 
-If you must support `updater-interface-version` 1.0.0, please [open an issue](https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/new/choose) and tell us about your use case.
+### Uninstalling
 
-### A Note About Removing Labels
+If you remove the `bottlerocket.aws/updater-interface-version=2.0.0` label from a node,
+the Brupop controller will remove the resources from that node (including the `bottlerocketshadow` CRD associated with that node).
 
-Should you decide that the update operator should no longer manage a node, removing the `updater-interface-version` is not quite sufficient to remove the update operator components responsible for that node.
-The update operator associates a Kubernetes Custom Resource with each node. While the Custom Resource will be garbage collected if the node itself is deleted, you must manually clean up the Custom Resource if you choose to delete only the `updater-interface-version`. The Custom Resource can be deleted like so:
+Deleting the custom resources, definitions, and deployments will then fully remove the bottlerocket update operator from your cluster:
 
 ```sh
-# Set this to the name of the node you wish to stop managing with the update operator.
-NODE_NAME="my-node-name"
-kubectl delete brs brs-${NODE_NAME} --namespace brupop-bottlerocket-aws 
+kubectl delete -f ./bottlerocket-update-operator.yaml
 ```
 
 ## Operation
@@ -209,7 +218,7 @@ Additionally, the update operator's controller and apiserver components expose m
 
 The current state of the cluster from the perspective of the update operator can be summarized by querying the Kubernetes API for BottlerocketShadow objects.
 This view will inform you of the current Bottlerocket version of each node managed by the update operator, as well as the current ongoing update status of any node with an update in-progress.
-The following command requires `kubectl` to be configured for the development cluster to be monitored:
+The following command requires `kubectl` to be configured for the desired cluster to be monitored:
 
 ``` sh
 kubectl get bottlerocketshadows --namespace brupop-bottlerocket-aws 
@@ -232,7 +241,7 @@ brs-node-2                                         Idle    1.5.1     StagedUpdat
 
 #### Monitoring Cluster History and Metrics with Prometheus
 
-The update operator provides metrics endpoints which can be scraped into [Prometheus](https://prometheus.io/).
+The update operator provides metrics endpoints which can be scraped by [Prometheus](https://prometheus.io/).
 This allows you to monitor the history of update operations using popular metrics analysis and visualization tools.
 
 We provide a [sample configuration](./yamlgen/telemetry/prometheus-resources.yaml) which demonstrates a Prometheus deployment into the cluster that is configured to gather metrics data from the update operator.
@@ -268,46 +277,48 @@ Search for:
 `bottlerocket-update-operator.yaml` pulls operator images from Amazon ECR Public.
 You may also choose to pull from regional Amazon ECR repositories such as the following.
 
-  - 917644944286.dkr.ecr.af-south-1.amazonaws.com
-  - 375569722642.dkr.ecr.ap-east-1.amazonaws.com
-  - 328549459982.dkr.ecr.ap-northeast-1.amazonaws.com
-  - 328549459982.dkr.ecr.ap-northeast-2.amazonaws.com
-  - 328549459982.dkr.ecr.ap-south-1.amazonaws.com
-  - 328549459982.dkr.ecr.ap-southeast-1.amazonaws.com
-  - 328549459982.dkr.ecr.ap-southeast-2.amazonaws.com
-  - 328549459982.dkr.ecr.ca-central-1.amazonaws.com
-  - 328549459982.dkr.ecr.eu-central-1.amazonaws.com
-  - 328549459982.dkr.ecr.eu-north-1.amazonaws.com
-  - 586180183710.dkr.ecr.eu-south-1.amazonaws.com
-  - 328549459982.dkr.ecr.eu-west-1.amazonaws.com
-  - 328549459982.dkr.ecr.eu-west-2.amazonaws.com
-  - 328549459982.dkr.ecr.eu-west-3.amazonaws.com
-  - 509306038620.dkr.ecr.me-south-1.amazonaws.com
-  - 328549459982.dkr.ecr.sa-east-1.amazonaws.com
-  - 328549459982.dkr.ecr.us-east-1.amazonaws.com
-  - 328549459982.dkr.ecr.us-east-2.amazonaws.com
-  - 328549459982.dkr.ecr.us-west-1.amazonaws.com
-  - 328549459982.dkr.ecr.us-west-2.amazonaws.com
-  - 388230364387.dkr.ecr.us-gov-east-1.amazonaws.com
-  - 347163068887.dkr.ecr.us-gov-west-1.amazonaws.com
+  - `917644944286.dkr.ecr.af-south-1.amazonaws.com`
+  - `375569722642.dkr.ecr.ap-east-1.amazonaws.com`
+  - `328549459982.dkr.ecr.ap-northeast-1.amazonaws.com`
+  - `328549459982.dkr.ecr.ap-northeast-2.amazonaws.com`
+  - `328549459982.dkr.ecr.ap-northeast-3.amazonaws.com`
+  - `328549459982.dkr.ecr.ap-south-1.amazonaws.com`
+  - `328549459982.dkr.ecr.ap-southeast-1.amazonaws.com`
+  - `328549459982.dkr.ecr.ap-southeast-2.amazonaws.com`
+  - `386774335080.dkr.ecr.ap-southeast-3.amazonaws.com`
+  - `328549459982.dkr.ecr.ca-central-1.amazonaws.com`
+  - `328549459982.dkr.ecr.eu-central-1.amazonaws.com`
+  - `328549459982.dkr.ecr.eu-north-1.amazonaws.com`
+  - `586180183710.dkr.ecr.eu-south-1.amazonaws.com`
+  - `328549459982.dkr.ecr.eu-west-1.amazonaws.com`
+  - `328549459982.dkr.ecr.eu-west-2.amazonaws.com`
+  - `328549459982.dkr.ecr.eu-west-3.amazonaws.com`
+  - `553577323255.dkr.ecr.me-central-1.amazonaws.com`
+  - `509306038620.dkr.ecr.me-south-1.amazonaws.com`
+  - `328549459982.dkr.ecr.sa-east-1.amazonaws.com`
+  - `328549459982.dkr.ecr.us-east-1.amazonaws.com`
+  - `328549459982.dkr.ecr.us-east-2.amazonaws.com`
+  - `328549459982.dkr.ecr.us-west-1.amazonaws.com`
+  - `328549459982.dkr.ecr.us-west-2.amazonaws.com`
+  - `388230364387.dkr.ecr.us-gov-east-1.amazonaws.com`
+  - `347163068887.dkr.ecr.us-gov-west-1.amazonaws.com`
+  - `183470599484.dkr.ecr.cn-north-1.amazonaws.com.cn`
+  - `183901325759.dkr.ecr.cn-northwest-1.amazonaws.com.cn`
 
 Example regional image URI:
 ```
-328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-update-operator:v0.2.2
+328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-update-operator:v1.0.0
 ```
 
 ### Current Limitations
 
-- Communication between the bottlerocket agents and API server does not currently use SSL, due to a requirement for a cert management solution.
-  We are considering an approach which uses [cert-manager](https://cert-manager.io) to that end.
 - Monitoring on newly-rebooted nodes is limited.
   We are considering an approach in which custom health checks can be configured to run after reboots. (https://github.com/bottlerocket-os/bottlerocket/issues/503)
-- single node cluster degrades into unscheduleable on update (https://github.com/bottlerocket-os/bottlerocket/issues/501)
 - Node labels are not automatically applied to allow scheduling (https://github.com/bottlerocket-os/bottlerocket/issues/504)
 
 ## Troubleshooting
 
-When installed with the [default deployment](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/v0.2.2/yamlgen/deploy/bottlerocket-update-operator.yaml), the logs can be fetched through Kubernetes deployment logs.
+When installed with the [default deployment](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/v1.0.0/yamlgen/deploy/bottlerocket-update-operator.yaml), the logs can be fetched through Kubernetes deployment logs.
 Because mutations to a node are orchestrated through the API server component, searching those deployment logs for a node ID can be useful.
 To get logs for the API server, run the following:
 

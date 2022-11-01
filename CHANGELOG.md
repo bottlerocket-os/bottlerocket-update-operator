@@ -1,3 +1,59 @@
+# 1.0.0
+
+## General
+
+Added
+
+* Mechanism to constrain updates to a certain update time window ([#241])
+* Option to exclude node before draining - ([#231])
+* Port configuration ([#315])
+* Support for concurrent updates - ([#238])
+* Automatic prometheus scraping annotations for controller's service ([#269])
+* Use `ca.crt` in SSL - ([#260])
+* Reload certificates periodically to ensure no service loss ([#280])
+* Replaced `bunyan` style logging in favor of human readable logs ([#298])
+* Support webhook conversions from v2 to v1 (to support the Kubernetes pinwheel model) ([#308])
+* Support integration tests in AWS China region ([#317]) ([#318])
+
+Fixed
+
+* Upgraded Bottlerocket SDK to consume fix for OpenSSl CVE-2022-3602 and CVE-2022-3786 ([#331])
+* Gracefully exit Brupop agent when rebooting node ([#218])
+* Clean up `bottlerocketshadows` when Brupop resources are removed from the cluster ([#235])
+* Clarify crossbeam license ([#250])
+* Made error handling module specific ([#279]) ([#291])
+
+Misc
+
+* Numerous dependency updates
+* Fixed clippy linting / warnings ([#267])
+* Clear and remove GitHub actions cache ([#268]) ([#286])
+* Added step to integration tests to automatically add and delete cert-manager ([#320])
+* Added GitHub action step to catch changes to deployment manifest ([#321])
+
+[#218]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/218
+[#231]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/231
+[#235]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/235
+[#238]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/238
+[#241]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/241
+[#250]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/250
+[#260]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/260
+[#267]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/267
+[#268]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/268
+[#269]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/269
+[#279]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/279
+[#280]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/280
+[#286]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/286
+[#291]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/291
+[#298]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/298
+[#308]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/308
+[#315]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/315
+[#317]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/317
+[#318]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/318
+[#320]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/320
+[#321]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/321
+[#331]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/331
+
 # 0.2.2
 
 ## General
