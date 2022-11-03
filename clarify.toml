@@ -71,7 +71,9 @@ license-files = [
 # "Zstandard is dual-licensed under BSD and GPLv2."
 expression = "(MIT OR Apache-2.0) AND (BSD-2-Clause OR GPL-2.0)"
 license-files = [
-    { path = "LICENSE", hash = 0xa237d234 },
+    { path = "LICENSE", hash = 0x742401ae },
+    { path = "LICENSE.Apache-2.0", hash = 0x7b466be4 },
+    { path = "LICENSE.Mit", hash = 0xa237d234 },
     { path = "zstd/COPYING", hash = 0x96841aa4 },
     { path = "zstd/LICENSE", hash = 0x79cda15 },
 ]
@@ -79,3 +81,18 @@ skip-files = [
     # Files under zstd/build are for IDE integrations, and are unused.
     "zstd/build/LICENSE"
 ]
+
+[clarify.zstd-safe]
+# The zstd-safe crate's license is listed as MIT or Apache2
+#
+# zstd-safe compiles zstd as a thin wrapper for zstd.
+expression = "MIT OR Apache-2.0"
+license-files = [
+    { path = "LICENSE", hash = 0x742401ae },
+    { path = "LICENSE.Mit", hash = 0xa237d234 },
+    { path = "LICENSE.Apache-2.0", hash = 0x7b466be4 },
+]
+#skip-files = [
+     #Files under zstd/build are for IDE integrations, and are unused.
+    #"zstd/build/LICENSE"
+#]

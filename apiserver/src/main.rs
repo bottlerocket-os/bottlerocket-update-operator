@@ -4,6 +4,9 @@ use apiserver_error::{StartServerSnafu, StartTelemetrySnafu};
 use models::node::K8SBottlerocketShadowClient;
 use tracing::{event, Level};
 
+use opentelemetry::sdk::export::metrics::aggregation;
+use opentelemetry::sdk::metrics::{controllers, processors, selectors};
+
 use snafu::ResultExt;
 
 use std::env;
@@ -30,8 +33,16 @@ async fn main() {
 
 async fn run_server() -> Result<(), apiserver_error::Error> {
     init_telemetry().context(StartTelemetrySnafu)?;
+    let controller = controllers::basic(
+        processors::factory(
+            selectors::simple::histogram([1.0, 2.0, 5.0, 10.0, 20.0, 50.0]),
+            aggregation::cumulative_temporality_selector(),
+        )
+        .with_memory(true),
+    )
+    .build();
 
-    let prometheus_exporter = opentelemetry_prometheus::exporter().init();
+    let prometheus_exporter = opentelemetry_prometheus::exporter(controller).init();
 
     let k8s_client = kube::client::Client::try_default()
         .await
@@ -50,7 +61,7 @@ async fn run_server() -> Result<(), apiserver_error::Error> {
         server_port: internal_port as u16,
     };
 
-    api::run_server(settings, k8s_client, Some(prometheus_exporter))
+    api::run_server(settings, k8s_client, prometheus_exporter)
         .await
         .context(StartServerSnafu)
 }
