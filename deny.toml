@@ -41,9 +41,6 @@ skip-tree = [
     { name = "clap", version = "2.34.0" },
     # structopt-derive uses an older version of heck, which clashed with the one used by strum_macros.
     { name = "structopt-derive", version = "0.4.18"},
-    # use "rustls-tls" feature in kube to build correct k8s client for IPv6 cluster
-    # with "rustls-tls" enabled, kube uses mixed versions of hyper-rustls
-    { name = "kube", version = "0.75.0"},
     # aws-smithy-client brings in several lagging dependencies that can be ignored
     # since it is only used in the integration tests
     { name = "integ" }

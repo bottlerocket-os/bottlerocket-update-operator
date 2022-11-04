@@ -9,4 +9,4 @@ license = "Apache-2.0 OR MIT"
 models = { path = "../models", version = "0.1.0" }
 dotenv = "0.15"
 kube = { version = "0.76.0", default-features = true, features = [ "derive", "runtime" ] }
-serde_yaml = "0.8"
+serde_yaml = "0.9"

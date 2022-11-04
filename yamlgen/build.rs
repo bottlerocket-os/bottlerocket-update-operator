@@ -28,6 +28,7 @@ use std::path::PathBuf;
 
 const YAMLGEN_DIR: &str = env!("CARGO_MANIFEST_DIR");
 const HEADER: &str = "# This file is generated. Do not edit.\n";
+const YAML_DOC_LEADER: &str = "---\n";
 
 fn main() {
     dotenv::dotenv().ok();
@@ -46,6 +47,9 @@ fn main() {
     let apiserver_internal_port = env::var("APISERVER_INTERNAL_PORT").ok().unwrap();
     let apiserver_service_port = env::var("APISERVER_SERVICE_PORT").ok().unwrap();
     brupop_resources.write_all(HEADER.as_bytes()).unwrap();
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(
         &brupop_resources,
         &combined_crds(apiserver_service_port.clone()),
@@ -70,6 +74,9 @@ fn main() {
     if !max_concurrent_update.eq("unlimited") {
         max_concurrent_update.parse::<usize>().unwrap();
     }
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(&brupop_resources, &brupop_namespace()).unwrap();
 
     // cert-manager and secret
@@ -80,14 +87,29 @@ fn main() {
     brupop_resources.write_all(contents.as_bytes()).unwrap();
 
     // apiserver resources
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(&brupop_resources, &apiserver_service_account()).unwrap();
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(&brupop_resources, &apiserver_cluster_role()).unwrap();
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(&brupop_resources, &apiserver_cluster_role_binding()).unwrap();
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(
         &brupop_resources,
         &apiserver_auth_delegator_cluster_role_binding(),
     )
     .unwrap();
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(
         &brupop_resources,
         &apiserver_deployment(
@@ -97,6 +119,10 @@ fn main() {
         ),
     )
     .unwrap();
+
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(
         &brupop_resources,
         &apiserver_service(apiserver_internal_port, apiserver_service_port.clone()),
@@ -104,9 +130,21 @@ fn main() {
     .unwrap();
 
     // agent resources
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(&brupop_resources, &agent_service_account()).unwrap();
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(&brupop_resources, &agent_cluster_role()).unwrap();
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(&brupop_resources, &agent_cluster_role_binding()).unwrap();
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(
         &brupop_resources,
         &agent_daemonset(
@@ -119,10 +157,25 @@ fn main() {
     .unwrap();
 
     // controller resources
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(&brupop_resources, &controller_service_account()).unwrap();
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(&brupop_resources, &controller_cluster_role()).unwrap();
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(&brupop_resources, &controller_cluster_role_binding()).unwrap();
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(&brupop_resources, &controller_priority_class()).unwrap();
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(
         &brupop_resources,
         &controller_deployment(
@@ -134,5 +187,9 @@ fn main() {
         ),
     )
     .unwrap();
+
+    brupop_resources
+        .write_all(YAML_DOC_LEADER.as_bytes())
+        .unwrap();
     serde_yaml::to_writer(&brupop_resources, &controller_service()).unwrap();
 }

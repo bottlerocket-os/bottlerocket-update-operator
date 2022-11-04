@@ -17,176 +17,176 @@ spec:
           path: /crdconvert
           port: 443
       conversionReviewVersions:
-        - v2
-        - v1
+      - v2
+      - v1
   group: brupop.bottlerocket.aws
   names:
     kind: BottlerocketShadow
     plural: bottlerocketshadows
     shortNames:
-      - brs
+    - brs
     singular: bottlerocketshadow
   scope: Namespaced
   versions:
-    - additionalPrinterColumns:
-        - jsonPath: ".status.current_state"
-          name: State
-          type: string
-        - jsonPath: ".status.current_version"
-          name: Version
-          type: string
-        - jsonPath: ".spec.state"
-          name: Target State
-          type: string
-        - jsonPath: ".spec.version"
-          name: Target Version
-          type: string
-        - jsonPath: ".status.crash_count"
-          name: Crash Count
-          type: string
-      name: v2
-      schema:
-        openAPIV3Schema:
-          description: "Auto-generated derived type for BottlerocketShadowSpec via `CustomResource`"
-          properties:
-            spec:
-              description: "The `BottlerocketShadowSpec` can be used to drive a node through the update state machine. A node linearly drives towards the desired state. The brupop controller updates the spec to specify a node's desired state, and the host agent drives state changes forward and updates the `BottlerocketShadowStatus`."
-              properties:
-                state:
-                  description: "Records the desired state of the `BottlerocketShadow`"
-                  enum:
-                    - Idle
-                    - StagedAndPerformedUpdate
-                    - RebootedIntoUpdate
-                    - MonitoringUpdate
-                    - ErrorReset
-                  type: string
-                state_transition_timestamp:
-                  description: The time at which the most recent state was set as the desired state.
-                  nullable: true
-                  type: string
-                version:
-                  description: "The desired update version, if any."
-                  nullable: true
-                  pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
-                  type: string
-              required:
-                - state
-              type: object
-            status:
-              description: "`BottlerocketShadowStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent, while the spec is updated by the brupop controller."
-              nullable: true
-              properties:
-                crash_count:
-                  format: uint32
-                  minimum: 0.0
-                  type: integer
-                current_state:
-                  description: "BottlerocketShadowState represents a node's state in the update state machine."
-                  enum:
-                    - Idle
-                    - StagedAndPerformedUpdate
-                    - RebootedIntoUpdate
-                    - MonitoringUpdate
-                    - ErrorReset
-                  type: string
-                current_version:
-                  pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
-                  type: string
-                state_transition_failure_timestamp:
-                  nullable: true
-                  type: string
-                target_version:
-                  pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
-                  type: string
-              required:
-                - crash_count
-                - current_state
-                - current_version
-                - target_version
-              type: object
-          required:
-            - spec
-          title: BottlerocketShadow
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
-    - additionalPrinterColumns:
-        - jsonPath: ".status.current_state"
-          name: State
-          type: string
-        - jsonPath: ".status.current_version"
-          name: Version
-          type: string
-        - jsonPath: ".spec.state"
-          name: Target State
-          type: string
-        - jsonPath: ".spec.version"
-          name: Target Version
-          type: string
-      name: v1
-      schema:
-        openAPIV3Schema:
-          description: "Auto-generated derived type for BottlerocketShadowSpec via `CustomResource`"
-          properties:
-            spec:
-              description: "The `BottlerocketShadowSpec` can be used to drive a node through the update state machine. A node linearly drives towards the desired state. The brupop controller updates the spec to specify a node's desired state, and the host agent drives state changes forward and updates the `BottlerocketShadowStatus`."
-              properties:
-                state:
-                  description: "Records the desired state of the `BottlerocketShadow`"
-                  enum:
-                    - Idle
-                    - StagedUpdate
-                    - PerformedUpdate
-                    - RebootedIntoUpdate
-                    - MonitoringUpdate
-                  type: string
-                state_transition_timestamp:
-                  description: The time at which the most recent state was set as the desired state.
-                  nullable: true
-                  type: string
-                version:
-                  description: "The desired update version, if any."
-                  nullable: true
-                  pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
-                  type: string
-              required:
-                - state
-              type: object
-            status:
-              description: "`BottlerocketShadowStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent, while the spec is updated by the brupop controller."
-              nullable: true
-              properties:
-                current_state:
-                  description: "BottlerocketShadowState represents a node's state in the update state machine."
-                  enum:
-                    - Idle
-                    - StagedUpdate
-                    - PerformedUpdate
-                    - RebootedIntoUpdate
-                    - MonitoringUpdate
-                  type: string
-                current_version:
-                  pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
-                  type: string
-                target_version:
-                  pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
-                  type: string
-              required:
-                - current_state
-                - current_version
-                - target_version
-              type: object
-          required:
-            - spec
-          title: BottlerocketShadow
-          type: object
-      served: true
-      storage: false
-      subresources:
-        status: {}
+  - additionalPrinterColumns:
+    - jsonPath: .status.current_state
+      name: State
+      type: string
+    - jsonPath: .status.current_version
+      name: Version
+      type: string
+    - jsonPath: .spec.state
+      name: Target State
+      type: string
+    - jsonPath: .spec.version
+      name: Target Version
+      type: string
+    - jsonPath: .status.crash_count
+      name: Crash Count
+      type: string
+    name: v2
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for BottlerocketShadowSpec via `CustomResource`
+        properties:
+          spec:
+            description: The `BottlerocketShadowSpec` can be used to drive a node through the update state machine. A node linearly drives towards the desired state. The brupop controller updates the spec to specify a node's desired state, and the host agent drives state changes forward and updates the `BottlerocketShadowStatus`.
+            properties:
+              state:
+                description: Records the desired state of the `BottlerocketShadow`
+                enum:
+                - Idle
+                - StagedAndPerformedUpdate
+                - RebootedIntoUpdate
+                - MonitoringUpdate
+                - ErrorReset
+                type: string
+              state_transition_timestamp:
+                description: The time at which the most recent state was set as the desired state.
+                nullable: true
+                type: string
+              version:
+                description: The desired update version, if any.
+                nullable: true
+                pattern: ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+                type: string
+            required:
+            - state
+            type: object
+          status:
+            description: '`BottlerocketShadowStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent, while the spec is updated by the brupop controller.'
+            nullable: true
+            properties:
+              crash_count:
+                format: uint32
+                minimum: 0.0
+                type: integer
+              current_state:
+                description: BottlerocketShadowState represents a node's state in the update state machine.
+                enum:
+                - Idle
+                - StagedAndPerformedUpdate
+                - RebootedIntoUpdate
+                - MonitoringUpdate
+                - ErrorReset
+                type: string
+              current_version:
+                pattern: ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+                type: string
+              state_transition_failure_timestamp:
+                nullable: true
+                type: string
+              target_version:
+                pattern: ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+                type: string
+            required:
+            - crash_count
+            - current_state
+            - current_version
+            - target_version
+            type: object
+        required:
+        - spec
+        title: BottlerocketShadow
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+  - additionalPrinterColumns:
+    - jsonPath: .status.current_state
+      name: State
+      type: string
+    - jsonPath: .status.current_version
+      name: Version
+      type: string
+    - jsonPath: .spec.state
+      name: Target State
+      type: string
+    - jsonPath: .spec.version
+      name: Target Version
+      type: string
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for BottlerocketShadowSpec via `CustomResource`
+        properties:
+          spec:
+            description: The `BottlerocketShadowSpec` can be used to drive a node through the update state machine. A node linearly drives towards the desired state. The brupop controller updates the spec to specify a node's desired state, and the host agent drives state changes forward and updates the `BottlerocketShadowStatus`.
+            properties:
+              state:
+                description: Records the desired state of the `BottlerocketShadow`
+                enum:
+                - Idle
+                - StagedUpdate
+                - PerformedUpdate
+                - RebootedIntoUpdate
+                - MonitoringUpdate
+                type: string
+              state_transition_timestamp:
+                description: The time at which the most recent state was set as the desired state.
+                nullable: true
+                type: string
+              version:
+                description: The desired update version, if any.
+                nullable: true
+                pattern: ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+                type: string
+            required:
+            - state
+            type: object
+          status:
+            description: '`BottlerocketShadowStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent, while the spec is updated by the brupop controller.'
+            nullable: true
+            properties:
+              current_state:
+                description: BottlerocketShadowState represents a node's state in the update state machine.
+                enum:
+                - Idle
+                - StagedUpdate
+                - PerformedUpdate
+                - RebootedIntoUpdate
+                - MonitoringUpdate
+                type: string
+              current_version:
+                pattern: ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+                type: string
+              target_version:
+                pattern: ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+                type: string
+            required:
+            - current_state
+            - current_version
+            - target_version
+            type: object
+        required:
+        - spec
+        title: BottlerocketShadow
+        type: object
+    served: true
+    storage: false
+    subresources:
+      status: {}
 ---
 apiVersion: v1
 kind: Namespace
@@ -255,52 +255,52 @@ metadata:
   name: brupop-apiserver-role
   namespace: brupop-bottlerocket-aws
 rules:
-  - apiGroups:
-      - brupop.bottlerocket.aws
-    resources:
-      - bottlerocketshadows
-      - bottlerocketshadows/status
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - apps
-    resources:
-      - deployments
-    verbs:
-      - create
-      - delete
-      - deletecollection
-      - get
-      - list
-      - patch
-      - update
-  - apiGroups:
-      - ""
-    resources:
-      - pods
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ""
-    resources:
-      - nodes
-    verbs:
-      - get
-      - list
-      - patch
-  - apiGroups:
-      - ""
-    resources:
-      - pods/eviction
-    verbs:
-      - create
+- apiGroups:
+  - brupop.bottlerocket.aws
+  resources:
+  - bottlerocketshadows
+  - bottlerocketshadows/status
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - ''
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ''
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - patch
+- apiGroups:
+  - ''
+  resources:
+  - pods/eviction
+  verbs:
+  - create
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -317,9 +317,9 @@ roleRef:
   kind: ClusterRole
   name: brupop-apiserver-role
 subjects:
-  - kind: ServiceAccount
-    name: brupop-apiserver-service-account
-    namespace: brupop-bottlerocket-aws
+- kind: ServiceAccount
+  name: brupop-apiserver-service-account
+  namespace: brupop-bottlerocket-aws
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -334,11 +334,11 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: "system:auth-delegator"
+  name: system:auth-delegator
 subjects:
-  - kind: ServiceAccount
-    name: brupop-apiserver-service-account
-    namespace: brupop-bottlerocket-aws
+- kind: ServiceAccount
+  name: brupop-apiserver-service-account
+  namespace: brupop-bottlerocket-aws
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -368,54 +368,54 @@ spec:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
-              - matchExpressions:
-                  - key: kubernetes.io/os
-                    operator: In
-                    values:
-                      - linux
-                  - key: kubernetes.io/arch
-                    operator: In
-                    values:
-                      - amd64
-                      - arm64
+            - matchExpressions:
+              - key: kubernetes.io/os
+                operator: In
+                values:
+                - linux
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - arm64
       containers:
-        - command:
-            - "./apiserver"
-          env:
-            - name: APISERVER_INTERNAL_PORT
-              value: "8443"
-          image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.0.0"
-          livenessProbe:
-            httpGet:
-              path: /ping
-              port: 8443
-              scheme: HTTPS
-            initialDelaySeconds: 5
-          name: brupop
-          ports:
-            - containerPort: 8443
-          readinessProbe:
-            httpGet:
-              path: /ping
-              port: 8443
-              scheme: HTTPS
-            initialDelaySeconds: 5
-          resources:
-            limits:
-              cpu: 10m
-              memory: 50Mi
-            requests:
-              cpu: 3m
-              memory: 8Mi
-          volumeMounts:
-            - mountPath: /etc/brupop-tls-keys
-              name: bottlerocket-tls-keys
+      - command:
+        - ./apiserver
+        env:
+        - name: APISERVER_INTERNAL_PORT
+          value: '8443'
+        image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.0.0
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 5
+        name: brupop
+        ports:
+        - containerPort: 8443
+        readinessProbe:
+          httpGet:
+            path: /ping
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 5
+        resources:
+          limits:
+            cpu: 10m
+            memory: 50Mi
+          requests:
+            cpu: 3m
+            memory: 8Mi
+        volumeMounts:
+        - mountPath: /etc/brupop-tls-keys
+          name: bottlerocket-tls-keys
       serviceAccountName: brupop-apiserver-service-account
       volumes:
-        - name: bottlerocket-tls-keys
-          secret:
-            optional: false
-            secretName: brupop-tls
+      - name: bottlerocket-tls-keys
+        secret:
+          optional: false
+          secretName: brupop-tls
 ---
 apiVersion: v1
 kind: Service
@@ -429,8 +429,8 @@ metadata:
   namespace: brupop-bottlerocket-aws
 spec:
   ports:
-    - port: 443
-      targetPort: 8443
+  - port: 443
+    targetPort: 8443
   selector:
     brupop.bottlerocket.aws/component: apiserver
 ---
@@ -458,23 +458,23 @@ metadata:
   name: brupop-agent-role
   namespace: brupop-bottlerocket-aws
 rules:
-  - apiGroups:
-      - ""
-    resources:
-      - nodes
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - brupop.bottlerocket.aws
-    resources:
-      - bottlerocketshadows
-      - bottlerocketshadows/status
-    verbs:
-      - get
-      - list
-      - watch
+- apiGroups:
+  - ''
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - brupop.bottlerocket.aws
+  resources:
+  - bottlerocketshadows
+  - bottlerocketshadows/status
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -491,9 +491,9 @@ roleRef:
   kind: ClusterRole
   name: brupop-agent-role
 subjects:
-  - kind: ServiceAccount
-    name: brupop-agent-service-account
-    namespace: brupop-bottlerocket-aws
+- kind: ServiceAccount
+  name: brupop-agent-service-account
+  namespace: brupop-bottlerocket-aws
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -519,76 +519,76 @@ spec:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
-              - matchExpressions:
-                  - key: kubernetes.io/os
-                    operator: In
-                    values:
-                      - linux
-                  - key: bottlerocket.aws/updater-interface-version
-                    operator: In
-                    values:
-                      - 2.0.0
-                  - key: kubernetes.io/arch
-                    operator: In
-                    values:
-                      - amd64
-                      - arm64
+            - matchExpressions:
+              - key: kubernetes.io/os
+                operator: In
+                values:
+                - linux
+              - key: bottlerocket.aws/updater-interface-version
+                operator: In
+                values:
+                - 2.0.0
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - arm64
       containers:
-        - command:
-            - "./agent"
-          env:
-            - name: MY_NODE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
-            - name: EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC
-              value: "0"
-            - name: APISERVER_SERVICE_PORT
-              value: "443"
-          image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.0.0"
-          name: brupop
-          resources:
-            limits:
-              cpu: 10m
-              memory: 50Mi
-            requests:
-              cpu: 5m
-              memory: 8Mi
-          securityContext:
-            seLinuxOptions:
-              level: s0
-              role: system_r
-              type: super_t
-              user: system_u
-          volumeMounts:
-            - mountPath: /run/api.sock
-              name: bottlerocket-api-socket
-            - mountPath: /bin/apiclient
-              name: bottlerocket-apiclient
-            - mountPath: /var/run/secrets/tokens/
-              name: bottlerocket-agent-service-account-token
-            - mountPath: /etc/brupop-tls-keys
-              name: bottlerocket-tls-keys
+      - command:
+        - ./agent
+        env:
+        - name: MY_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC
+          value: '0'
+        - name: APISERVER_SERVICE_PORT
+          value: '443'
+        image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.0.0
+        name: brupop
+        resources:
+          limits:
+            cpu: 10m
+            memory: 50Mi
+          requests:
+            cpu: 5m
+            memory: 8Mi
+        securityContext:
+          seLinuxOptions:
+            level: s0
+            role: system_r
+            type: super_t
+            user: system_u
+        volumeMounts:
+        - mountPath: /run/api.sock
+          name: bottlerocket-api-socket
+        - mountPath: /bin/apiclient
+          name: bottlerocket-apiclient
+        - mountPath: /var/run/secrets/tokens/
+          name: bottlerocket-agent-service-account-token
+        - mountPath: /etc/brupop-tls-keys
+          name: bottlerocket-tls-keys
       serviceAccountName: brupop-agent-service-account
       volumes:
-        - hostPath:
-            path: /run/api.sock
-            type: Socket
-          name: bottlerocket-api-socket
-        - hostPath:
-            path: /bin/apiclient
-            type: File
-          name: bottlerocket-apiclient
-        - name: bottlerocket-agent-service-account-token
-          projected:
-            sources:
-              - serviceAccountToken:
-                  audience: brupop-apiserver
-                  path: bottlerocket-agent-service-account-token
-        - name: bottlerocket-tls-keys
-          secret:
-            optional: false
-            secretName: brupop-tls
+      - hostPath:
+          path: /run/api.sock
+          type: Socket
+        name: bottlerocket-api-socket
+      - hostPath:
+          path: /bin/apiclient
+          type: File
+        name: bottlerocket-apiclient
+      - name: bottlerocket-agent-service-account-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: brupop-apiserver
+              path: bottlerocket-agent-service-account-token
+      - name: bottlerocket-tls-keys
+        secret:
+          optional: false
+          secretName: brupop-tls
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -614,44 +614,44 @@ metadata:
   name: brupop-controller-role
   namespace: brupop-bottlerocket-aws
 rules:
-  - apiGroups:
-      - brupop.bottlerocket.aws
-    resources:
-      - bottlerocketshadows
-      - bottlerocketshadows/status
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - brupop.bottlerocket.aws
-    resources:
-      - bottlerocketshadows
-    verbs:
-      - create
-      - patch
-      - update
-      - delete
-  - apiGroups:
-      - apps
-    resources:
-      - deployments
-    verbs:
-      - create
-      - delete
-      - deletecollection
-      - get
-      - list
-      - patch
-      - update
-  - apiGroups:
-      - ""
-    resources:
-      - nodes
-    verbs:
-      - get
-      - list
-      - watch
+- apiGroups:
+  - brupop.bottlerocket.aws
+  resources:
+  - bottlerocketshadows
+  - bottlerocketshadows/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - brupop.bottlerocket.aws
+  resources:
+  - bottlerocketshadows
+  verbs:
+  - create
+  - patch
+  - update
+  - delete
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - ''
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -668,9 +668,9 @@ roleRef:
   kind: ClusterRole
   name: brupop-controller-role
 subjects:
-  - kind: ServiceAccount
-    name: brupop-controller-service-account
-    namespace: brupop-bottlerocket-aws
+- kind: ServiceAccount
+  name: brupop-controller-service-account
+  namespace: brupop-bottlerocket-aws
 ---
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
@@ -707,39 +707,39 @@ spec:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
-              - matchExpressions:
-                  - key: kubernetes.io/os
-                    operator: In
-                    values:
-                      - linux
-                  - key: kubernetes.io/arch
-                    operator: In
-                    values:
-                      - amd64
-                      - arm64
+            - matchExpressions:
+              - key: kubernetes.io/os
+                operator: In
+                values:
+                - linux
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - arm64
       containers:
-        - command:
-            - "./controller"
-          env:
-            - name: MY_NODE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
-            - name: MAX_CONCURRENT_UPDATE
-              value: "1"
-            - name: UPDATE_WINDOW_START
-              value: "0:0:0"
-            - name: UPDATE_WINDOW_STOP
-              value: "0:0:0"
-          image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.0.0"
-          name: brupop
-          resources:
-            limits:
-              cpu: 10m
-              memory: 50Mi
-            requests:
-              cpu: 3m
-              memory: 8Mi
+      - command:
+        - ./controller
+        env:
+        - name: MY_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: MAX_CONCURRENT_UPDATE
+          value: '1'
+        - name: UPDATE_WINDOW_START
+          value: 0:0:0
+        - name: UPDATE_WINDOW_STOP
+          value: 0:0:0
+        image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.0.0
+        name: brupop
+        resources:
+          limits:
+            cpu: 10m
+            memory: 50Mi
+          requests:
+            cpu: 3m
+            memory: 8Mi
       priorityClassName: brupop-controller-high-priority
       serviceAccountName: brupop-controller-service-account
 ---
@@ -747,8 +747,8 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    prometheus.io/port: "8080"
-    prometheus.io/scrape: "true"
+    prometheus.io/port: '8080'
+    prometheus.io/scrape: 'true'
   labels:
     app.kubernetes.io/component: brupop-controller
     app.kubernetes.io/managed-by: brupop
@@ -758,7 +758,7 @@ metadata:
   namespace: brupop-bottlerocket-aws
 spec:
   ports:
-    - port: 80
-      targetPort: 8080
+  - port: 80
+    targetPort: 8080
   selector:
     brupop.bottlerocket.aws/component: brupop-controller
