@@ -47,7 +47,7 @@ pub use self::v2::{
     BottlerocketShadow, BottlerocketShadowSpec, BottlerocketShadowState, BottlerocketShadowStatus,
 };
 use crate::constants::{
-    APISERVER_CRD_CONVERT_ENDPOINT, APISERVER_SERVICE_NAME, CERTIFICATE_NAME, NAMESPACE,
+    APISERVER_CRD_CONVERT_ENDPOINT, APISERVER_SERVICE_NAME, NAMESPACE, ROOT_CERTIFICATE_NAME,
 };
 
 use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::{
@@ -190,7 +190,7 @@ fn generate_ca_annotations() -> BTreeMap<String, String> {
         format!(
             "{namespace}/{object}",
             namespace = NAMESPACE,
-            object = CERTIFICATE_NAME
+            object = ROOT_CERTIFICATE_NAME
         ),
     );
     cert_manager_annotations

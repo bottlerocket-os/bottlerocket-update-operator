@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: brupop-bottlerocket-aws/brupop-apiserver-certificate
+    cert-manager.io/inject-ca-from: brupop-bottlerocket-aws/root-certificate
   name: bottlerocketshadows.brupop.bottlerocket.aws
 spec:
   conversion:
@@ -196,20 +196,37 @@ metadata:
   name: brupop-bottlerocket-aws
 ---
 apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
+kind: Issuer
 metadata:
   name: selfsigned-issuer
+  namespace: brupop-bottlerocket-aws
 spec:
   selfSigned: {}
 ---
 apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: brupop-selfsigned-ca
+  namespace: brupop-bottlerocket-aws
+spec:
+  isCA: true
+  commonName: brupop-selfsigned-ca
+  secretName: brupop-root-ca-secret
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS8
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: my-ca-issuer
+  name: brupop-root-certificate-issuer
   namespace: brupop-bottlerocket-aws
 spec:
   ca:
-    secretName: brupop-tls
+    secretName: brupop-root-ca-secret
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -217,19 +234,41 @@ metadata:
   name: brupop-apiserver-certificate
   namespace: brupop-bottlerocket-aws
 spec:
-  isCA: true
-  commonName: my-selfsigned-ca
-  secretName: brupop-tls
+  secretName: brupop-apiserver-certificate
   privateKey:
     algorithm: RSA
     encoding: PKCS8
   dnsNames:
-    - brupop-apiserver.brupop-bottlerocket-aws.svc.cluster.local
-    - brupop-apiserver.brupop-bottlerocket-aws.svc
+    - "*.brupop-bottlerocket-aws.svc.cluster.local"
+    - "*.brupop-bottlerocket-aws.svc"
+  usages:
+    - server auth
+    - key encipherment
+    - digital signature
   issuerRef:
-    name: selfsigned-issuer
-    kind: ClusterIssuer
-    group: cert-manager.io
+    name: brupop-root-certificate-issuer
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: brupop-apiserver-client-certificate
+  namespace: brupop-bottlerocket-aws
+spec:
+  secretName: brupop-apiserver-client-certificate
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS8
+  dnsNames:
+    - "*.brupop-bottlerocket-aws.svc.cluster.local"
+    - "*.brupop-bottlerocket-aws.svc"
+  usages:
+    - client auth
+    - key encipherment
+    - digital signature
+  issuerRef:
+    name: brupop-root-certificate-issuer
+    kind: Issuer
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -415,7 +454,7 @@ spec:
       - name: bottlerocket-tls-keys
         secret:
           optional: false
-          secretName: brupop-tls
+          secretName: brupop-apiserver-certificate
 ---
 apiVersion: v1
 kind: Service
@@ -588,7 +627,7 @@ spec:
       - name: bottlerocket-tls-keys
         secret:
           optional: false
-          secretName: brupop-tls
+          secretName: brupop-apiserver-client-certificate
 ---
 apiVersion: v1
 kind: ServiceAccount

@@ -35,13 +35,12 @@ pub const LABEL_BRUPOP_INTERFACE_NAME: &str = "bottlerocket.aws/updater-interfac
 pub const BRUPOP_INTERFACE_VERSION: &str = "2.0.0";
 
 // In name space secret name for SSL communication in API server.
-pub const SECRET_NAME: &str = "brupop-tls";
 pub const CA_NAME: &str = "ca.crt";
 pub const PUBLIC_KEY_NAME: &str = "tls.crt";
 pub const PRIVATE_KEY_NAME: &str = "tls.key";
 pub const TLS_KEY_MOUNT_PATH: &str = "/etc/brupop-tls-keys";
 // Certificate object name
-pub const CERTIFICATE_NAME: &str = "brupop-apiserver-certificate";
+pub const ROOT_CERTIFICATE_NAME: &str = "root-certificate";
 
 // Label keys
 pub const LABEL_COMPONENT: &str = brupop_domain!("component");

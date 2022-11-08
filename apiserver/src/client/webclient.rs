@@ -117,17 +117,17 @@ impl K8SAPIServerClient {
 
     /// Returns the https client configured to use self-signed certificate
     fn https_client() -> Result<reqwest::Client> {
-        let mut buf = Vec::new();
+        let mut cert_buf = Vec::new();
 
-        let ca_path = format!("{}/{}", TLS_KEY_MOUNT_PATH, CA_NAME);
-        std::fs::File::open(ca_path)
+        let leaf_cert_path = format!("{}/{}", TLS_KEY_MOUNT_PATH, CA_NAME);
+        std::fs::File::open(leaf_cert_path)
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
             .context(error::IOSnafu)?
-            .read_to_end(&mut buf)
+            .read_to_end(&mut cert_buf)
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
             .context(error::IOSnafu)?;
 
-        let cert = reqwest::Certificate::from_pem(&buf).context(error::CreateClientSnafu)?;
+        let cert = reqwest::Certificate::from_pem(&cert_buf).context(error::CreateClientSnafu)?;
 
         let client = reqwest::Client::builder()
             .add_root_certificate(cert)
