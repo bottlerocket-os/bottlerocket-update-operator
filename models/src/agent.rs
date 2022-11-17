@@ -194,10 +194,11 @@ pub fn agent_daemonset(
                             },
                         ]),
                         resources: Some(ResourceRequirements {
-                            limits: Some(btreemap! {
-                                "memory".to_string() => Quantity("50Mi".to_string()),
-                            }),
                             requests: Some(btreemap! {
+                                "memory".to_string() => Quantity("8Mi".to_string()),
+                                "cpu".to_string() => Quantity("5m".to_string()),
+                            }),
+                            limits: Some(btreemap! {
                                 "memory".to_string() => Quantity("50Mi".to_string()),
                                 "cpu".to_string() => Quantity("10m".to_string()),
                             }),

@@ -11,9 +11,11 @@ use k8s_openapi::api::apps::v1::{
 use k8s_openapi::api::core::v1::{
     Affinity, Container, ContainerPort, EnvVar, HTTPGetAction, LocalObjectReference, NodeAffinity,
     NodeSelector, NodeSelectorRequirement, NodeSelectorTerm, PodSpec, PodTemplateSpec, Probe,
-    SecretVolumeSource, Service, ServiceAccount, ServicePort, ServiceSpec, Volume, VolumeMount,
+    ResourceRequirements, SecretVolumeSource, Service, ServiceAccount, ServicePort, ServiceSpec,
+    Volume, VolumeMount,
 };
 use k8s_openapi::api::rbac::v1::{ClusterRole, ClusterRoleBinding, PolicyRule, RoleRef, Subject};
+use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
 use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use kube::api::ObjectMeta;
@@ -241,6 +243,16 @@ pub fn apiserver_deployment(
                             value: Some(apiserver_internal_port),
                             ..Default::default()
                         }]),
+                        resources: Some(ResourceRequirements {
+                            requests: Some(btreemap! {
+                                "memory".to_string() => Quantity("8Mi".to_string()),
+                                "cpu".to_string() => Quantity("3m".to_string()),
+                            }),
+                            limits: Some(btreemap! {
+                                "memory".to_string() => Quantity("50Mi".to_string()),
+                                "cpu".to_string() => Quantity("10m".to_string()),
+                            }),
+                        }),
                         ports: Some(vec![ContainerPort {
                             container_port: apiserver_internal_port_conv,
                             ..Default::default()

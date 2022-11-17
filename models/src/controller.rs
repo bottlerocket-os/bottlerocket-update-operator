@@ -10,10 +10,11 @@ use k8s_openapi::api::apps::v1::{Deployment, DeploymentSpec, DeploymentStrategy}
 use k8s_openapi::api::core::v1::{
     Affinity, Container, EnvVar, EnvVarSource, LocalObjectReference, NodeAffinity, NodeSelector,
     NodeSelectorRequirement, NodeSelectorTerm, ObjectFieldSelector, PodSpec, PodTemplateSpec,
-    Service, ServiceAccount, ServicePort, ServiceSpec,
+    ResourceRequirements, Service, ServiceAccount, ServicePort, ServiceSpec,
 };
 use k8s_openapi::api::rbac::v1::{ClusterRole, ClusterRoleBinding, PolicyRule, RoleRef, Subject};
 use k8s_openapi::api::scheduling::v1::PriorityClass;
+use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
 use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use kube::api::ObjectMeta;
@@ -226,6 +227,16 @@ pub fn controller_deployment(
                                 ..Default::default()
                             },
                         ]),
+                        resources: Some(ResourceRequirements {
+                            requests: Some(btreemap! {
+                                "memory".to_string() => Quantity("8Mi".to_string()),
+                                "cpu".to_string() => Quantity("3m".to_string()),
+                            }),
+                            limits: Some(btreemap! {
+                                "memory".to_string() => Quantity("50Mi".to_string()),
+                                "cpu".to_string() => Quantity("10m".to_string()),
+                            }),
+                        }),
                         ..Default::default()
                     }],
                     image_pull_secrets,

@@ -77,8 +77,25 @@ The default values are generated from the [`.env`](https://github.com/bottlerock
   It is used by the node agents to access the API server.
   If this environment variable is _not_ found, the Brupop agents will fail to start.
 
-#### Exclude Nodes from Load Balancers Before Draining
-This configuration uses the Kuberenetes [ServiceNodeExclusion](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/) feature.
+##### Resource Requests & Limits
+
+The `bottlerocket-update-operator.yaml` manifest makes several default recommendations for
+Kubernetes resource requests and limits. In general, the update operator and it's components are lite-weight
+and shouldn't consume more than 10m CPU (which is roughly equivalent to 1/100th of a CPU core)
+and 50Mi (which is roughly equivalent to 0.05 GB of memory).
+If this limit is breached, the Kubernetes API will restart the faulting container.
+
+Note that your mileage with these resource requests and limits may vary.
+Any number of factors may contribute to varying results in resource utilization (different compute instance types, workload utilization, API ingress/egress, etc).
+[The Kubernetes documentation for Resource Management of Pods and Containers](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+is an excellent resource for understanding how various compute resources are utilized
+and how Kubernetes manages these resources.
+
+If resource utilization by the brupop components is not a concern,
+removing the `resources` fields in the manifest will not affect the functionality of any components.
+
+##### Exclude Nodes from Load Balancers Before Draining
+This configuration uses Kuberenetes [ServiceNodeExclusion](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/) feature.
 `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` can be used to enable the feature to exclude the node from load balancer before draining.
 When `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` is 0 (default), the feature is disabled.
 When `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` is set to a positive integer, bottlerocket update operator will exclude the node from
