@@ -150,6 +150,8 @@ async fn invoke_apiclient(args: Vec<String>) -> Result<Output> {
                             _ => {
                                 // API response was a non-transient error, bail out
                                 return apiclient_error::BadHttpResponseSnafu {
+                                    args: args,
+                                    error_content: &error_content,
                                     statuscode: error_statuscode,
                                 }
                                 .fail();
@@ -361,8 +363,12 @@ pub mod apiclient_error {
             expect_state: String,
             update_state: UpdateState,
         },
-        #[snafu(display("Bad http response, status code: {}", statuscode))]
-        BadHttpResponse { statuscode: String },
+        #[snafu(display("Bad http response when running command {} due to status code {}. Error output: {}", args.join(" "), statuscode, error_content))]
+        BadHttpResponse {
+            args: Vec<String>,
+            error_content: String,
+            statuscode: String,
+        },
 
         #[snafu(display("Unable to process command apiclient {}: update API unavailable: retries exhausted", args.join(" ")))]
         UpdateApiUnavailable { args: Vec<String> },
