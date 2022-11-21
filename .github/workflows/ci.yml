@@ -28,7 +28,10 @@ jobs:
       - run: rustup update stable
       - run: make build
       - name: Ensure git is clean
-        run: test -z "$(git status --untracked-files=all --porcelain)"
+        shell: bash
+        run: |
+          git --no-pager diff
+          test -z "$(git status --untracked-files=all --porcelain)"
 
   build-container:
     name: brupop-image
@@ -37,4 +40,7 @@ jobs:
       - uses: actions/checkout@v3
       - run: make brupop-image
       - name: Ensure git is clean
-        run: test -z "$(git status --untracked-files=all --porcelain)"
+        shell: bash
+        run: |
+          git --no-pager diff
+          test -z "$(git status --untracked-files=all --porcelain)"
