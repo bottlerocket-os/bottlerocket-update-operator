@@ -17,7 +17,7 @@ async-trait = "0.1"
 base64 = "0.13.1"
 chrono = "0.4"
 console_log = { version = "0.2", features = ["color"] }
-env_logger = "0.9"
+env_logger = "0.10"
 hex ="0.4.3"
 lazy_static = "1.4"
 log = "0.4"
