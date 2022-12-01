@@ -12,10 +12,7 @@ use std::time::SystemTime;
 
 use tokio::time::{sleep, Duration};
 
-use models::{
-    constants::NAMESPACE,
-    node::{BottlerocketShadow, BottlerocketShadowState},
-};
+use models::node::{BottlerocketShadow, BottlerocketShadowState};
 
 const MONITOR_SLEEP_DURATION: Duration = Duration::from_secs(30);
 const ESTIMATED_UPDATE_TIME_EACH_NODE: i32 = 300;
@@ -39,18 +36,23 @@ pub trait BrupopClient: Clone + Sync + Send {
 /// certainly be used in any case that isn't a unit test.
 pub struct IntegBrupopClient {
     k8s_client: kube::client::Client,
+    namespace: String,
 }
 
 impl IntegBrupopClient {
-    pub fn new(k8s_client: kube::client::Client) -> Self {
-        IntegBrupopClient { k8s_client }
+    pub fn new(k8s_client: kube::client::Client, namespace: &str) -> Self {
+        IntegBrupopClient {
+            k8s_client,
+            namespace: namespace.to_string(),
+        }
     }
 }
 
 #[async_trait]
 impl BrupopClient for IntegBrupopClient {
     async fn fetch_shadows(&self) -> Result<ObjectList<BottlerocketShadow>> {
-        let brss: Api<BottlerocketShadow> = Api::namespaced(self.k8s_client.clone(), NAMESPACE);
+        let brss: Api<BottlerocketShadow> =
+            Api::namespaced(self.k8s_client.clone(), &self.namespace);
         let brss_object_list = brss
             .list(&ListParams::default())
             .await
@@ -60,7 +62,7 @@ impl BrupopClient for IntegBrupopClient {
     }
 
     async fn fetch_brupop_pods(&self) -> Result<ObjectList<Pod>> {
-        let pods: Api<Pod> = Api::namespaced(self.k8s_client.clone(), NAMESPACE);
+        let pods: Api<Pod> = Api::namespaced(self.k8s_client.clone(), &self.namespace);
         let pods_objectlist = pods
             .list(&ListParams::default())
             .await

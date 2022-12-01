@@ -2,7 +2,7 @@ use std::{convert::TryFrom, env};
 
 use controller::{telemetry::vending_metrics, BrupopController};
 use models::{
-    constants::{CONTROLLER_INTERNAL_PORT, NAMESPACE},
+    constants::CONTROLLER_INTERNAL_PORT,
     node::{BottlerocketShadow, K8SBottlerocketShadowClient},
 };
 
@@ -39,16 +39,19 @@ async fn main() -> Result<()> {
     let incluster_config =
         kube::Config::incluster_dns().context(controller_error::ConfigCreateSnafu)?;
 
+    // Use the incluster config to infer the namespace
+    let namespace = incluster_config.default_namespace.to_string();
+
     let k8s_client = kube::client::Client::try_from(incluster_config)
         .context(controller_error::ClientCreateSnafu)?;
 
     // The `BrupopController` needs a `reflector::Store`, which is updated by a reflector
     // that runs concurrently. We'll create the store and run the reflector here.
-    let brss = Api::<BottlerocketShadow>::namespaced(k8s_client.clone(), NAMESPACE);
+    let brss = Api::<BottlerocketShadow>::namespaced(k8s_client.clone(), &namespace);
     let brs_store = reflector::store::Writer::<BottlerocketShadow>::default();
     let brs_reader = brs_store.as_reader();
 
-    let node_client = K8SBottlerocketShadowClient::new(k8s_client.clone());
+    let node_client = K8SBottlerocketShadowClient::new(k8s_client.clone(), &namespace);
 
     let controller = controllers::basic(
         processors::factory(
@@ -90,7 +93,8 @@ async fn main() -> Result<()> {
         });
 
     // Setup and run the controller.
-    let controller = BrupopController::new(k8s_client, node_client, brs_reader, node_reader);
+    let controller =
+        BrupopController::new(k8s_client, node_client, brs_reader, node_reader, &namespace);
     let controller_runner = controller.run();
 
     let k8s_service_addr = env::var("KUBERNETES_SERVICE_HOST")
@@ -153,12 +157,12 @@ pub mod controller_error {
     #[derive(Debug, Snafu)]
     #[snafu(visibility(pub))]
     pub enum Error {
-        #[snafu(display("Unable to create client config: '{}'", source))]
+        #[snafu(display("Unable to create Kubernetes client config: '{}'", source))]
         ConfigCreate {
             source: kube::config::InClusterError,
         },
 
-        #[snafu(display("Unable to create client: '{}'", source))]
+        #[snafu(display("Unable to create Kubernetes client: '{}'", source))]
         ClientCreate { source: kube::Error },
 
         #[snafu(display("Error running controller server: '{}'", source))]

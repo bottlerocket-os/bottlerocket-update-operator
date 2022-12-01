@@ -1,0 +1,9 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: brupop-root-certificate-issuer
+  namespace: {{ .Values.namespace }}
+spec:
+  ca:
+    secretName: brupop-root-ca-secret

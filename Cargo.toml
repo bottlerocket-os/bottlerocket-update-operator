@@ -4,6 +4,6 @@ members = [
     "apiserver",
     "controller",
     "models",
-    "yamlgen",
+    "deploy",
     "integ",
 ]

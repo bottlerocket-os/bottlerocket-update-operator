@@ -217,11 +217,14 @@ async fn run() -> Result<()> {
             )
             .await
             .context(error::LoadKubeConfigSnafu)?;
+
+            // infer the default namespace from the loaded kubeconfig
+            let namespace = config.default_namespace.to_string();
             let k8s_client =
                 kube::client::Client::try_from(config).context(error::CreateK8sClientSnafu)?;
 
             info!("monitoring brupop");
-            let monitor_client = BrupopMonitor::new(IntegBrupopClient::new(k8s_client));
+            let monitor_client = BrupopMonitor::new(IntegBrupopClient::new(k8s_client, &namespace));
             monitor_client
                 .run_monitor()
                 .await

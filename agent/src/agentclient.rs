@@ -5,12 +5,9 @@ use apiserver::{
     RemoveNodeExclusionFromLoadBalancerRequest, UncordonBottlerocketShadowRequest,
     {CreateBottlerocketShadowRequest, UpdateBottlerocketShadowRequest},
 };
-use models::{
-    constants::NAMESPACE,
-    node::{
-        BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowSpec,
-        BottlerocketShadowState, BottlerocketShadowStatus,
-    },
+use models::node::{
+    BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowSpec,
+    BottlerocketShadowState, BottlerocketShadowStatus,
 };
 
 use chrono::{DateTime, Utc};
@@ -60,6 +57,7 @@ pub struct BrupopAgent<T: APIServerClient> {
     node_reader: Store<Node>,
     associated_node_name: String,
     associated_bottlerocketshadow_name: String,
+    namespace: String,
 }
 
 impl<T: APIServerClient> BrupopAgent<T> {
@@ -70,6 +68,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
         node_reader: Store<Node>,
         associated_node_name: String,
         associated_bottlerocketshadow_name: String,
+        namespace: &str,
     ) -> Self {
         BrupopAgent {
             k8s_client,
@@ -78,6 +77,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
             node_reader,
             associated_node_name,
             associated_bottlerocketshadow_name,
+            namespace: namespace.to_string(),
         }
     }
 
@@ -93,7 +93,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
             Ok(true)
         } else {
             let bottlerocket_shadows: Api<BottlerocketShadow> =
-                Api::namespaced(self.k8s_client.clone(), NAMESPACE);
+                Api::namespaced(self.k8s_client.clone(), &self.namespace);
 
             // handle the special case which associated BottlerocketShadow does exist but communication with the k8s API fails for other errors.
             if let Err(e) = bottlerocket_shadows

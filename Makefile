@@ -43,6 +43,9 @@ image: check-licenses brupop-image
 fetch:
 	$(CARGO_ENV_VARS) cargo fetch --locked
 
+dev-tools:
+	cargo install cargo-insta
+
 # Checks allowed/denied upstream licenses against the deny.toml
 check-licenses: fetch
 	docker run --rm \
@@ -76,3 +79,23 @@ dist: check-licenses brupop-image
 clean:
 	-rm -rf target
 	rm -f -- '$(DISTFILE)'
+
+check-crd-golden-diff:
+	# =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
+	# This useful make target visualizes the diff between the CRD template in
+	# the helm chart compared to the generated golden file (with real values)
+	# from the rust definitions. This is useful to ensure there are no hanging changes
+	# that need to be made to the template.
+	# You should expect to see a 1:1 relationship between a template and a value.
+	# =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
+	diff --color \
+		deploy/charts/bottlerocket-shadow/templates/custom-resource-definition.yaml \
+		deploy/tests/golden/custom-resource-definition.yaml || return 0
+
+manifest:
+	echo --- > bottlerocket-update-operator.yaml && \
+	kubectl create namespace brupop-bottlerocket-aws \
+		--dry-run=client \
+		-o yaml >> bottlerocket-update-operator.yaml && \
+	helm template deploy/charts/bottlerocket-shadow >> bottlerocket-update-operator.yaml && \
+	helm template deploy/charts/bottlerocket-update-operator >> bottlerocket-update-operator.yaml

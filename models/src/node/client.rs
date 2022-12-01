@@ -146,11 +146,15 @@ where
 /// certainly be used in any case that isn't a unit test.
 pub struct K8SBottlerocketShadowClient {
     k8s_client: kube::client::Client,
+    namespace: String,
 }
 
 impl K8SBottlerocketShadowClient {
-    pub fn new(k8s_client: kube::client::Client) -> Self {
-        K8SBottlerocketShadowClient { k8s_client }
+    pub fn new(k8s_client: kube::client::Client, namespace: &str) -> Self {
+        K8SBottlerocketShadowClient {
+            k8s_client,
+            namespace: namespace.to_string(),
+        }
     }
 }
 
@@ -215,7 +219,7 @@ impl BottlerocketShadowClient for K8SBottlerocketShadowClient {
             ..Default::default()
         };
 
-        Api::namespaced(self.k8s_client.clone(), constants::NAMESPACE)
+        Api::namespaced(self.k8s_client.clone(), &self.namespace)
             .create(&PostParams::default(), &br_node)
             .await
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
@@ -238,7 +242,7 @@ impl BottlerocketShadowClient for K8SBottlerocketShadowClient {
         };
 
         let api: Api<BottlerocketShadow> =
-            Api::namespaced(self.k8s_client.clone(), constants::NAMESPACE);
+            Api::namespaced(self.k8s_client.clone(), &self.namespace);
 
         api.patch_status(
             &selector.brs_resource_name(),
@@ -268,7 +272,7 @@ impl BottlerocketShadowClient for K8SBottlerocketShadowClient {
             serde_json::to_value(br_node_spec_patch).context(client_error::CreateK8SPatchSnafu)?;
 
         let api: Api<BottlerocketShadow> =
-            Api::namespaced(self.k8s_client.clone(), constants::NAMESPACE);
+            Api::namespaced(self.k8s_client.clone(), &self.namespace);
 
         api.patch(
             &selector.brs_resource_name(),

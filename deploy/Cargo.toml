@@ -1,5 +1,5 @@
 [package]
-name = "yamlgen"
+name = "deploy"
 version = "0.1.0"
 edition = "2018"
 publish = false
@@ -10,3 +10,6 @@ models = { path = "../models", version = "0.1.0" }
 dotenv = "0.15"
 kube = { version = "0.82", default-features = false, features = [ "derive", "runtime" ] }
 serde_yaml = "0.9"
+
+[dev-dependencies]
+insta = { version = "1.26.0", features = ["yaml"] }

@@ -46,7 +46,10 @@ async fn run_server() -> Result<(), apiserver_error::Error> {
     let prometheus_exporter = opentelemetry_prometheus::exporter(controller).init();
 
     let incluster_config =
-        kube::Config::incluster_dns().context(apiserver_error::K8sConfigCreateSnafu)?;
+        kube::Config::incluster_dns().context(apiserver_error::K8sClientConfigSnafu)?;
+
+    // Use the existing incluster client config to infer the current namespace
+    let namespace = incluster_config.default_namespace.to_string();
 
     let k8s_client = kube::client::Client::try_from(incluster_config)
         .context(apiserver_error::K8sClientCreateSnafu)?;
@@ -60,8 +63,9 @@ async fn run_server() -> Result<(), apiserver_error::Error> {
     event!(Level::INFO, %internal_port, "Started API server with port");
 
     let settings = APIServerSettings {
-        node_client: K8SBottlerocketShadowClient::new(k8s_client.clone()),
+        node_client: K8SBottlerocketShadowClient::new(k8s_client.clone(), &namespace),
         server_port: internal_port as u16,
+        namespace,
     };
 
     api::run_server(settings, k8s_client, prometheus_exporter)
@@ -85,8 +89,8 @@ pub mod apiserver_error {
             variable: String,
         },
 
-        #[snafu(display("Unable to create client config: '{}'", source))]
-        K8sConfigCreate {
+        #[snafu(display("Unable to create kubernetes client config: '{}'", source))]
+        K8sClientConfig {
             source: kube::config::InClusterError,
         },
 
