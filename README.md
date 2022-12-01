@@ -119,6 +119,7 @@ For example:
 ```
 
 #### Set Up Max Concurrent Update
+
 `MAX_CONCURRENT_UPDATE` can be used to specify the max concurrent updates during updating.
 When `MAX_CONCURRENT_UPDATE` is a positive integer, the bottlerocket update operator
 will concurrently update up to `MAX_CONCURRENT_UPDATE` nodes respecting [PodDisruptionBudgets](https://kubernetes.io/docs/tasks/run-application/configure-pdb/).
@@ -144,13 +145,15 @@ For example:
               value: "1"
 ```
 
-#### Set an Update Time Window
+#### Set an Update Time Window - DEPRECATED
+
+Note!! that these settings are deprecated and will be removed in a future release.
+You should use the Scheduler settings below.
+If you still decide to use these settings, please use "hour:00:00" format only instead of "HH:MM:SS".
+
 `UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` can be used to specify the time window in which updates are permitted.
-When `UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` are both 0:0:0 (default), the feature is disabled.
 
 To enable this feature, go to `bottlerocket-update-operator.yaml`, change `UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` to a `hour:minute:second` formatted value (UTC (24-hour time notation)). Note that `UPDATE_WINDOW_START` is inclusive and `UPDATE_WINDOW_STOP` is exclusive.
-
-To avoid stopping an in-process node update when the update window stops, Bottlerocket update operator reserves 6 mins before `UPDATE_WINDOW_STOP` to finish remaining updates.
 
 Note: brupop uses UTC (24-hour time notation), please convert your local time to UTC.
 For example:
@@ -164,9 +167,45 @@ For example:
                 fieldRef:
                   fieldPath: spec.nodeName
             - name: UPDATE_WINDOW_START
-              value: "9:0:0"
+              value: "09:00:00"
             - name: UPDATE_WINDOW_STOP
-              value: "21:0:0"
+              value: "21:00:00"
+```
+
+#### Set scheduler
+`SCHEDULER_CRON_EXPRESSION` can be used to specify the scheduler in which updates are permitted.
+When `SCHEDULER_CRON_EXPRESSION` is "* * * * * * *" (default), the feature is disabled.
+
+To enable this feature, go to `bottlerocket-update-operator.yaml` and change `SCHEDULER_CRON_EXPRESSION` to a valid cron expression.
+A cron expression can be configured to a time window or a specific trigger time.
+When users specify cron expressions as a time window, the bottlerocket update operator will operate node updates within that update time window.
+When users specify cron expression as a specific trigger time, brupop will update and complete all waitingForUpdate nodes on the cluster when that time occurs.
+```
+# ┌───────────── seconds (0 - 59)
+# | ┌───────────── minute (0 - 59)
+# | │ ┌───────────── hour (0 - 23)
+# | │ │ ┌───────────── day of the month (1 - 31)
+# | │ │ │ ┌───────────── month (Jan, Feb, Mar, Apr, Jun, Jul, Aug, Sep, Oct, Nov, Dec)
+# | │ │ │ │ ┌───────────── day of the week (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
+# | │ │ │ │ │ ┌───────────── year (formatted as YYYY)
+# | │ │ │ │ │ |
+# | │ │ │ │ │ |
+# * * * * * * *
+```
+
+Note: brupop uses Coordinated Universal Time(UTC), please convert your local time to Coordinated Universal Time (UTC). This tool [Time Zone Converter](https://www.timeanddate.com/worldclock/converter.html) can help you find your desired time window on UTC.
+For example (schedule to run update operator at 03:00 PM on Monday ):
+```yaml
+      containers:
+        - command:
+            - "./controller"
+          env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: SCHEDULER_CRON_EXPRESSION
+              value: "* * * * * * *"
 ```
 
 ### Label nodes

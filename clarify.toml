@@ -93,7 +93,11 @@ license-files = [
     { path = "LICENSE.Mit", hash = 0xa237d234 },
     { path = "LICENSE.Apache-2.0", hash = 0x7b466be4 },
 ]
-#skip-files = [
-     #Files under zstd/build are for IDE integrations, and are unused.
-    #"zstd/build/LICENSE"
-#]
+
+[clarify.minimal-lexical]
+expression = "(MIT OR Apache-2.0) AND BSD-3-Clause"
+license-files = [
+    { path = "LICENSE-APACHE", hash = 0x4fccb6b7 },
+    { path = "LICENSE-MIT", hash = 0x386ca1bc },
+    { path = "LICENSE.md", hash = 0xfe66d806 },
+]

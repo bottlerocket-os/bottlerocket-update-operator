@@ -764,12 +764,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+        - name: SCHEDULER_CRON_EXPRESSION
+          value: '* * * * * * *'
         - name: MAX_CONCURRENT_UPDATE
           value: '1'
-        - name: UPDATE_WINDOW_START
-          value: 0:0:0
-        - name: UPDATE_WINDOW_STOP
-          value: 0:0:0
         image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.1.0
         name: brupop
         resources:

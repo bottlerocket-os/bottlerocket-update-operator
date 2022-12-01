@@ -116,9 +116,9 @@ async fn main() -> Result<()> {
         _ = node_drainer => {
             event!(Level::ERROR, "node reflector drained");
         },
-        _ = controller_runner => {
+        controller = controller_runner => {
             event!(Level::ERROR, "controller exited");
-
+            controller.context(controller_error::ControllerSnafu)?
         },
         _ = prometheus_server => {
             event!(Level::ERROR, "metric server exited");
