@@ -2,7 +2,7 @@ use crate::brupop_labels;
 use crate::constants::{
     APISERVER, APISERVER_HEALTH_CHECK_ROUTE, APISERVER_MAX_UNAVAILABLE, APISERVER_SERVICE_NAME,
     APP_COMPONENT, APP_MANAGED_BY, APP_PART_OF, BRUPOP, BRUPOP_DOMAIN_LIKE_NAME, LABEL_COMPONENT,
-    NAMESPACE, SECRET_NAME, TLS_KEY_MOUNT_PATH,
+    NAMESPACE, TLS_KEY_MOUNT_PATH,
 };
 use crate::node::{K8S_NODE_PLURAL, K8S_NODE_STATUS};
 use k8s_openapi::api::apps::v1::{
@@ -23,6 +23,7 @@ use maplit::btreemap;
 
 const BRUPOP_APISERVER_SERVICE_ACCOUNT: &str = "brupop-apiserver-service-account";
 const BRUPOP_APISERVER_CLUSTER_ROLE: &str = "brupop-apiserver-role";
+const BRUPOP_APISERVER_CERT_SECRET_NAME: &str = "brupop-apiserver-certificate";
 
 // A kubernetes system role which allows a system to use the TokenReview API.
 const AUTH_DELEGATOR_ROLE_NAME: &str = "system:auth-delegator";
@@ -287,7 +288,7 @@ pub fn apiserver_deployment(
                     volumes: Some(vec![Volume {
                         name: "bottlerocket-tls-keys".to_string(),
                         secret: Some(SecretVolumeSource {
-                            secret_name: Some(SECRET_NAME.to_string()),
+                            secret_name: Some(BRUPOP_APISERVER_CERT_SECRET_NAME.to_string()),
                             optional: Some(false),
                             ..Default::default()
                         }),

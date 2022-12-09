@@ -1,7 +1,7 @@
 use crate::brupop_labels;
 use crate::constants::{
     AGENT, AGENT_NAME, APISERVER_SERVICE_NAME, APP_COMPONENT, APP_MANAGED_BY, APP_PART_OF, BRUPOP,
-    BRUPOP_INTERFACE_VERSION, LABEL_BRUPOP_INTERFACE_NAME, LABEL_COMPONENT, NAMESPACE, SECRET_NAME,
+    BRUPOP_INTERFACE_VERSION, LABEL_BRUPOP_INTERFACE_NAME, LABEL_COMPONENT, NAMESPACE,
     TLS_KEY_MOUNT_PATH,
 };
 use k8s_openapi::api::apps::v1::{DaemonSet, DaemonSetSpec};
@@ -20,6 +20,7 @@ use maplit::btreemap;
 
 const BRUPOP_AGENT_SERVICE_ACCOUNT: &str = "brupop-agent-service-account";
 const BRUPOP_AGENT_CLUSTER_ROLE: &str = "brupop-agent-role";
+const BRUPOP_APISERVER_CLIENT_CERT_SECRET_NAME: &str = "brupop-apiserver-client-certificate";
 
 pub const TOKEN_PROJECTION_MOUNT_PATH: &str = "/var/run/secrets/tokens/";
 pub const AGENT_TOKEN_PATH: &str = "bottlerocket-agent-service-account-token";
@@ -273,7 +274,9 @@ pub fn agent_daemonset(
                         Volume {
                             name: "bottlerocket-tls-keys".to_string(),
                             secret: Some(SecretVolumeSource {
-                                secret_name: Some(SECRET_NAME.to_string()),
+                                secret_name: Some(
+                                    BRUPOP_APISERVER_CLIENT_CERT_SECRET_NAME.to_string(),
+                                ),
                                 optional: Some(false),
                                 ..Default::default()
                             }),
