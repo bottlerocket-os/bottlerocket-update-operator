@@ -11,7 +11,7 @@ models = { path = "../models", version = "0.1.0" }
 aws-config = "0.51.0"
 aws-sdk-ec2 = "0.21.0"
 aws-sdk-eks = "0.21.0"
-aws-sdk-iam = "0.21.0"
+aws-sdk-iam = "0.22.0"
 aws-sdk-ssm = "0.21.0"
 async-trait = "0.1"
 base64 = "0.20.0"
