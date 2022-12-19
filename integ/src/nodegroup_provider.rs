@@ -11,7 +11,7 @@ use std::time::Duration;
 use aws_sdk_eks::model::IpFamily;
 
 use aws_config::meta::region::RegionProviderChain;
-use aws_sdk_ec2::error::{DescribeLaunchTemplatesError, DescribeLaunchTemplatesErrorKind};
+use aws_sdk_ec2::error::DescribeLaunchTemplatesError;
 use aws_sdk_ec2::model::{
     ArchitectureValues, InstanceType, LaunchTemplateTagSpecificationRequest,
     RequestLaunchTemplateData, ResourceType, Tag,
@@ -545,26 +545,25 @@ async fn confirm_nodegroup_deleted(
 fn launch_template_exists(
     result: &Result<DescribeLaunchTemplatesOutput, SdkError<DescribeLaunchTemplatesError>>,
 ) -> bool {
-    if let Err(SdkError::ServiceError { err, raw: _ }) = result {
-        if matches!(&err.kind, DescribeLaunchTemplatesErrorKind::Unhandled(_)) {
-            return false;
-        }
-    }
-    true
+    // The DescribeLaunchTemplatesErrorKind as of 0.22 only supports "Unhandled" errors.
+    // So any error should result in a failure since _all_ errors, including if the launch
+    // template doesn't exists, results in an unhandled error
+    result.is_ok()
 }
 
 fn instance_profile_exists(
     result: Result<GetInstanceProfileOutput, SdkError<GetInstanceProfileError>>,
 ) -> bool {
-    if let Err(SdkError::ServiceError { err, raw: _ }) = result {
-        if matches!(
-            &err.kind,
-            GetInstanceProfileErrorKind::NoSuchEntityException(_)
-        ) {
-            return false;
-        }
+    match result {
+        Ok(_) => true,
+        Err(err) => !matches!(
+            err.into_service_error(),
+            GetInstanceProfileError {
+                kind: GetInstanceProfileErrorKind::NoSuchEntityException(_),
+                ..
+            }
+        ),
     }
-    true
 }
 
 async fn instance_profile_arn(
