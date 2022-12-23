@@ -17,6 +17,7 @@ use snafu::{OptionExt, ResultExt};
 use tracing::{event, Level};
 use tracing_subscriber::{fmt, layer::SubscriberExt, EnvFilter, Registry};
 
+use std::convert::TryFrom;
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -40,9 +41,10 @@ async fn main() {
 async fn run_agent() -> Result<()> {
     init_telemetry()?;
 
-    let k8s_client = kube::client::Client::try_default()
-        .await
-        .context(agent_error::ClientCreateSnafu)?;
+    let incluster_config = kube::Config::incluster_dns().context(agent_error::ConfigCreateSnafu)?;
+
+    let k8s_client =
+        kube::client::Client::try_from(incluster_config).context(agent_error::ClientCreateSnafu)?;
 
     // Configure our brupop apiserver client to use the auth token mounted to our Pod.
     let token_path = Path::new(TOKEN_PROJECTION_MOUNT_PATH).join(AGENT_TOKEN_PATH);
@@ -148,6 +150,11 @@ pub mod agent_error {
         // we know cannot be Err. This lets us bubble up to our error handler which writes to the termination log.
         #[snafu(display("Agent failed due to internal assertion issue: '{}'", message))]
         Assertion { message: String },
+
+        #[snafu(display("Unable to create client config: '{}'", source))]
+        ConfigCreate {
+            source: kube::config::InClusterError,
+        },
 
         #[snafu(display("Unable to create client: '{}'", source))]
         ClientCreate { source: kube::Error },
