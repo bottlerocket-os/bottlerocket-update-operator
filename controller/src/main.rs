@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+
 use controller::{telemetry::vending_metrics, BrupopController};
 use models::{
     constants::{CONTROLLER_INTERNAL_PORT, NAMESPACE},
@@ -30,8 +32,10 @@ type Result<T> = std::result::Result<T, controller_error::Error>;
 async fn main() -> Result<()> {
     init_telemetry()?;
 
-    let k8s_client = kube::client::Client::try_default()
-        .await
+    let incluster_config =
+        kube::Config::incluster_dns().context(controller_error::ConfigCreateSnafu)?;
+
+    let k8s_client = kube::client::Client::try_from(incluster_config)
         .context(controller_error::ClientCreateSnafu)?;
 
     // The `BrupopController` needs a `reflector::Store`, which is updated by a reflector
@@ -135,6 +139,11 @@ pub mod controller_error {
     #[derive(Debug, Snafu)]
     #[snafu(visibility(pub))]
     pub enum Error {
+        #[snafu(display("Unable to create client config: '{}'", source))]
+        ConfigCreate {
+            source: kube::config::InClusterError,
+        },
+
         #[snafu(display("Unable to create client: '{}'", source))]
         ClientCreate { source: kube::Error },
 

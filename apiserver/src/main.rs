@@ -9,6 +9,7 @@ use opentelemetry::sdk::metrics::{controllers, processors, selectors};
 
 use snafu::ResultExt;
 
+use std::convert::TryFrom;
 use std::env;
 use std::fs;
 
@@ -44,8 +45,10 @@ async fn run_server() -> Result<(), apiserver_error::Error> {
 
     let prometheus_exporter = opentelemetry_prometheus::exporter(controller).init();
 
-    let k8s_client = kube::client::Client::try_default()
-        .await
+    let incluster_config =
+        kube::Config::incluster_dns().context(apiserver_error::K8sConfigCreateSnafu)?;
+
+    let k8s_client = kube::client::Client::try_from(incluster_config)
         .context(apiserver_error::K8sClientCreateSnafu)?;
 
     let internal_port: i32 = env::var(APISERVER_INTERNAL_PORT_ENV_VAR)
@@ -80,6 +83,11 @@ pub mod apiserver_error {
         MissingEnvVariable {
             source: std::env::VarError,
             variable: String,
+        },
+
+        #[snafu(display("Unable to create client config: '{}'", source))]
+        K8sConfigCreate {
+            source: kube::config::InClusterError,
         },
 
         #[snafu(display("Unable to create client: '{}'", source))]
