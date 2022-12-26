@@ -1,6 +1,7 @@
 use crate::api::NO_TELEMETRY_ENDPOINTS;
 use crate::constants::HEADER_BRUPOP_NODE_NAME;
 
+use actix_web::body::MessageBody;
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use lazy_static::lazy_static;
 use opentelemetry::sdk::propagation::TraceContextPropagator;
@@ -43,7 +44,7 @@ impl RootSpanBuilder for BrupopApiserverRootSpanBuilder {
         }
     }
 
-    fn on_request_end<B>(
+    fn on_request_end<B: MessageBody>(
         span: Span,
         response: &std::result::Result<ServiceResponse<B>, actix_web::Error>,
     ) {
