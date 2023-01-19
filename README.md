@@ -206,6 +206,39 @@ If all nodes in the cluster are running Bottlerocket and require the same `updat
 kubectl label node $(kubectl get nodes -o jsonpath='{.items[*].metadata.name}') bottlerocket.aws/updater-interface-version=2.0.0
 ```
 
+##### Automatic labeling via Bottlerocket user-data
+
+You can automatically [add Kubernetes labels to your Bottlerocket nodes via the settings provided in user data](https://github.com/bottlerocket-os/bottlerocket#kubernetes-settings)
+when your nodes are provisioned:
+
+```toml
+# Configure the node-labels Bottlerocket setting
+[settings.kubernetes.node-labels]
+"bottlerocket.aws/updater-interface-version" = "2.0.0"
+```
+
+##### Automatic labeling via `eksctl`
+
+If you're using `eksctl`, you can automatically add labels to nodegroups. For example:
+
+```yaml
+---
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: bottlerocket-cluster
+  region: us-west-2
+  version: '1.17'
+
+nodeGroups:
+  - name: ng-bottlerocket
+    labels: { bottlerocket.aws/updater-interface-version: 2.0.0 }
+    instanceType: m5.large
+    desiredCapacity: 3
+    amiFamily: Bottlerocket
+```
+
 ### Uninstalling
 
 If you remove the `bottlerocket.aws/updater-interface-version=2.0.0` label from a node,
