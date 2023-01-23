@@ -372,6 +372,35 @@ Then fetch the logs for that agent:
 kubectl logs brupop-agent-podname --namespace brupop-bottlerocket-aws 
 ```
 
+### Why are my bottlerocket nodes egressing to `https://updates.bottlerocket.aws`?
+
+The [Bottlerocket updater API](https://github.com/bottlerocket-os/bottlerocket/blob/develop/sources/updater/README.md)
+utilizes [TUF repository signed metadata](https://theupdateframework.io/metadata/)
+served from a public URL to query and check for updates.
+The URL is `https://updates.bottlerocket.aws` and Bottlerocket's updater system requires
+access to this endpoint in order to perform updates.
+
+Cluster nodes running in production environments with limited network access
+may not be able to reach this metadata endpoint
+and you may see failures when updates are available or an update statuses that appears "stuck".
+
+To troubleshoot and validate this, [access one of your Bottlerocket nodes on your cluster](https://github.com/bottlerocket-os/bottlerocket/blob/9adbe40c3fced559b2d05829e62902060c5ecc9c/README.md#exploration),
+and manually execute `apiclient update check`. If you see errors that indicate `Failed to check for updates`
+and network timeouts, ensure that your nodes on cluster have access to `https://updates.bottlerocket.aws`.
+
+If it is unacceptable to give your Bottlerocket nodes outside network access,
+you may consider creating a self managed proxy within the cluster
+that can periodically scrape the TUF repository from `https://updates.bottlerocket.aws`.
+This would also require updating [the `settings.updates.metadata-base-url` and `settings.updates.targets-base-url` settings](https://github.com/bottlerocket-os/bottlerocket#updates-settings)
+to point to your proxy.
+[Typically, this is done via `tuftool download` or `tuftool clone`.](https://github.com/awslabs/tough/tree/develop/tuftool#download-tuf-repo)
+
+Users who are building _their own Bottlerocket variants and TUF repositories_
+will also need to update their Bottlerocket `settings.updates` settings to point to their custom TUF repository.
+But since Brupop simply interfaces with the node's `apiclient` via the daemonset,
+no further configurations or changes are required in Brupop.
+An in depth discussion on [building your own TUF repos can be found in the core Bottlerocket repo.](https://github.com/bottlerocket-os/bottlerocket/blob/develop/PUBLISHING.md#build-a-repo)
+
 ### Why do only some of my Bottlerocket instances have an update available?
 
 Updates to Bottlerocket are rolled out in [waves](https://github.com/bottlerocket-os/bottlerocket/tree/develop/sources/updater/waves) to reduce the impact of issues; the container instances in your cluster may not all see updates at the same time.
