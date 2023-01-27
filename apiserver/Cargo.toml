@@ -15,10 +15,12 @@ server = []
 models = { path = "../models", version = "0.1.0" }
 
 # tracing-actix-web version must align with actix-web version
-actix-web = { version = "4", features = ["openssl"] }
+actix-web = { version = "4", features = ["rustls"] }
 awc = "3"
 actix-web-opentelemetry = { version = "0.13", features = ["metrics", "metrics-prometheus"] }
-openssl = { version = "0.10" }
+rustls = { version = "0.20" }
+rustls-pemfile = { version = "1" }
+webpki = { version = "0.22.0", features = ["std"] }
 opentelemetry = { version = "0.18", features = ["rt-tokio-current-thread"]}
 opentelemetry-prometheus = "0.11"
 tracing = "0.1"
@@ -28,14 +30,14 @@ tracing-opentelemetry = "0.18"
 
 # k8s-openapi must match the version required by kube and enable a k8s version feature
 k8s-openapi = { version = "0.17.0", default-features = false, features = ["v1_20"] }
-kube = { version = "0.78.0", default-features = true, features = [ "derive", "runtime", "rustls-tls" ] }
+kube = { version = "0.78.0", default-features = false, features = [ "client", "derive", "runtime", "rustls-tls" ] }
 
 async-trait = "0.1"
 futures = "0.3"
 lazy_static = "1.4"
 log = "0.4"
 mockall = { version = "0.11", optional = true }
-reqwest = { version = "0.11", features =  [ "json", "native-tls" ] }
+reqwest = { version = "0.11", default-features = false, features =  [ "json", "rustls-tls" ] }
 schemars = "0.8.11"
 serde = { version = "1", features = [ "derive" ] }
 serde_json = "1"

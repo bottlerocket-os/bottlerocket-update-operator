@@ -34,10 +34,14 @@ use kube::{
     runtime::{reflector, watcher::watcher, WatchStreamExt},
     ResourceExt,
 };
-use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use opentelemetry::global::meter;
+use rustls::{
+    server::AllowAnyAnonymousOrAuthenticatedClient, Certificate, PrivateKey, RootCertStore,
+    ServerConfig,
+};
+use rustls_pemfile::{certs, pkcs8_private_keys};
 use snafu::{OptionExt, ResultExt};
-use std::env;
+use std::{env, fs::File, io::BufReader};
 use tokio::time::{sleep, Duration};
 use tracing::{event, Level};
 use tracing_actix_web::TracingLogger;
@@ -158,23 +162,64 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
 
     event!(Level::DEBUG, ?server_addr, "Server addr localhost.");
 
-    let mut builder = SslAcceptor::mozilla_modern_v5(SslMethod::tls()).context(error::SSLSnafu)?;
+    // Server public certificate file
+    let cert_file_path = format!("{}/{}", TLS_KEY_MOUNT_PATH, PUBLIC_KEY_NAME);
+    let cert_file =
+        &mut BufReader::new(File::open(&cert_file_path).context(error::FileOpenSnafu {
+            path: cert_file_path.to_string(),
+        })?);
 
-    builder
-        .set_certificate_chain_file(format!("{}/{}", TLS_KEY_MOUNT_PATH, CA_NAME))
-        .context(error::SSLSnafu)?;
-    builder
-        .set_certificate_file(
-            format!("{}/{}", TLS_KEY_MOUNT_PATH, PUBLIC_KEY_NAME),
-            SslFiletype::PEM,
-        )
-        .context(error::SSLSnafu)?;
-    builder
-        .set_private_key_file(
-            format!("{}/{}", TLS_KEY_MOUNT_PATH, PRIVATE_KEY_NAME),
-            SslFiletype::PEM,
-        )
-        .context(error::SSLSnafu)?;
+    // Private key file
+    let key_file_path = format!("{}/{}", TLS_KEY_MOUNT_PATH, PRIVATE_KEY_NAME);
+    let key_file =
+        &mut BufReader::new(File::open(&key_file_path).context(error::FileOpenSnafu {
+            path: key_file_path.to_string(),
+        })?);
+
+    // Certificate authority file so a client can authenticate the server
+    let ca_file_path = format!("{}/{}", TLS_KEY_MOUNT_PATH, CA_NAME);
+    let ca_file = &mut BufReader::new(File::open(&ca_file_path).context(error::FileOpenSnafu {
+        path: ca_file_path.to_string(),
+    })?);
+
+    // convert files to key/cert objects
+    let cert_chain = certs(cert_file)
+        .context(error::CertExtractSnafu {
+            path: cert_file_path.to_string(),
+        })?
+        .into_iter()
+        .map(Certificate)
+        .collect();
+    let mut keys: Vec<PrivateKey> = pkcs8_private_keys(key_file)
+        .context(error::CertExtractSnafu {
+            path: key_file_path.to_string(),
+        })?
+        .into_iter()
+        .map(PrivateKey)
+        .collect();
+    let cas: Vec<Certificate> = certs(ca_file)
+        .context(error::CertExtractSnafu {
+            path: ca_file_path.to_string(),
+        })?
+        .into_iter()
+        .map(Certificate)
+        .collect();
+
+    let mut cert_store = RootCertStore::empty();
+    for ca in cas {
+        cert_store.add(&ca).context(error::CertStoreSnafu)?;
+    }
+
+    let verifier = AllowAnyAnonymousOrAuthenticatedClient::new(cert_store);
+
+    let tls_config_builder = ServerConfig::builder()
+        .with_safe_defaults()
+        .with_client_cert_verifier(verifier);
+
+    let tls_config = tls_config_builder
+        .with_single_cert(cert_chain, keys.remove(0))
+        .context(error::TLSConfigBuildSnafu)
+        .unwrap();
 
     let server = HttpServer::new(move || {
         App::new()
@@ -225,7 +270,7 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
                 web::get().to(ping::health_check),
             )
     })
-    .bind_openssl(server_addr, builder)
+    .bind_rustls(server_addr, tls_config)
     .context(error::HttpServerSnafu)?
     .run();
 
