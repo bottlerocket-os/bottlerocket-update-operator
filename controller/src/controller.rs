@@ -500,7 +500,7 @@ pub(crate) mod test {
                 Version::from_str(&target_version).unwrap(),
                 current_state,
                 0,
-                Some(Utc.ymd(2022, 1, 1).and_hms_milli(0, 0, 1, 444)),
+                Some(Utc.with_ymd_and_hms(2022, 1, 1, 0, 0, 1).unwrap()),
             )),
             metadata: ObjectMeta {
                 name: Some(name),

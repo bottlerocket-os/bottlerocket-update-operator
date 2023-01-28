@@ -3,6 +3,8 @@
   Meanwhile, terminating all created ec2 instances when integration test is running 'clean' subcommand.
 !*/
 
+use base64::engine::general_purpose::STANDARD as base64_engine;
+use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::process::Command;
@@ -465,7 +467,7 @@ fn userdata(
         _ => return Err(ProviderError::new_with_context("Invalid dns ip")),
     };
 
-    Ok(base64::encode(format!(
+    Ok(base64_engine.encode(format!(
         r#"[settings.updates]
         ignore-waves = true
 
