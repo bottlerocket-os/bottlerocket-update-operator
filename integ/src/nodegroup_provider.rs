@@ -15,7 +15,8 @@ use aws_sdk_eks::model::IpFamily;
 use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_ec2::error::DescribeLaunchTemplatesError;
 use aws_sdk_ec2::model::{
-    ArchitectureValues, InstanceType, LaunchTemplateTagSpecificationRequest,
+    ArchitectureValues, InstanceType, LaunchTemplateHttpTokensState,
+    LaunchTemplateInstanceMetadataOptionsRequest, LaunchTemplateTagSpecificationRequest,
     RequestLaunchTemplateData, ResourceType, Tag,
 };
 
@@ -205,6 +206,11 @@ async fn create_launch_template(
                         cluster.dns_ip_info.clone(),
                     )?)
                     .tag_specifications(tag_specifications(&cluster.name))
+                    .metadata_options(
+                        LaunchTemplateInstanceMetadataOptionsRequest::builder()
+                            .http_tokens(LaunchTemplateHttpTokensState::Required)
+                            .build(),
+                    )
                     .build(),
             )
             .send()
