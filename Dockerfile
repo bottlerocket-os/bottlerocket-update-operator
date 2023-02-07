@@ -4,11 +4,8 @@ FROM ${BUILDER_IMAGE} as build
 ARG UNAME_ARCH
 USER root
 
-# We need these environment variables set for building the `openssl-sys` crate
-ENV PKG_CONFIG_PATH=/${UNAME_ARCH}-bottlerocket-linux-musl/sys-root/usr/lib/pkgconfig
-ENV PKG_CONFIG_ALLOW_CROSS=1
+# Required to build in --offline mode
 ENV CARGO_HOME=/src/.cargo
-ENV OPENSSL_STATIC=true
 
 ADD ./ /src/
 RUN cargo install --offline --locked --target ${UNAME_ARCH}-bottlerocket-linux-musl --path /src/agent --root /src/agent && \
@@ -41,5 +38,4 @@ COPY --from=build /licenses /licenses
 COPY --from=build \
     /usr/share/licenses/bottlerocket-sdk-musl \
     /usr/share/licenses/rust \
-    /usr/share/licenses/openssl \
     /licenses/bottlerocket-sdk/

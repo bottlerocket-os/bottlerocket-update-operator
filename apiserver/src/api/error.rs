@@ -1,3 +1,5 @@
+use std::io;
+
 use models::node::{error, BottlerocketShadowClientError};
 
 use actix_web::error::ResponseError;
@@ -44,10 +46,19 @@ pub enum Error {
     #[snafu(display("Failed to reload certificate."))]
     ReloadCertificateFailed {},
 
-    #[snafu(display("Failed to set up SslAcceptorBuilder : {:?}", source))]
-    SSLError { source: openssl::error::ErrorStack },
+    #[snafu(display("Failed to open file '{}': {}", path, source))]
+    FileOpen { path: String, source: io::Error },
 
-    #[snafu(display("Failed to serialize Webhook response: {:?}", source))]
+    #[snafu(display("Failed to extract TLS cert from file {}: {}", path, source))]
+    CertExtract { path: String, source: io::Error },
+
+    #[snafu(display("Failed to add CA to cert store: {}", source))]
+    CertStore { source: webpki::Error },
+
+    #[snafu(display("Failed to build TLS config from loaded certs: {}", source))]
+    TLSConfigBuild { source: rustls::Error },
+
+    #[snafu(display("Failed to serialize Webhook response: {}", source))]
     WebhookError { source: serde_json::error::Error },
 }
 

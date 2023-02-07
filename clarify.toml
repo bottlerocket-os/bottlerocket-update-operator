@@ -69,10 +69,11 @@ license-files = [
 #
 # zstd's README file states:
 # "Zstandard is dual-licensed under BSD and GPLv2."
-expression = "(MIT OR Apache-2.0) AND (BSD-2-Clause OR GPL-2.0)"
+expression = "(MIT OR Apache-2.0) AND (BSD-3-Clause OR GPL-2.0)"
 license-files = [
     { path = "LICENSE", hash = 0x742401ae },
     { path = "LICENSE.Apache-2.0", hash = 0x7b466be4 },
+    { path = "LICENSE.BSD-3-Clause", hash = 0xc9f5c4f6},
     { path = "LICENSE.Mit", hash = 0xa237d234 },
     { path = "zstd/COPYING", hash = 0x96841aa4 },
     { path = "zstd/LICENSE", hash = 0x79cda15 },
