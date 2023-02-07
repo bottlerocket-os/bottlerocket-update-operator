@@ -1,3 +1,34 @@
+# 1.1.0
+
+## General
+
+Added
+
+* Removed OpenSSL in favor of Rust-based TLS using rustls ([#401])
+* Updated TLS configurations to use leaf certs generated from root CA for brupop API server and agent ([#340])
+* Added resource request limits for all containers ([#327])
+
+Fixed
+
+* Exposed the failure output for the `apiclient` when error occurs ([#342])
+* `kube` clients are now created using the in-cluster DNS configuration ([#373])
+* Removed deprecated Rust library APIs ([#403])
+* Integration tests now use IMDSv2 calls ([#405])
+
+Misc
+
+* Numerous dependency upgrades and documentation fixes
+* GitHub action workflows now use larger 16 core runners ([#356])
+
+[#401]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/401
+[#340]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/340
+[#327]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/327
+[#342]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/342
+[#373]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/373
+[#403]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/403
+[#405]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/405
+[#356]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/356
+
 # 1.0.0
 
 ## General
