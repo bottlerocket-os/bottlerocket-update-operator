@@ -20,7 +20,7 @@ kubectl apply -f \
   https://github.com/cert-manager/cert-manager/releases/download/v1.8.2/cert-manager.yaml
 ```
 
-2. The Bottlerocket update operator can then be installed using the recommended configuration defined in [bottlerocket-update-operator.yaml](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/1.0.0/yamlgen/deploy/bottlerocket-update-operator.yaml).
+2. The Bottlerocket update operator can then be installed using the recommended configuration defined in [bottlerocket-update-operator.yaml](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/1.1.0/yamlgen/deploy/bottlerocket-update-operator.yaml).
 This YAML file can also be found in the [Brupop release artifacts](https://github.com/bottlerocket-os/bottlerocket-update-operator/releases):
 
 ```sh
@@ -29,7 +29,7 @@ kubectl apply -f ./bottlerocket-update-operator.yaml
 
 This will create the required namespace, custom resource definition, roles, deployments, etc., and use the latest update operator image available in [Amazon ECR Public](https://gallery.ecr.aws/bottlerocket/bottlerocket-update-operator).
 
-Note: The above link points to the latest version of the Update Operator, `v1.0.0`.
+Note: The above link points to the latest version of the Update Operator, `v1.1.0`.
 Be sure to use the git tag for the Update Operator release that you plan to deploy.
 
 3. Label nodes with `bottlerocket.aws/updater-interface-version=2.0.0` to indicate they should be automatically updated.
@@ -357,7 +357,7 @@ You may also choose to pull from regional Amazon ECR repositories such as the fo
 
 Example regional image URI:
 ```
-328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-update-operator:v1.0.0
+328549459982.dkr.ecr.us-west-2.amazonaws.com/bottlerocket-update-operator:v1.1.0
 ```
 
 ### Current Limitations
@@ -368,7 +368,7 @@ Example regional image URI:
 
 ## Troubleshooting
 
-When installed with the [default deployment](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/v1.0.0/yamlgen/deploy/bottlerocket-update-operator.yaml), the logs can be fetched through Kubernetes deployment logs.
+When installed with the [default deployment](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/v1.1.0/yamlgen/deploy/bottlerocket-update-operator.yaml), the logs can be fetched through Kubernetes deployment logs.
 Because mutations to a node are orchestrated through the API server component, searching those deployment logs for a node ID can be useful.
 To get logs for the API server, run the following:
 
