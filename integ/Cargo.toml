@@ -15,7 +15,7 @@ aws-sdk-iam = "0.24.0"
 aws-sdk-ssm = "0.24.0"
 async-trait = "0.1"
 base64 = "0.21.0"
-chrono = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
 console_log = { version = "0.2", features = ["color"] }
 env_logger = "0.10"
 hex ="0.4.3"

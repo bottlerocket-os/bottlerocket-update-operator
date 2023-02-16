@@ -7,7 +7,7 @@ license = "Apache-2.0 OR MIT"
 
 [dependencies]
 async-trait = "0.1"
-chrono = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
 futures = "0.3"
 # k8s-openapi must match the version required by kube and enable a k8s version feature
 k8s-openapi = { version = "0.17.0", default-features = false, features = ["v1_20"] }
