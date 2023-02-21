@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::{convert::TryFrom, env};
 
 use controller::{telemetry::vending_metrics, BrupopController};
 use models::{
@@ -89,13 +89,23 @@ async fn main() -> Result<()> {
     let controller = BrupopController::new(k8s_client, node_client, brs_reader, node_reader);
     let controller_runner = controller.run();
 
+    let k8s_service_addr = env::var("KUBERNETES_SERVICE_HOST")
+        .context(controller_error::MissingClusterIPFamilySnafu)?;
+    let bindaddress = if k8s_service_addr.contains(':') {
+        // IPv6 format
+        "[::]"
+    } else {
+        // IPv4 format
+        "0.0.0.0"
+    };
+
     // Setup Http server to vend prometheus metrics
     let prometheus_server = HttpServer::new(move || {
         App::new()
             .app_data(Data::new(exporter.clone()))
             .service(vending_metrics)
     })
-    .bind(format!("0.0.0.0:{}", CONTROLLER_INTERNAL_PORT))
+    .bind(format!("{}:{}", bindaddress, CONTROLLER_INTERNAL_PORT))
     .context(controller_error::PrometheusServerSnafu)?
     .run();
 
@@ -162,6 +172,9 @@ pub mod controller_error {
         TracingConfiguration {
             source: tracing::subscriber::SetGlobalDefaultError,
         },
+
+        #[snafu(display("Error determining the cluster server address: '{}'", source))]
+        MissingClusterIPFamily { source: std::env::VarError },
 
         #[snafu(display("Error running prometheus HTTP server: '{}'", source))]
         PrometheusServerError { source: std::io::Error },
