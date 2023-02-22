@@ -36,12 +36,13 @@ BUILDER_IMAGE = public.ecr.aws/bottlerocket/bottlerocket-sdk-$(BOTTLEROCKET_SDK_
 
 export CARGO_HOME = $(TOP)/.cargo
 
-image: build brupop-image
+image: check-licenses brupop-image
 
 # Fetches crates from upstream
 fetch:
 	cargo fetch --locked
 
+# Checks allowed/denied upstream licenses against the deny.toml
 check-licenses: fetch
 	docker run --rm \
 		--network none \
@@ -53,21 +54,21 @@ check-licenses: fetch
 		"$(BUILDER_IMAGE)" \
 		bash -c "cargo deny --all-features check --disable-fetch licenses bans sources"
 
-# Builds, Lints and Tests the Rust workspace
-build: fetch check-licenses
+# Builds, Lints, and Tests the Rust workspace locally
+build: check-licenses
 	cargo fmt -- --check
-	cargo build --locked
 	cargo test --locked
+	cargo build --locked
 
-brupop-image: fetch check-licenses
+# Builds only the brupop image. Useful target for CI/CD, releasing, etc.
+brupop-image:
 	docker build $(DOCKER_BUILD_FLAGS) \
 		--build-arg UNAME_ARCH="$(UNAME_ARCH)" \
 		--build-arg BUILDER_IMAGE="$(BUILDER_IMAGE)" \
 		--tag "$(IMAGE_NAME)" \
-		--network none \
 		-f Dockerfile .
 
-dist: brupop-image
+dist: check-licenses brupop-image
 	@mkdir -p $(dir $(DISTFILE))
 	docker save $(IMAGE_NAME) | gzip > '$(DISTFILE)'
 

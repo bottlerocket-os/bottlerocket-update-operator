@@ -7,7 +7,13 @@ USER root
 # Required to build in --offline mode
 ENV CARGO_HOME=/src/.cargo
 
+# Add brupop source
 ADD ./ /src/
+
+# Ensure cargo dependencies are fetched and available in the Docker context
+RUN cargo fetch --locked --manifest-path /src/Cargo.toml
+
+# Builds brupop binaries
 RUN cargo install --offline --locked --target ${UNAME_ARCH}-bottlerocket-linux-musl --path /src/agent --root /src/agent && \
     cargo install --offline --locked --target ${UNAME_ARCH}-bottlerocket-linux-musl --path /src/apiserver --root /src/apiserver && \
     cargo install --offline --locked --target ${UNAME_ARCH}-bottlerocket-linux-musl --path /src/controller --root /src/controller
