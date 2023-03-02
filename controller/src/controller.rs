@@ -1,5 +1,6 @@
 use super::{
     metrics::{BrupopControllerMetrics, BrupopHostsData},
+    scheduler::BrupopCronScheduler,
     statemachine::determine_next_node_spec,
 };
 use models::constants::{BRUPOP_INTERFACE_VERSION, LABEL_BRUPOP_INTERFACE_NAME, NAMESPACE};
@@ -8,7 +9,6 @@ use models::node::{
     Selector,
 };
 
-use chrono::{Duration as chrono_duration, NaiveTime, Utc};
 use k8s_openapi::api::core::v1::Node;
 use kube::api::DeleteParams;
 use kube::runtime::reflector::Store;
@@ -19,6 +19,7 @@ use snafu::ResultExt;
 use std::collections::{BTreeMap, HashMap};
 use std::env;
 use tokio::time::{sleep, Duration};
+
 use tracing::{event, instrument, Level};
 
 // Defines the length time after which the controller will take actions.
@@ -26,11 +27,6 @@ const ACTION_INTERVAL: Duration = Duration::from_secs(2);
 
 // Defines environment variable name used to fetch max concurrent update number.
 const MAX_CONCURRENT_UPDATE_ENV_VAR: &str = "MAX_CONCURRENT_UPDATE";
-
-// Defines the update time window related env variable names
-const UPDATE_WINDOW_START_ENV_VAR: &str = "UPDATE_WINDOW_START";
-const UPDATE_WINDOW_STOP_ENV_VAR: &str = "UPDATE_WINDOW_STOP";
-const UPDATE_WINDOW_BUFFER: i64 = 6;
 
 /// The module-wide result type.
 type Result<T> = std::result::Result<T, controllerclient_error::Error>;
@@ -252,6 +248,19 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
         Ok(())
     }
 
+    #[instrument(skip(self))]
+    fn nodes_ready_to_update(&self) -> bool {
+        let mut shadows: Vec<BottlerocketShadow> = self.all_brss();
+        for brs in shadows.drain(..) {
+            // If we determine that the spec should change, this node is a candidate to begin updating.
+            let next_spec = determine_next_node_spec(&brs);
+            if next_spec != brs.spec && is_initial_state(&brs) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /// Runs the event loop for the Brupop controller.
     ///
     /// Because the controller wants to gate the number of simultaneously updating nodes, we can't allow the update state machine
@@ -262,61 +271,71 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
     /// The controller is designed to run on a single node in the cluster and rely on the scheduler to ensure there is always one
     /// running; however, it could be expanded using leader-election and multiple nodes if the scheduler proves to be problematic.
     pub async fn run(&self) -> Result<()> {
+        // generate brupop cron expression schedule
+        let scheduler = BrupopCronScheduler::from_environment()
+            .context(controllerclient_error::GetCronScheduleSnafu)?;
+
         // On every iteration of the event loop, we reconstruct the state of the controller and determine its
         // next actions. This is to ensure that the operator would behave consistently even if suddenly restarted.
         loop {
-            // Brupop typically only operates on a single node at a time. Here we find the set of nodes which is currently undergoing
-            // change, to ensure that errors resulting in multiple nodes changing state simultaneously is not unrecoverable.
             let active_set = self.active_brs_set();
-            let active_set_size = active_set.len();
             event!(Level::TRACE, ?active_set, "Found active set of nodes.");
 
-            // update time window: users can specify a update time window to operate Bottlerocket nodes update. If current time isn't within the time window,
-            // controller shouldn't have any action on it.
-            match within_time_window()? {
-                // If controller has already started a node update but the update time window stops,
-                // controller should respect it, continue to complete the update, and stop actions on remaining nodes.
-                // This logic will cooperate with 6 mins buffer strategy.
-                false => {
-                    // try to find out if any nodes are being updated. If yes, controller
-                    // will complete them and pause actions on other waitingForUpdate nodes.
-                    if !active_set.is_empty() {
-                        self.progress_active_set(active_set).await?;
-                    } else {
-                        sleep(ACTION_INTERVAL).await;
-                        continue;
-                    }
-                }
-                true => {
-                    if !active_set.is_empty() {
-                        self.progress_active_set(active_set).await?;
-                    }
+            // when current is outside of a scheduled maintenance window, controlle should keep updating active nodes
+            // if there are any ongoing updates. Otherwise it should sleep until next maintenance window.
+            let mut maintenance_window = if active_set.is_empty() {
+                // If there are no more active nodes and current is outside of the maintenance window, brupop controller
+                // will sleep until next scheduled time.
+                scheduler
+                    .wait_until_next_maintainence_window()
+                    .await
+                    .context(controllerclient_error::SleepUntilNextScheduleSnafu)?;
+                true
+            } else {
+                // Any ongoing updates are completed even outside of the maintenance window
+                self.progress_active_set(active_set).await?;
+                sleep(ACTION_INTERVAL).await;
+                false
+            };
 
-                    // Bring one more node each time if the active nodes size is less than MAX_CONCURRENT_UPDATE setting.
-                    if active_set_size < get_max_concurrent_update()? {
-                        // If there's nothing to operate on, check to see if any other nodes are ready for action.
-                        let new_active_node = self.find_and_update_ready_brs().await?;
-                        if let Some(brs) = new_active_node {
-                            event!(Level::INFO, name = %brs.name_any(), "Began updating new node.")
-                        }
+            while maintenance_window {
+                // Brupop typically only operates on a single node at a time. Here we find the set of nodes which is currently undergoing
+                // change, to ensure that errors resulting in multiple nodes changing state simultaneously is not unrecoverable.
+                let active_set = self.active_brs_set();
+                let active_set_size = active_set.len();
+                event!(Level::TRACE, ?active_set, "Found active set of nodes.");
+
+                if !active_set.is_empty() {
+                    self.progress_active_set(active_set).await?;
+                }
+                // Bring one more node each time if the active nodes size is less than MAX_CONCURRENT_UPDATE setting.
+                if active_set_size < get_max_concurrent_update()? {
+                    // If there's nothing to operate on, check to see if any other nodes are ready for action.
+                    let new_active_node = self.find_and_update_ready_brs().await?;
+                    if let Some(brs) = new_active_node {
+                        event!(Level::INFO, name = %brs.name_any(), "Began updating new node.")
                     }
                 }
+
+                // Cleanup BRS when the operator is removed from a node
+                let brss_name = self
+                    .all_brss()
+                    .into_iter()
+                    .map(|brs| brs.name_any())
+                    .collect();
+                let nodes = self.all_nodes();
+                self.bottlerocketshadows_cleanup(nodes, brss_name).await?;
+
+                // Emit metrics at the end of the loop in case the loop didn't progress any nodes.
+                self.emit_metrics()?;
+
+                // Sleep until it's time to check for more action.
+                sleep(ACTION_INTERVAL).await;
+
+                // We end the maintenance window if it's unable to find ready node, or the time window has ended.
+                maintenance_window =
+                    !scheduler.should_discontinue_updates() && self.nodes_ready_to_update();
             }
-
-            // Cleanup BRS when the operator is removed from a node
-            let brss_name = self
-                .all_brss()
-                .into_iter()
-                .map(|brs| brs.name_any())
-                .collect();
-            let nodes = self.all_nodes();
-            self.bottlerocketshadows_cleanup(nodes, brss_name).await?;
-
-            // Emit metrics at the end of the loop in case the loop didn't progress any nodes.
-            self.emit_metrics()?;
-
-            // Sleep until it's time to check for more action.
-            sleep(ACTION_INTERVAL).await;
         }
     }
 }
@@ -324,10 +343,7 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
 // Get node and BottlerocketShadow names
 #[instrument]
 fn get_associated_bottlerocketshadow_name() -> Result<String> {
-    let associated_node_name =
-        env::var("MY_NODE_NAME").context(controllerclient_error::MissingEnvVariableSnafu {
-            variable: "MY_NODE_NAME".to_string(),
-        })?;
+    let associated_node_name = read_env_var("MY_NODE_NAME")?;
     let associated_bottlerocketshadow_name = brs_name_from_node_name(&associated_node_name);
 
     event!(
@@ -372,11 +388,7 @@ fn sort_shadows(shadows: &mut Vec<BottlerocketShadow>, associated_brs_name: &str
 
 /// Fetch the environment variable to determine the max concurrent update nodes number.
 fn get_max_concurrent_update() -> Result<usize> {
-    let max_concurrent_update = env::var(MAX_CONCURRENT_UPDATE_ENV_VAR)
-        .context(controllerclient_error::MissingEnvVariableSnafu {
-            variable: MAX_CONCURRENT_UPDATE_ENV_VAR.to_string(),
-        })?
-        .to_lowercase();
+    let max_concurrent_update = read_env_var(MAX_CONCURRENT_UPDATE_ENV_VAR)?.to_lowercase();
 
     if max_concurrent_update.eq("unlimited") {
         Ok(usize::MAX)
@@ -416,64 +428,10 @@ fn node_has_label(node: &Node) -> bool {
         ));
 }
 
-#[instrument(skip())]
-fn within_time_window() -> Result<bool> {
-    let update_window_start_env = env::var(UPDATE_WINDOW_START_ENV_VAR).context(
-        controllerclient_error::MissingEnvVariableSnafu {
-            variable: UPDATE_WINDOW_START_ENV_VAR.to_string(),
-        },
-    )?;
-
-    let update_window_stop_env = env::var(UPDATE_WINDOW_STOP_ENV_VAR).context(
-        controllerclient_error::MissingEnvVariableSnafu {
-            variable: UPDATE_WINDOW_STOP_ENV_VAR.to_string(),
-        },
-    )?;
-
-    let current_time = Utc::now().time();
-    let update_window_start = NaiveTime::parse_from_str(&update_window_start_env, "%H:%M:%S")
-        .context(controllerclient_error::ConvertToNativeTimeSnafu {
-            date: update_window_start_env,
-        })?;
-    let update_window_stop = NaiveTime::parse_from_str(&update_window_stop_env, "%H:%M:%S")
-        .context(controllerclient_error::ConvertToNativeTimeSnafu {
-            date: update_window_stop_env,
-        })?;
-
-    // Due to the situation that controller has already started a node update but the time window will stop,
-    // we design controller to stop updating any new nodes 6 mins (the time brupop spends to update a node)
-    // before update window stop time except finishing remaining update circle. Therefore, when update window stops,
-    // no nodes are on "in-process" status.
-    let update_window_stop_with_buffer =
-        update_window_stop - chrono_duration::minutes(UPDATE_WINDOW_BUFFER);
-
-    event!(
-        Level::INFO,
-        "Calculating if current time is within update time window."
-    );
-    Ok(update_time_window_calculator(
-        &update_window_start,
-        &update_window_stop_with_buffer,
-        &current_time,
-    ))
-}
-
-fn update_time_window_calculator(
-    update_window_start: &NaiveTime,
-    update_window_stop: &NaiveTime,
-    current_time: &NaiveTime,
-) -> bool {
-    // If update window start time is later than update window stop time, we'll assume a cross day period.
-    // For example, start time 11pm is later than end time 2am, so brupop will recognize it as 11pm - 2 am (next day) slot.
-    if update_window_start > update_window_stop {
-        let is_within_time_window =
-            (current_time >= update_window_start) || (current_time < update_window_stop);
-        return is_within_time_window;
-    } else {
-        let is_within_time_window =
-            (current_time >= update_window_start) && (current_time < update_window_stop);
-        return is_within_time_window;
-    }
+fn read_env_var(env_var: &str) -> Result<String> {
+    env::var(env_var).context(controllerclient_error::MissingEnvVariableSnafu {
+        variable: env_var.to_string(),
+    })
 }
 
 #[cfg(test)]
@@ -649,81 +607,11 @@ pub(crate) mod test {
         assert!(node_has_label(&labeled_node));
         assert_eq!(node_has_label(&unlabeled_node), false);
     }
-    #[test]
-    fn test_time_window_calculator() {
-        let test_cases = vec![
-            (
-                btreemap! {
-                        "update_window_start" =>
-                        NaiveTime::parse_from_str("9:0:0", "%H:%M:%S").unwrap(),
-                        "update_window_stop"=>
-                        NaiveTime::parse_from_str("18:0:0", "%H:%M:%S").unwrap(),
-                        "current_time"=>
-                        NaiveTime::parse_from_str("11:0:0", "%H:%M:%S").unwrap(),
-                },
-                true,
-            ),
-            (
-                btreemap! {
-                        "update_window_start" =>
-                        NaiveTime::parse_from_str("9:0:0", "%H:%M:%S").unwrap(),
-                        "update_window_stop"=>
-                        NaiveTime::parse_from_str("18:0:0", "%H:%M:%S").unwrap(),
-                        "current_time"=>
-                        NaiveTime::parse_from_str("23:0:0", "%H:%M:%S").unwrap(),
-                },
-                false,
-            ),
-            (
-                btreemap! {
-                        "update_window_start" =>
-                        NaiveTime::parse_from_str("23:0:0", "%H:%M:%S").unwrap(),
-                        "update_window_stop"=>
-                        NaiveTime::parse_from_str("5:0:0", "%H:%M:%S").unwrap(),
-                        "current_time"=>
-                        NaiveTime::parse_from_str("3:0:0", "%H:%M:%S").unwrap(),
-                },
-                true,
-            ),
-            (
-                btreemap! {
-                        "update_window_start" =>
-                        NaiveTime::parse_from_str("23:0:0", "%H:%M:%S").unwrap(),
-                        "update_window_stop"=>
-                        NaiveTime::parse_from_str("5:0:0", "%H:%M:%S").unwrap(),
-                        "current_time"=>
-                        NaiveTime::parse_from_str("21:0:0", "%H:%M:%S").unwrap(),
-                },
-                false,
-            ),
-            (
-                btreemap! {
-                        "update_window_start" =>
-                        NaiveTime::parse_from_str("0:0:0", "%H:%M:%S").unwrap(),
-                        "update_window_stop"=>
-                        NaiveTime::parse_from_str("0:0:0", "%H:%M:%S").unwrap(),
-                        "current_time"=>
-                        NaiveTime::parse_from_str("21:0:0", "%H:%M:%S").unwrap(),
-                },
-                false,
-            ),
-        ];
-
-        for (times, is_within_time_window) in test_cases {
-            assert_eq!(
-                update_time_window_calculator(
-                    times.get("update_window_start").unwrap(),
-                    times.get("update_window_stop").unwrap(),
-                    times.get("current_time").unwrap(),
-                ),
-                is_within_time_window
-            );
-        }
-    }
 }
 
 pub mod controllerclient_error {
     use crate::controller::MAX_CONCURRENT_UPDATE_ENV_VAR;
+    use crate::scheduler::scheduler_error;
     use models::node::BottlerocketShadowClientError;
     use models::node::BottlerocketShadowError;
     use snafu::Snafu;
@@ -737,17 +625,14 @@ pub mod controllerclient_error {
             source: serde_plain::Error,
         },
 
-        #[snafu(display("Unable convert {} to Native Time data type due to {}", date, source))]
-        ConvertToNativeTime {
-            date: String,
-            source: chrono::ParseError,
-        },
-
         #[snafu(display("Failed to delete node via kubernetes API: '{}'", source))]
         DeleteNode { source: kube::Error },
 
         #[snafu(display("Unable to get host controller pod node name: {}", source))]
         GetNodeName { source: std::env::VarError },
+
+        #[snafu(display("Unable to get cron expression schedule: {}", source))]
+        GetCronSchedule { source: scheduler_error::Error },
 
         #[snafu(display("Failed to update node spec via kubernetes API: '{}'", source))]
         UpdateNodeSpec {
@@ -773,7 +658,11 @@ pub mod controllerclient_error {
             source
         ))]
         MaxConcurrentUpdateParseError { source: std::num::ParseIntError },
-        #[snafu(display("Unable to get Node UID because of missing Node `UID` value"))]
-        MissingNodeUid {},
+
+        #[snafu(display("Error creating maintenance time: '{}'", source))]
+        MaintenanceTimeError { source: scheduler_error::Error },
+
+        #[snafu(display("Unable to find next scheduled time and sleep: '{}'", source))]
+        SleepUntilNextSchedule { source: scheduler_error::Error },
     }
 }
