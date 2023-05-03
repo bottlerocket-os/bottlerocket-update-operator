@@ -30,8 +30,12 @@ use actix_web_opentelemetry::{PrometheusMetricsHandler, RequestMetricsBuilder, R
 use futures::StreamExt;
 use k8s_openapi::api::core::v1::Pod;
 use kube::{
-    api::{Api, ListParams},
-    runtime::{reflector, watcher::watcher, WatchStreamExt},
+    api::Api,
+    runtime::{
+        reflector,
+        watcher::{watcher, Config},
+        WatchStreamExt,
+    },
     ResourceExt,
 };
 use opentelemetry::global::meter;
@@ -125,7 +129,7 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
         pod_store,
         watcher(
             pods,
-            ListParams::default().labels(&format!("{}={}", LABEL_COMPONENT, AGENT)),
+            Config::default().labels(&format!("{}={}", LABEL_COMPONENT, AGENT)),
         ),
     );
     let drainer = pod_reflector.touched_objects()
