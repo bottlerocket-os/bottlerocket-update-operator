@@ -2,11 +2,14 @@ use agent::agentclient::BrupopAgent;
 use apiserver::client::K8SAPIServerClient;
 use futures::StreamExt;
 use k8s_openapi::api::core::v1::Node;
-use kube::api::ListParams;
-use kube::runtime::reflector;
-use kube::runtime::watcher::watcher;
-use kube::runtime::WatchStreamExt;
-use kube::Api;
+use kube::{
+    api::Api,
+    runtime::{
+        reflector,
+        watcher::{watcher, Config},
+        WatchStreamExt,
+    },
+};
 use models::agent::{AGENT_TOKEN_PATH, TOKEN_PROJECTION_MOUNT_PATH};
 use models::constants::NAMESPACE;
 
@@ -60,11 +63,11 @@ async fn run_agent() -> Result<()> {
 
     // Generate reflector to watch and cache BottlerocketShadow
     let brss = Api::<BottlerocketShadow>::namespaced(k8s_client.clone(), NAMESPACE);
-    let brs_lp = ListParams::default()
+    let brs_config = Config::default()
         .fields(format!("metadata.name={}", associated_bottlerocketshadow_name).as_str());
     let brs_store = reflector::store::Writer::<BottlerocketShadow>::default();
     let brs_reader = brs_store.as_reader();
-    let brs_reflector = reflector::reflector(brs_store, watcher(brss, brs_lp));
+    let brs_reflector = reflector::reflector(brs_store, watcher(brss, brs_config));
     let brs_drainer = brs_reflector
         .touched_objects()
         .filter_map(|x| async move { std::result::Result::ok(x) })
@@ -74,12 +77,12 @@ async fn run_agent() -> Result<()> {
         });
 
     // Generate reflector to watch and cache Nodes
-    let node_lp =
-        ListParams::default().fields(format!("metadata.name={}", associated_node_name).as_str());
+    let node_config =
+        Config::default().fields(format!("metadata.name={}", associated_node_name).as_str());
     let nodes: Api<Node> = Api::all(k8s_client.clone());
     let nodes_store = reflector::store::Writer::<Node>::default();
     let node_reader = nodes_store.as_reader();
-    let node_reflector = reflector::reflector(nodes_store, watcher(nodes, node_lp));
+    let node_reflector = reflector::reflector(nodes_store, watcher(nodes, node_config));
     let node_drainer = node_reflector
         .touched_objects()
         .filter_map(|x| async move { std::result::Result::ok(x) })

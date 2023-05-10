@@ -11,8 +11,12 @@ use actix_web::{web::Data, App, HttpServer};
 use futures::StreamExt;
 use k8s_openapi::api::core::v1::Node;
 use kube::{
-    api::{Api, ListParams},
-    runtime::{reflector, watcher::watcher, WatchStreamExt},
+    api::Api,
+    runtime::{
+        reflector,
+        watcher::{watcher, Config},
+        WatchStreamExt,
+    },
     ResourceExt,
 };
 
@@ -60,7 +64,7 @@ async fn main() -> Result<()> {
     let exporter = opentelemetry_prometheus::exporter(controller).init();
 
     // Setup and run a reflector, ensuring that `BottlerocketShadow` updates are reflected to the controller.
-    let brs_reflector = reflector::reflector(brs_store, watcher(brss, ListParams::default()));
+    let brs_reflector = reflector::reflector(brs_store, watcher(brss, Config::default()));
     let brs_drainer = brs_reflector
         .touched_objects()
         .filter_map(|x| async move { std::result::Result::ok(x) })
@@ -76,7 +80,7 @@ async fn main() -> Result<()> {
     let nodes: Api<Node> = Api::all(k8s_client.clone());
     let nodes_store = reflector::store::Writer::<Node>::default();
     let node_reader = nodes_store.as_reader();
-    let node_reflector = reflector::reflector(nodes_store, watcher(nodes, ListParams::default()));
+    let node_reflector = reflector::reflector(nodes_store, watcher(nodes, Config::default()));
     let node_drainer = node_reflector
         .touched_objects()
         .filter_map(|x| async move { std::result::Result::ok(x) })
