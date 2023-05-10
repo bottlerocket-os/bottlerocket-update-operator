@@ -21,7 +21,7 @@ actix-web-opentelemetry = { version = "0.13", features = ["metrics", "metrics-pr
 rustls = { version = "0.20" }
 rustls-pemfile = { version = "1" }
 webpki = { version = "0.22.0", features = ["std"] }
-opentelemetry = { version = "0.18", features = ["rt-tokio-current-thread"]}
+opentelemetry = { version = "0.19", features = ["rt-tokio-current-thread"]}
 opentelemetry-prometheus = "0.11"
 tracing = "0.1"
 tracing-actix-web = "0.7"
