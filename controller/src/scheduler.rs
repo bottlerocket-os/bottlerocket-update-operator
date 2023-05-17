@@ -108,9 +108,13 @@ impl BrupopCronScheduler {
         let scheduler_cron_expression = get_cron_schedule_from_env()?;
 
         let scheduler = match (legacy_window, scheduler_cron_expression) {
-            // it's not allowed to set update time window and scheduler at same time
-            (Some(_), Some(_)) => {
-                return scheduler_error::DisallowSetTimeWindowAndSchedulerSnafu {}.fail();
+            // it's not allowed to set update time window and scheduler at same time, cron expression takes precendent
+            (Some(_), Some(cron_schedule)) => {
+                event!(
+                    Level::WARN,
+                    "Both time window and cron expression provided - using cron expression for schedule."
+                );
+                Ok(cron_schedule)
             }
             // set cron expression scheduler to default "* * * * * * *" if no update time window and
             // scheduler variables are provided.
@@ -192,6 +196,7 @@ impl BrupopCronScheduler {
 /// => specific trigger time: trigger brupop update and complete all waitingForUpdate nodes.
 /// => maintenance window (time window): trigger brupop update within time window. If current
 /// time isn't within the time window, controller shouldn't have any action on it.
+#[derive(PartialEq, Debug)]
 pub enum ScheduleType {
     Windowed,
     Oneshot,
@@ -397,6 +402,65 @@ pub(crate) mod test {
                 result
             );
         }
+    }
+
+    #[test]
+    fn test_from_environment() {
+        // These would normally be separate unit tests for each case, but since
+        // they rely on environment variables as input they are done sequentally
+        // here.
+
+        // Legacy update window usage
+        env::remove_var(SCHEDULER_CRON_EXPRESSION_ENV_VAR);
+        env::set_var(UPDATE_WINDOW_START_ENV_VAR, "09:00:00");
+        env::set_var(UPDATE_WINDOW_STOP_ENV_VAR, "21:00:00");
+
+        let result = BrupopCronScheduler::from_environment().unwrap();
+        let expected = Schedule::from_str("* * 9-21 * * * *").unwrap();
+        assert!(result.scheduler.timeunitspec_eq(&expected));
+
+        // Legacy update window missing start time
+        env::remove_var(SCHEDULER_CRON_EXPRESSION_ENV_VAR);
+        env::remove_var(UPDATE_WINDOW_START_ENV_VAR);
+        env::set_var(UPDATE_WINDOW_STOP_ENV_VAR, "21:00:00");
+
+        let result = LegacyUpdateWindow::from_environment();
+        assert!(result.is_err());
+
+        // Legacy update window missing stop time
+        env::remove_var(SCHEDULER_CRON_EXPRESSION_ENV_VAR);
+        env::set_var(UPDATE_WINDOW_START_ENV_VAR, "09:00:00");
+        env::remove_var(UPDATE_WINDOW_STOP_ENV_VAR);
+
+        let result = LegacyUpdateWindow::from_environment();
+        assert!(result.is_err());
+
+        // Cron expression
+        env::set_var(SCHEDULER_CRON_EXPRESSION_ENV_VAR, "* * 5 * * * *");
+        env::remove_var(UPDATE_WINDOW_START_ENV_VAR);
+        env::remove_var(UPDATE_WINDOW_STOP_ENV_VAR);
+
+        let result = BrupopCronScheduler::from_environment().unwrap();
+        let expected = Schedule::from_str("* * 5 * * * *").unwrap();
+        assert!(result.scheduler.timeunitspec_eq(&expected));
+
+        // Cron expression as the default result
+        env::remove_var(SCHEDULER_CRON_EXPRESSION_ENV_VAR);
+        env::remove_var(UPDATE_WINDOW_START_ENV_VAR);
+        env::remove_var(UPDATE_WINDOW_STOP_ENV_VAR);
+
+        let result = BrupopCronScheduler::from_environment().unwrap();
+        let expected = Schedule::from_str("* * * * * * *").unwrap();
+        assert!(result.scheduler.timeunitspec_eq(&expected));
+
+        // Cron expression and legacy window both provided
+        env::set_var(SCHEDULER_CRON_EXPRESSION_ENV_VAR, "* * 5 * * * *");
+        env::set_var(UPDATE_WINDOW_START_ENV_VAR, "09:00:00");
+        env::set_var(UPDATE_WINDOW_STOP_ENV_VAR, "21:00:00");
+
+        let result = BrupopCronScheduler::from_environment().unwrap();
+        let expected = Schedule::from_str("* * 5 * * * *").unwrap();
+        assert!(result.scheduler.timeunitspec_eq(&expected));
     }
 }
 

@@ -145,33 +145,6 @@ For example:
               value: "1"
 ```
 
-#### Set an Update Time Window - DEPRECATED
-
-Note!! that these settings are deprecated and will be removed in a future release.
-You should use the Scheduler settings below.
-If you still decide to use these settings, please use "hour:00:00" format only instead of "HH:MM:SS".
-
-`UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` can be used to specify the time window in which updates are permitted.
-
-To enable this feature, go to `bottlerocket-update-operator.yaml`, change `UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` to a `hour:minute:second` formatted value (UTC (24-hour time notation)). Note that `UPDATE_WINDOW_START` is inclusive and `UPDATE_WINDOW_STOP` is exclusive.
-
-Note: brupop uses UTC (24-hour time notation), please convert your local time to UTC.
-For example:
-```yaml
-      containers:
-        - command:
-            - "./controller"
-          env:
-            - name: MY_NODE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
-            - name: UPDATE_WINDOW_START
-              value: "09:00:00"
-            - name: UPDATE_WINDOW_STOP
-              value: "21:00:00"
-```
-
 #### Set scheduler
 `SCHEDULER_CRON_EXPRESSION` can be used to specify the scheduler in which updates are permitted.
 When `SCHEDULER_CRON_EXPRESSION` is "* * * * * * *" (default), the feature is disabled.
@@ -206,6 +179,34 @@ For example (schedule to run update operator at 03:00 PM on Monday ):
                   fieldPath: spec.nodeName
             - name: SCHEDULER_CRON_EXPRESSION
               value: "* * * * * * *"
+```
+
+#### Set an Update Time Window - DEPRECATED
+
+**Note**: these settings are deprecated and will be removed in a future release.
+Time window settings cannot be used in combination with the preferred cron expression format and will be ignored.
+
+If you still decide to use these settings, please use "hour:00:00" format only instead of "HH:MM:SS".
+
+`UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` can be used to specify the time window in which updates are permitted.
+
+To enable this feature, go to `bottlerocket-update-operator.yaml`, change `UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` to a `hour:minute:second` formatted value (UTC (24-hour time notation)). Note that `UPDATE_WINDOW_START` is inclusive and `UPDATE_WINDOW_STOP` is exclusive.
+
+Note: brupop uses UTC (24-hour time notation), please convert your local time to UTC.
+For example:
+```yaml
+      containers:
+        - command:
+            - "./controller"
+          env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: UPDATE_WINDOW_START
+              value: "09:00:00"
+            - name: UPDATE_WINDOW_STOP
+              value: "21:00:00"
 ```
 
 ### Label nodes
