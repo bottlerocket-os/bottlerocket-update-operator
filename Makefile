@@ -34,13 +34,14 @@ BOTTLEROCKET_SDK_ARCH = $(UNAME_ARCH)
 
 BUILDER_IMAGE = public.ecr.aws/bottlerocket/bottlerocket-sdk-$(BOTTLEROCKET_SDK_ARCH):$(BOTTLEROCKET_SDK_VERSION)
 
+export CARGO_ENV_VARS = CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 export CARGO_HOME = $(TOP)/.cargo
 
 image: check-licenses brupop-image
 
 # Fetches crates from upstream
 fetch:
-	cargo fetch --locked
+	$(CARGO_ENV_VARS) cargo fetch --locked
 
 # Checks allowed/denied upstream licenses against the deny.toml
 check-licenses: fetch
@@ -52,13 +53,13 @@ check-licenses: fetch
 		--volume "$(TOP):/src" \
 		--workdir "/src/" \
 		"$(BUILDER_IMAGE)" \
-		bash -c "cargo deny --all-features check --disable-fetch licenses bans sources"
+		bash -c "$(CARGO_ENV_VARS) cargo deny --all-features check --disable-fetch licenses bans sources"
 
 # Builds, Lints, and Tests the Rust workspace locally
 build: check-licenses
-	cargo fmt -- --check
-	cargo test --locked
-	cargo build --locked
+	$(CARGO_ENV_VARS) cargo fmt -- --check
+	$(CARGO_ENV_VARS) cargo test --locked
+	$(CARGO_ENV_VARS) cargo build --locked
 
 # Builds only the brupop image. Useful target for CI/CD, releasing, etc.
 brupop-image:
