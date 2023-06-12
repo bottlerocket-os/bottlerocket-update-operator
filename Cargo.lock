@@ -340,7 +340,7 @@ dependencies = [
  "opentelemetry",
  "opentelemetry-prometheus",
  "reqwest",
- "rustls 0.20.8",
+ "rustls 0.21.1",
  "rustls-pemfile",
  "schemars",
  "serde",
