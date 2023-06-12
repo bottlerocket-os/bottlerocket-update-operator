@@ -1,0 +1,8 @@
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: brupop-controller-high-priority
+  namespace: {{ .Values.namespace }}
+preemptionPolicy: Never
+value: 1000000

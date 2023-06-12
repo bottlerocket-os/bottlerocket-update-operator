@@ -28,7 +28,6 @@ macro_rules! brupop_labels {
 }
 
 pub const API_VERSION: &str = brupop_domain!("v2");
-pub const NAMESPACE: &str = "brupop-bottlerocket-aws";
 pub const BRUPOP: &str = "brupop";
 pub const BRUPOP_DOMAIN_LIKE_NAME: &str = brupop_domain!();
 pub const LABEL_BRUPOP_INTERFACE_NAME: &str = "bottlerocket.aws/updater-interface-version";
@@ -63,6 +62,8 @@ pub const APISERVER_SERVICE_NAME: &str = "brupop-apiserver"; // The name for the
 // agent constants
 pub const AGENT: &str = "agent";
 pub const AGENT_NAME: &str = "brupop-agent";
+pub const AGENT_TOKEN_PROJECTION_MOUNT_PATH: &str = "/var/run/secrets/tokens/";
+pub const AGENT_TOKEN_PATH: &str = "bottlerocket-agent-service-account-token";
 
 // controller constants
 pub const CONTROLLER: &str = "brupop-controller";

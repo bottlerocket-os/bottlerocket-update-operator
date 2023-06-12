@@ -1,0 +1,21 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: brupop-apiserver-certificate
+  namespace: {{ .Values.namespace }}
+spec:
+  secretName: brupop-apiserver-certificate
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS8
+  dnsNames:
+    - "*.{{ .Values.namespace }}.svc.cluster.local"
+    - "*.{{ .Values.namespace }}.svc"
+  usages:
+    - server auth
+    - key encipherment
+    - digital signature
+  issuerRef:
+    name: brupop-root-certificate-issuer
+    kind: Issuer

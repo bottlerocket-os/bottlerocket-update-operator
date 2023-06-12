@@ -7,7 +7,7 @@ The agent performs all cluster object mutation operations via the API Server, wh
 Further, `cert-manager` is required in order for the API server to use a CA certificate to communicate over SSL with the agents.
 Updates to Bottlerocket are rolled out in [waves](https://github.com/bottlerocket-os/bottlerocket/tree/develop/sources/updater/waves) to reduce the impact of issues; the nodes in your cluster may not all see updates at the same time.
 
-For a deep dive on installing Brupop, how it works, and it's integration with Bottlerocket, [check out this design deep dive document!](./design/1.0.0-release.md)
+For a deep dive on installing Brupop, how it works, and its integration with Bottlerocket, [check out this design deep dive document!](./design/1.0.0-release.md)
 
 ## Getting Started
 
@@ -20,17 +20,54 @@ kubectl apply -f \
   https://github.com/cert-manager/cert-manager/releases/download/v1.8.2/cert-manager.yaml
 ```
 
-2. The Bottlerocket update operator can then be installed using the recommended configuration defined in [bottlerocket-update-operator.yaml](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/1.1.0/yamlgen/deploy/bottlerocket-update-operator.yaml).
-This YAML file can also be found in the [Brupop release artifacts](https://github.com/bottlerocket-os/bottlerocket-update-operator/releases):
+Or if you're using helm:
 
 ```sh
-kubectl apply -f ./bottlerocket-update-operator.yaml
+# Add the cert-manager helm chart
+helm repo add jetstack https://charts.jetstack.io
+
+# Update your local chart cache with the latest
+helm repo update
+
+# Install the cert-manager (including its CRDs)
+helm install \
+  cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --create-namespace \
+  --version v1.8.2 \
+  --set installCRDs=true
 ```
 
-This will create the required namespace, custom resource definition, roles, deployments, etc., and use the latest update operator image available in [Amazon ECR Public](https://gallery.ecr.aws/bottlerocket/bottlerocket-update-operator).
+2. The Bottlerocket update operator can then be installed using helm:
 
-Note: The above link points to the latest version of the Update Operator, `v1.1.0`.
-Be sure to use the git tag for the Update Operator release that you plan to deploy.
+```sh
+# Add the bottlerocket-update-operator chart
+helm repo add brupop https://bottlerocket-os.github.io/bottlerocket-update-operator
+
+# Update your local chart cache with the latest updates
+helm repo update
+
+# Create a namespace
+kubectl create namepace brupop-bottlerocket-aws
+
+# Install the brupop CRD
+helm install \
+  brupop-crd bottlerocket-update-operator/bottlerocket-shadow \
+  --version v1.0.0 \
+
+# Install the brupop operator
+helm install \
+  brupop bottlerocket-update-operator/bottlerocket-shadow \
+  --version v1.0.0
+```
+
+This will create the custom resource definition, roles, deployments, etc., and use the latest update operator image available in [Amazon ECR Public](https://gallery.ecr.aws/bottlerocket/bottlerocket-update-operator).
+
+Alternatively, you can use the pre-baked manifest, with all the default values, [found at the root of this repository (named `bottlerocket-update-operator.yaml`).](./bottlerocket-update-operator.yaml)
+This YAML manifest file is also attached to each release [found in the GitHub releases page.](https://github.com/bottlerocket-os/bottlerocket-update-operator/releases)
+
+Note: The generated manifests points to the latest version of the Update Operator, `v1.1.0`.
+Be sure to use the release for the Update Operator release that you plan to deploy.
 
 3. Label nodes with `bottlerocket.aws/updater-interface-version=2.0.0` to indicate they should be automatically updated.
 Only bottlerocket nodes with this label will be updated. For more information on labeling, refer to the [Label nodes section of this readme.](https://github.com/bottlerocket-os/bottlerocket-update-operator#label-nodes)
@@ -40,6 +77,76 @@ kubectl label node MY_NODE_NAME bottlerocket.aws/updater-interface-version=2.0.0
 ```
 
 ### Configuration
+
+#### Configure via Helm values yaml file
+
+You can use a values file when installing brupop with helm (via the `--values / -f` flag) to configure how brupop functions:
+
+```yaml
+# Default values for bottlerocket-update-operator.
+
+# The namespace to deploy the update operator into
+namespace: "brupop-bottlerocket-aws"
+
+# The image to use for brupop
+image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.1.0"
+
+# If testing against a private image registry, you can set the pull secret to fetch images.
+# This can likely remain as `brupop` so long as you run something like the following:
+# kubectl create secret docker-registry brupop \
+#  --docker-server 109276217309.dkr.ecr.us-west-2.amazonaws.com \
+#  --docker-username=AWS \
+#  --docker-password=$(aws --region us-west-2 ecr get-login-password) \
+#  --namespace=brupop-bottlerocket-aws
+#image_pull_secrets: |-
+#  - name: "brupop"
+
+# External load balancer setting.
+# When `exclude_from_lb_wait_time_in_sec` is set to a positive value
+# brupop will exclude the node from load balancing
+# and will wait for `exclude_from_lb_wait_time_in_sec` seconds before draining nodes.
+# Under the hood, this uses the `node.kubernetes.io/exclude-from-external-load-balancers` label
+# to exclude those nodes from load balancing.
+exclude_from_lb_wait_time_in_sec: "0"
+
+# Concurrent update nodes setting.
+# When `max_concurrent_updates` is set to a positive integer value,
+# brupop will concurrently update max `max_concurrent_updates` nodes.
+# When `max_concurrent_updates` is set to "unlimited",
+# brupop will concurrently update all nodes with respecting `PodDisruptionBudgets`
+# Note: the "unlimited" option does not work well with `exclude_from_lb_wait_time_in_sec`
+# option, which could potential exclude all nodes from load balancer at the same time.
+max_concurrent_updates: "1"
+
+# DEPRECATED: use the scheduler settings
+# Start and stop times for update window
+# Brupop will operate node updates within update time window.
+# when you set up time window start and stop time, you should use UTC (24-hour time notation).
+update_window_start: "0:0:0"
+update_window_stop: "0:0:0"
+
+# Scheduler setting
+# Brupop will operate node updates on scheduled maintenance windows by using cron expressions.
+# When you set up the scheduler, you should follow cron expression rules.
+# ┌───────────── seconds (0 - 59)
+# │ ┌───────────── minute (0 - 59)
+# │ │ ┌───────────── hour (0 - 23)
+# │ │ │ ┌───────────── day of the month (1 - 31)
+# │ │ │ │ ┌───────────── month (Jan, Feb, Mar, Apr, Jun, Jul, Aug, Sep, Oct, Nov, Dec)
+# │ │ │ │ │ ┌───────────── day of the week (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
+# │ │ │ │ │ │ ┌───────────── year (formatted as YYYY)
+# │ │ │ │ │ │ │
+# │ │ │ │ │ │ │
+# * * * * * * *
+scheduler_cron_expression: "* * * * * * *"
+
+# API server ports
+# The port the API server uses for its own operations. This is accessed by the controller,
+# the bottlerocket-shadow daemonset, etc.
+apiserver_internal_port: "8443"
+# API server internal address where the CRD version conversion webhook is served
+apiserver_service_port: "443"
+```
 
 #### Configure API server ports
 
@@ -70,17 +177,17 @@ to correctly reflect what port the API server starts on and expects for its serv
           port: 123
 ```
 
-The default values are generated from the [`.env`](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/develop/.env) file (and can be used when building the update operator from source to configure your own ports):
-- `APISERVER_INTERNAL_PORT = 8443` - This is the container port the API server starts on.
+The default values are generated from the [default values yaml file](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/develop/deploy/bottlerocket-update-operator/values.yaml) file:
+- `apiserver_internal_port: "8443"` - This is the container port the API server starts on.
   If this environment variable is _not_ found, the Brupop API server will fail to start.
-- `APISERVER_SERVICE_PORT = 443` - This is the port Brupop's Kubernetes Service uses to target the internal API Server port.
+- `apiserver_service_port: "443"` - This is the port Brupop's Kubernetes Service uses to target the internal API Server port.
   It is used by the node agents to access the API server.
   If this environment variable is _not_ found, the Brupop agents will fail to start.
 
 ##### Resource Requests & Limits
 
 The `bottlerocket-update-operator.yaml` manifest makes several default recommendations for
-Kubernetes resource requests and limits. In general, the update operator and it's components are lite-weight
+Kubernetes resource requests and limits. In general, the update operator and its components are lite-weight
 and shouldn't consume more than 10m CPU (which is roughly equivalent to 1/100th of a CPU core)
 and 50Mi (which is roughly equivalent to 0.05 GB of memory).
 If this limit is breached, the Kubernetes API will restart the faulting container.
@@ -101,7 +208,10 @@ When `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` is 0 (default), the feature is disabled.
 When `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` is set to a positive integer, bottlerocket update operator will exclude the node from
 load balancer and then wait `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` seconds before draining the pods on the node.
 
-To enable this feature, go to `bottlerocket-update-operator.yaml`, change `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` to a positive integer value.
+To enable this feature, set the `exclude_from_lb_wait_time_in_sec` value in your helm values yaml file to a positive integer. For example,
+`exclude_from_lb_wait_time_in_sec: "100"`.
+
+Otherwise, go to `bottlerocket-update-operator.yaml` and change `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` to a positive integer value.
 For example:
 ```yaml
       ...
@@ -130,7 +240,10 @@ Note: The `MAX_CONCURRENT_UPDATE` configuration does not work well with `EXCLUDE
 configuration, especially when `MAX_CONCURRENT_UPDATE` is set to `unlimited`, it could potentially exclude all 
 nodes from load balancer at the same time.
 
-To enable this feature, go to `bottlerocket-update-operator.yaml`, change `MAX_CONCURRENT_UPDATE` to a positive integer value or `unlimited`.
+To enable this feature, set the `max_concurrent_updates` value in your helm values yaml file to a positive integer value or `unlimited`. For example,
+`max_concurrent_updates: "1"` or `max_concurrent_updates: "unlimited"`.
+
+Otherwise, go to `bottlerocket-update-operator.yaml` and change `MAX_CONCURRENT_UPDATE` to a positive integer value or `unlimited`.
 For example:
 ```yaml
       containers:
@@ -149,7 +262,8 @@ For example:
 `SCHEDULER_CRON_EXPRESSION` can be used to specify the scheduler in which updates are permitted.
 When `SCHEDULER_CRON_EXPRESSION` is "* * * * * * *" (default), the feature is disabled.
 
-To enable this feature, go to `bottlerocket-update-operator.yaml` and change `SCHEDULER_CRON_EXPRESSION` to a valid cron expression.
+To enable this feature, set the `scheduler_cron_expression` value in your helm values yaml file.
+This value should be a valid cron expression.
 A cron expression can be configured to a time window or a specific trigger time.
 When users specify cron expressions as a time window, the bottlerocket update operator will operate node updates within that update time window.
 When users specify cron expression as a specific trigger time, brupop will update and complete all waitingForUpdate nodes on the cluster when that time occurs.
@@ -190,7 +304,12 @@ If you still decide to use these settings, please use "hour:00:00" format only i
 
 `UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` can be used to specify the time window in which updates are permitted.
 
-To enable this feature, go to `bottlerocket-update-operator.yaml`, change `UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` to a `hour:minute:second` formatted value (UTC (24-hour time notation)). Note that `UPDATE_WINDOW_START` is inclusive and `UPDATE_WINDOW_STOP` is exclusive.
+To enable this feature, set the `update_window_start` and `update_window_stop` values in your helm values yaml file to a `hour:minute:second` formatted value (UTCE 24-hour time notation).
+For example: `update_window_start: "08:0:0"` and `update_window_stop: "12:30:0"`.
+
+Otherwise, go to `bottlerocket-update-operator.yaml` and change `UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` to a `hour:minute:second` formatted value (UTC (24-hour time notation)). 
+
+Note that `UPDATE_WINDOW_START` is inclusive and `UPDATE_WINDOW_STOP` is exclusive.
 
 Note: brupop uses UTC (24-hour time notation), please convert your local time to UTC.
 For example:
@@ -287,7 +406,8 @@ the Brupop controller will remove the resources from that node (including the `b
 Deleting the custom resources, definitions, and deployments will then fully remove the bottlerocket update operator from your cluster:
 
 ```sh
-kubectl delete -f ./bottlerocket-update-operator.yaml
+helm uninstall brupop
+helm uninstall brupop-crd
 ```
 
 ## Operation
@@ -334,12 +454,12 @@ brs-node-2                                         Idle    1.5.1     StagedUpdat
 The update operator provides metrics endpoints which can be scraped by [Prometheus](https://prometheus.io/).
 This allows you to monitor the history of update operations using popular metrics analysis and visualization tools.
 
-We provide a [sample configuration](./yamlgen/telemetry/prometheus-resources.yaml) which demonstrates a Prometheus deployment into the cluster that is configured to gather metrics data from the update operator.
+We provide a [sample configuration](./deploy/telemetry/prometheus-resources.yaml) which demonstrates a Prometheus deployment into the cluster that is configured to gather metrics data from the update operator.
 
 To deploy the sample configuration, you can use `kubectl`:
 
 ```sh
-kubectl apply -f ./yamlgen/telemetry/prometheus-resources.yaml
+kubectl apply -f ./deploy/telemetry/prometheus-resources.yaml
 ```
 
 Now that Prometheus is running in the cluster, you can use the UI provided to visualize the cluster's history.
@@ -408,7 +528,7 @@ Example regional image URI:
 
 ## Troubleshooting
 
-When installed with the [default deployment](https://github.com/bottlerocket-os/bottlerocket-update-operator/blob/v1.1.0/yamlgen/deploy/bottlerocket-update-operator.yaml), the logs can be fetched through Kubernetes deployment logs.
+When installed with the [default deployment](./bottlerocket-update-operator.yaml), the logs can be fetched through Kubernetes deployment logs.
 Because mutations to a node are orchestrated through the API server component, searching those deployment logs for a node ID can be useful.
 To get logs for the API server, run the following:
 
@@ -496,6 +616,12 @@ Please feel free to open an issue with an questions!
 
 ### Building and Deploying a Development Image
 
+To re-generate the yaml manifest found at the root of this reposiroy, simply run:
+```
+make manifest
+```
+Note: this requires `helm` to be installed.
+
 Targets in the `Makefile` can assist in creating an image.
 The following command will build and tag an image using the local Docker daemon:
 
@@ -508,7 +634,7 @@ Firstly, modify the `.env` file to contain the desired image name, as well as a 
 Then run the following to regenerate the `.yaml` resource definitions:
 
 ```sh
-cargo build -p yamlgen
+cargo build -p deploy
 ```
 
 These can of course be deployed using `kubectl apply` or the automatic integration testing tool [integ](https://github.com/bottlerocket-os/bottlerocket-update-operator/tree/develop/integ).

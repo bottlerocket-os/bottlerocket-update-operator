@@ -10,9 +10,7 @@ use kube::{
         WatchStreamExt,
     },
 };
-use models::agent::{AGENT_TOKEN_PATH, TOKEN_PROJECTION_MOUNT_PATH};
-use models::constants::NAMESPACE;
-
+use models::constants::{AGENT_TOKEN_PATH, AGENT_TOKEN_PROJECTION_MOUNT_PATH};
 use models::node::{brs_name_from_node_name, BottlerocketShadow};
 
 use opentelemetry::sdk::propagation::TraceContextPropagator;
@@ -45,24 +43,25 @@ async fn run_agent() -> Result<()> {
     init_telemetry()?;
 
     let incluster_config = kube::Config::incluster_dns().context(agent_error::ConfigCreateSnafu)?;
+    let namespace = incluster_config.default_namespace.to_string();
 
     let k8s_client =
         kube::client::Client::try_from(incluster_config).context(agent_error::ClientCreateSnafu)?;
 
     // Configure our brupop apiserver client to use the auth token mounted to our Pod.
-    let token_path = Path::new(TOKEN_PROJECTION_MOUNT_PATH).join(AGENT_TOKEN_PATH);
+    let token_path = Path::new(AGENT_TOKEN_PROJECTION_MOUNT_PATH).join(AGENT_TOKEN_PATH);
     let token_path = token_path.to_str().context(agent_error::AssertionSnafu {
         message: "Token path (defined in models/agent.rs) is not valid unicode.",
     })?;
-    let apiserver_client =
-        K8SAPIServerClient::new(token_path.to_string()).context(agent_error::ApiClientSnafu)?;
+    let apiserver_client = K8SAPIServerClient::new(token_path.to_string(), &namespace)
+        .context(agent_error::ApiClientSnafu)?;
 
     // Get node and BottlerocketShadow names
     let associated_node_name = env::var("MY_NODE_NAME").context(agent_error::GetNodeNameSnafu)?;
     let associated_bottlerocketshadow_name = brs_name_from_node_name(&associated_node_name);
 
     // Generate reflector to watch and cache BottlerocketShadow
-    let brss = Api::<BottlerocketShadow>::namespaced(k8s_client.clone(), NAMESPACE);
+    let brss = Api::<BottlerocketShadow>::namespaced(k8s_client.clone(), &namespace);
     let brs_config = Config::default()
         .fields(format!("metadata.name={}", associated_bottlerocketshadow_name).as_str());
     let brs_store = reflector::store::Writer::<BottlerocketShadow>::default();
@@ -98,6 +97,7 @@ async fn run_agent() -> Result<()> {
         node_reader,
         associated_node_name,
         associated_bottlerocketshadow_name,
+        &namespace,
     );
 
     let agent_runner = agent.run();

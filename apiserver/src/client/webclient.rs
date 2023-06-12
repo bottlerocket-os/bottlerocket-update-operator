@@ -10,7 +10,7 @@ use crate::{
     UncordonBottlerocketShadowRequest, UpdateBottlerocketShadowRequest,
 };
 use models::{
-    constants::{APISERVER_SERVICE_NAME, CA_NAME, NAMESPACE, TLS_KEY_MOUNT_PATH},
+    constants::{APISERVER_SERVICE_NAME, CA_NAME, TLS_KEY_MOUNT_PATH},
     node::{BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowStatus},
 };
 
@@ -66,10 +66,11 @@ pub trait APIServerClient {
 pub struct K8SAPIServerClient {
     k8s_projected_token_path: String,
     service_port: u16,
+    namespace: String,
 }
 
 impl K8SAPIServerClient {
-    pub fn new(k8s_projected_token_path: String) -> Result<Self> {
+    pub fn new(k8s_projected_token_path: String, namespace: &str) -> Result<Self> {
         let service_port: i32 = env::var(APISERVER_SERVICE_PORT_ENV_VAR)
             .context(error::MissingEnvVariableSnafu {
                 variable: APISERVER_SERVICE_PORT_ENV_VAR.to_string(),
@@ -81,6 +82,7 @@ impl K8SAPIServerClient {
         Ok(Self {
             k8s_projected_token_path,
             service_port: service_port as u16,
+            namespace: namespace.to_string(),
         })
     }
 
@@ -100,7 +102,7 @@ impl K8SAPIServerClient {
     pub fn server_domain(&self) -> String {
         format!(
             "{}.{}.svc.cluster.local:{}",
-            APISERVER_SERVICE_NAME, NAMESPACE, self.service_port
+            APISERVER_SERVICE_NAME, self.namespace, self.service_port
         )
     }
 

@@ -16,7 +16,7 @@ use crate::{
 };
 use models::constants::{
     AGENT, APISERVER_HEALTH_CHECK_ROUTE, APISERVER_SERVICE_NAME, CA_NAME, LABEL_COMPONENT,
-    NAMESPACE, PRIVATE_KEY_NAME, PUBLIC_KEY_NAME, TLS_KEY_MOUNT_PATH,
+    PRIVATE_KEY_NAME, PUBLIC_KEY_NAME, TLS_KEY_MOUNT_PATH,
 };
 use models::node::{read_certificate, BottlerocketShadowClient, BottlerocketShadowSelector};
 
@@ -104,6 +104,7 @@ impl TryFrom<&HeaderMap> for ApiserverCommonHeaders {
 pub struct APIServerSettings<T: BottlerocketShadowClient> {
     pub node_client: T,
     pub server_port: u16,
+    pub namespace: String,
 }
 
 /// Runs the apiserver using the given settings.
@@ -120,7 +121,7 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
 
     // Set up a reflector to watch all kubernetes pods in the namespace.
     // We use this information to authenticate write requests from brupop agents.
-    let pods = Api::<Pod>::namespaced(k8s_client.clone(), NAMESPACE);
+    let pods = Api::<Pod>::namespaced(k8s_client.clone(), &settings.namespace);
 
     let pod_store = reflector::store::Writer::<Pod>::default();
     let pod_reader = pod_store.as_reader();
@@ -230,7 +231,7 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
             .wrap(
                 TokenAuthMiddleware::new(K8STokenAuthorizor::new(
                     K8STokenReviewer::new(k8s_client.clone()),
-                    NAMESPACE.to_string(),
+                    settings.namespace.to_string(),
                     pod_reader.clone(),
                     Some(vec![APISERVER_SERVICE_NAME.to_string()]),
                 ))
@@ -344,6 +345,7 @@ mod tests {
         APIServerSettings {
             node_client,
             server_port: apiserver_internal_port as u16,
+            namespace: "bottlerocket-update-operator".to_string(),
         }
     }
 }

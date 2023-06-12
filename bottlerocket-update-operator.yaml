@@ -1,1 +1,809 @@
-yamlgen/deploy/bottlerocket-update-operator.yaml
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  creationTimestamp: null
+  name: brupop-bottlerocket-aws
+spec: {}
+status: {}
+---
+# Source: bottlerocket-shadow/templates/custom-resource-definition.yaml
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: brupop-bottlerocket-aws/root-certificate
+  name: bottlerocketshadows.brupop.bottlerocket.aws
+spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: brupop-apiserver
+          namespace: brupop-bottlerocket-aws
+          path: /crdconvert
+          port: 443
+      conversionReviewVersions:
+      - v2
+      - v1
+  group: brupop.bottlerocket.aws
+  names:
+    kind: BottlerocketShadow
+    plural: bottlerocketshadows
+    shortNames:
+    - brs
+    singular: bottlerocketshadow
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.current_state
+      name: State
+      type: string
+    - jsonPath: .status.current_version
+      name: Version
+      type: string
+    - jsonPath: .spec.state
+      name: Target State
+      type: string
+    - jsonPath: .spec.version
+      name: Target Version
+      type: string
+    - jsonPath: .status.crash_count
+      name: Crash Count
+      type: string
+    name: v2
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for BottlerocketShadowSpec via `CustomResource`
+        properties:
+          spec:
+            description: The `BottlerocketShadowSpec` can be used to drive a node through the update state machine. A node linearly drives towards the desired state. The brupop controller updates the spec to specify a node's desired state, and the host agent drives state changes forward and updates the `BottlerocketShadowStatus`.
+            properties:
+              state:
+                description: Records the desired state of the `BottlerocketShadow`
+                enum:
+                - Idle
+                - StagedAndPerformedUpdate
+                - RebootedIntoUpdate
+                - MonitoringUpdate
+                - ErrorReset
+                type: string
+              state_transition_timestamp:
+                description: The time at which the most recent state was set as the desired state.
+                nullable: true
+                type: string
+              version:
+                description: The desired update version, if any.
+                nullable: true
+                pattern: ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+                type: string
+            required:
+            - state
+            type: object
+          status:
+            description: '`BottlerocketShadowStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent, while the spec is updated by the brupop controller.'
+            nullable: true
+            properties:
+              crash_count:
+                format: uint32
+                minimum: 0.0
+                type: integer
+              current_state:
+                description: BottlerocketShadowState represents a node's state in the update state machine.
+                enum:
+                - Idle
+                - StagedAndPerformedUpdate
+                - RebootedIntoUpdate
+                - MonitoringUpdate
+                - ErrorReset
+                type: string
+              current_version:
+                pattern: ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+                type: string
+              state_transition_failure_timestamp:
+                nullable: true
+                type: string
+              target_version:
+                pattern: ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+                type: string
+            required:
+            - crash_count
+            - current_state
+            - current_version
+            - target_version
+            type: object
+        required:
+        - spec
+        title: BottlerocketShadow
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+  - additionalPrinterColumns:
+    - jsonPath: .status.current_state
+      name: State
+      type: string
+    - jsonPath: .status.current_version
+      name: Version
+      type: string
+    - jsonPath: .spec.state
+      name: Target State
+      type: string
+    - jsonPath: .spec.version
+      name: Target Version
+      type: string
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for BottlerocketShadowSpec via `CustomResource`
+        properties:
+          spec:
+            description: The `BottlerocketShadowSpec` can be used to drive a node through the update state machine. A node linearly drives towards the desired state. The brupop controller updates the spec to specify a node's desired state, and the host agent drives state changes forward and updates the `BottlerocketShadowStatus`.
+            properties:
+              state:
+                description: Records the desired state of the `BottlerocketShadow`
+                enum:
+                - Idle
+                - StagedUpdate
+                - PerformedUpdate
+                - RebootedIntoUpdate
+                - MonitoringUpdate
+                type: string
+              state_transition_timestamp:
+                description: The time at which the most recent state was set as the desired state.
+                nullable: true
+                type: string
+              version:
+                description: The desired update version, if any.
+                nullable: true
+                pattern: ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+                type: string
+            required:
+            - state
+            type: object
+          status:
+            description: '`BottlerocketShadowStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent, while the spec is updated by the brupop controller.'
+            nullable: true
+            properties:
+              current_state:
+                description: BottlerocketShadowState represents a node's state in the update state machine.
+                enum:
+                - Idle
+                - StagedUpdate
+                - PerformedUpdate
+                - RebootedIntoUpdate
+                - MonitoringUpdate
+                type: string
+              current_version:
+                pattern: ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+                type: string
+              target_version:
+                pattern: ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+                type: string
+            required:
+            - current_state
+            - current_version
+            - target_version
+            type: object
+        required:
+        - spec
+        title: BottlerocketShadow
+        type: object
+    served: true
+    storage: false
+    subresources:
+      status: {}
+---
+# Source: bottlerocket-update-operator/templates/agent-service-account.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    kubernetes.io/service-account.name: brupop-agent-service-account
+  labels:
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: agent
+  name: brupop-agent-service-account
+  namespace: brupop-bottlerocket-aws
+---
+# Source: bottlerocket-update-operator/templates/api-server-service-account.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    kubernetes.io/service-account.name: brupop-apiserver-service-account
+  labels:
+    app.kubernetes.io/component: apiserver
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: apiserver
+  name: brupop-apiserver-service-account
+  namespace: brupop-bottlerocket-aws
+---
+# Source: bottlerocket-update-operator/templates/controller-service-account.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    kubernetes.io/service-account.name: brupop-controller-service-account
+  labels:
+    app.kubernetes.io/component: brupop-controller
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: brupop-controller
+  name: brupop-controller-service-account
+  namespace: brupop-bottlerocket-aws
+---
+# Source: bottlerocket-update-operator/templates/agent-cluster-role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: agent
+  name: brupop-agent-role
+  namespace: brupop-bottlerocket-aws
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - brupop.bottlerocket.aws
+    resources:
+      - bottlerocketshadows
+      - bottlerocketshadows/status
+    verbs:
+      - get
+      - list
+      - watch
+---
+# Source: bottlerocket-update-operator/templates/api-server-cluster-role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: apiserver
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: apiserver
+  name: brupop-apiserver-role
+  namespace: brupop-bottlerocket-aws
+rules:
+  - apiGroups:
+      - brupop.bottlerocket.aws
+    resources:
+      - bottlerocketshadows
+      - bottlerocketshadows/status
+    verbs:
+      - create
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - create
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+      - list
+      - patch
+  - apiGroups:
+      - ""
+    resources:
+      - pods/eviction
+    verbs:
+      - create
+---
+# Source: bottlerocket-update-operator/templates/controller-cluster-role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: brupop-controller
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: brupop-controller
+  name: brupop-controller-role
+  namespace: brupop-bottlerocket-aws
+rules:
+  - apiGroups:
+      - brupop.bottlerocket.aws
+    resources:
+      - bottlerocketshadows
+      - bottlerocketshadows/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - brupop.bottlerocket.aws
+    resources:
+      - bottlerocketshadows
+    verbs:
+      - create
+      - patch
+      - update
+      - delete
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - create
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+---
+# Source: bottlerocket-update-operator/templates/agent-cluster-role-binding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: agent
+  name: brupop-agent-role-binding
+  namespace: brupop-bottlerocket-aws
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: brupop-agent-role
+subjects:
+  - kind: ServiceAccount
+    name: brupop-agent-service-account
+    namespace: brupop-bottlerocket-aws
+---
+# Source: bottlerocket-update-operator/templates/api-server-auth-delegation.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: apiserver
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: apiserver
+  name: brupop-apiserver-auth-delegator-role-binding
+  namespace: brupop-bottlerocket-aws
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: brupop-apiserver-service-account
+  namespace: brupop-bottlerocket-aws
+---
+# Source: bottlerocket-update-operator/templates/api-server-cluster-role-binding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: apiserver
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: apiserver
+  name: brupop-apiserver-role-binding
+  namespace: brupop-bottlerocket-aws
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: brupop-apiserver-role
+subjects:
+  - kind: ServiceAccount
+    name: brupop-apiserver-service-account
+    namespace: brupop-bottlerocket-aws
+---
+# Source: bottlerocket-update-operator/templates/controller-cluster-role-binding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: brupop-controller
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: brupop-controller
+  name: brupop-controller-role-binding
+  namespace: brupop-bottlerocket-aws
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: brupop-controller-role
+subjects:
+  - kind: ServiceAccount
+    name: brupop-controller-service-account
+    namespace: brupop-bottlerocket-aws
+---
+# Source: bottlerocket-update-operator/templates/api-server-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: apiserver
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: apiserver
+  name: brupop-apiserver
+  namespace: brupop-bottlerocket-aws
+spec:
+  ports:
+    - port: 443
+      targetPort: 8443
+  selector:
+    brupop.bottlerocket.aws/component: apiserver
+---
+# Source: bottlerocket-update-operator/templates/controller-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    prometheus.io/port: "8080"
+    prometheus.io/scrape: "true"
+  labels:
+    app.kubernetes.io/component: brupop-controller
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: brupop-controller
+  name: brupop-controller-server
+  namespace: brupop-bottlerocket-aws
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    brupop.bottlerocket.aws/component: brupop-controller
+---
+# Source: bottlerocket-update-operator/templates/agent-daemonset.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: agent
+  name: brupop-agent
+  namespace: brupop-bottlerocket-aws
+spec:
+  selector:
+    matchLabels:
+      brupop.bottlerocket.aws/component: agent
+  template:
+    metadata:
+      labels:
+        brupop.bottlerocket.aws/component: agent
+      namespace: brupop-bottlerocket-aws
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+                  - key: bottlerocket.aws/updater-interface-version
+                    operator: In
+                    values:
+                      - 2.0.0
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+                      - arm64
+      containers:
+        - command:
+            - "./agent"
+          env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC
+              value: "0"
+            - name: APISERVER_SERVICE_PORT
+              value: "443"
+          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.0.0
+          name: brupop
+          resources:
+            limits:
+              memory: 50Mi
+            requests:
+              cpu: 10m
+              memory: 50Mi
+          securityContext:
+            seLinuxOptions:
+              level: s0
+              role: system_r
+              type: super_t
+              user: system_u
+          volumeMounts:
+            - mountPath: /run/api.sock
+              name: bottlerocket-api-socket
+            - mountPath: /bin/apiclient
+              name: bottlerocket-apiclient
+            - mountPath: /var/run/secrets/tokens/
+              name: bottlerocket-agent-service-account-token
+            - mountPath: /etc/brupop-tls-keys
+              name: bottlerocket-tls-keys
+      serviceAccountName: brupop-agent-service-account
+      volumes:
+        - hostPath:
+            path: /run/api.sock
+            type: Socket
+          name: bottlerocket-api-socket
+        - hostPath:
+            path: /bin/apiclient
+            type: File
+          name: bottlerocket-apiclient
+        - name: bottlerocket-agent-service-account-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: brupop-apiserver
+                  path: bottlerocket-agent-service-account-token
+        - name: bottlerocket-tls-keys
+          secret:
+            optional: false
+            secretName: brupop-apiserver-client-certificate
+---
+# Source: bottlerocket-update-operator/templates/api-server-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: apiserver
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: apiserver
+  name: brupop-apiserver
+  namespace: brupop-bottlerocket-aws
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      brupop.bottlerocket.aws/component: apiserver
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 33%
+  template:
+    metadata:
+      labels:
+        brupop.bottlerocket.aws/component: apiserver
+      namespace: brupop-bottlerocket-aws
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+                      - arm64
+      containers:
+        - command:
+            - "./apiserver"
+          env:
+            - name: APISERVER_INTERNAL_PORT
+              value: "8443"
+          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.0.0
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+          name: brupop
+          ports:
+            - containerPort: 8443
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+          volumeMounts:
+            - mountPath: /etc/brupop-tls-keys
+              name: bottlerocket-tls-keys
+      serviceAccountName: brupop-apiserver-service-account
+      volumes:
+        - name: bottlerocket-tls-keys
+          secret:
+            optional: false
+            secretName: brupop-apiserver-certificate
+---
+# Source: bottlerocket-update-operator/templates/controller-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: brupop-controller
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: brupop-controller
+  name: brupop-controller-deployment
+  namespace: brupop-bottlerocket-aws
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      brupop.bottlerocket.aws/component: brupop-controller
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        brupop.bottlerocket.aws/component: brupop-controller
+      namespace: brupop-bottlerocket-aws
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+                      - arm64
+      containers:
+        - command:
+            - "./controller"
+          env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: MAX_CONCURRENT_UPDATE
+              value: "1"
+            - name: SCHEDULER_CRON_EXPRESSION
+              value: "* * * * * * *"
+          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.0.0
+          name: brupop
+      priorityClassName: brupop-controller-high-priority
+      
+      serviceAccountName: brupop-controller-service-account
+---
+# Source: bottlerocket-update-operator/templates/cert-manager-agent-cert.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: brupop-apiserver-client-certificate
+  namespace: brupop-bottlerocket-aws
+spec:
+  secretName: brupop-apiserver-client-certificate
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS8
+  dnsNames:
+    - "*.brupop-bottlerocket-aws.svc.cluster.local"
+    - "*.brupop-bottlerocket-aws.svc"
+  usages:
+    - client auth
+    - key encipherment
+    - digital signature
+  issuerRef:
+    name: brupop-root-certificate-issuer
+    kind: Issuer
+---
+# Source: bottlerocket-update-operator/templates/cert-manager-apiserver-cert.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: brupop-apiserver-certificate
+  namespace: brupop-bottlerocket-aws
+spec:
+  secretName: brupop-apiserver-certificate
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS8
+  dnsNames:
+    - "*.brupop-bottlerocket-aws.svc.cluster.local"
+    - "*.brupop-bottlerocket-aws.svc"
+  usages:
+    - server auth
+    - key encipherment
+    - digital signature
+  issuerRef:
+    name: brupop-root-certificate-issuer
+    kind: Issuer
+---
+# Source: bottlerocket-update-operator/templates/cert-manager-selfsigned-ca.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: brupop-selfsigned-ca
+  namespace: brupop-bottlerocket-aws
+spec:
+  isCA: true
+  commonName: brupop-selfsigned-ca
+  secretName: brupop-root-ca-secret
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS8
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+---
+# Source: bottlerocket-update-operator/templates/cert-manager-root-cert-issuer.yaml
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: brupop-root-certificate-issuer
+  namespace: brupop-bottlerocket-aws
+spec:
+  ca:
+    secretName: brupop-root-ca-secret
+---
+# Source: bottlerocket-update-operator/templates/cert-manager-selfsigned-issuer.yaml
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+  namespace: brupop-bottlerocket-aws
+spec:
+  selfSigned: {}
+---
+# Source: bottlerocket-update-operator/templates/controller-priority-class.yaml
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: brupop-controller-high-priority
+  namespace: brupop-bottlerocket-aws
+preemptionPolicy: Never
+value: 1000000

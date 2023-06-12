@@ -47,7 +47,7 @@ pub use self::v2::{
     BottlerocketShadow, BottlerocketShadowSpec, BottlerocketShadowState, BottlerocketShadowStatus,
 };
 use crate::constants::{
-    APISERVER_CRD_CONVERT_ENDPOINT, APISERVER_SERVICE_NAME, NAMESPACE, ROOT_CERTIFICATE_NAME,
+    APISERVER_CRD_CONVERT_ENDPOINT, APISERVER_SERVICE_NAME, ROOT_CERTIFICATE_NAME,
 };
 
 use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::{
@@ -162,7 +162,10 @@ fn combine_version_in_crds(
 ///     conversionReviewVersions:
 ///       - v2
 ///       - v1
-fn generate_webhook_conversion(apiserver_service_port: String) -> CustomResourceConversion {
+fn generate_webhook_conversion(
+    namespace: &String,
+    apiserver_service_port: String,
+) -> CustomResourceConversion {
     let apiserver_service_port_conv: i32 = apiserver_service_port.parse().unwrap();
     CustomResourceConversion {
         strategy: "Webhook".to_string(),
@@ -170,7 +173,7 @@ fn generate_webhook_conversion(apiserver_service_port: String) -> CustomResource
             client_config: Some(WebhookClientConfig {
                 service: Some(ServiceReference {
                     name: APISERVER_SERVICE_NAME.to_string(),
-                    namespace: NAMESPACE.to_string(),
+                    namespace: namespace.to_string(),
                     path: Some(APISERVER_CRD_CONVERT_ENDPOINT.to_string()),
                     port: Some(apiserver_service_port_conv),
                 }),
@@ -183,13 +186,13 @@ fn generate_webhook_conversion(apiserver_service_port: String) -> CustomResource
 
 /// Generate cert-manager annotations to help inject caBundle for webhook
 /// https://cert-manager.io/docs/concepts/ca-injector/#injecting-ca-data-from-a-certificate-resource
-fn generate_ca_annotations() -> BTreeMap<String, String> {
+fn generate_ca_annotations(namespace: &String) -> BTreeMap<String, String> {
     let mut cert_manager_annotations = BTreeMap::new();
     cert_manager_annotations.insert(
         "cert-manager.io/inject-ca-from".to_string(),
         format!(
             "{namespace}/{object}",
-            namespace = NAMESPACE,
+            namespace = namespace,
             object = ROOT_CERTIFICATE_NAME
         ),
     );
@@ -199,11 +202,14 @@ fn generate_ca_annotations() -> BTreeMap<String, String> {
 /// Setup webhook conversion and add caBundle
 fn add_webhook_setting(
     mut combined_version_crds: CustomResourceDefinition,
+    namespace: String,
     apiserver_service_port: String,
 ) -> CustomResourceDefinition {
-    combined_version_crds.spec.conversion =
-        Some(generate_webhook_conversion(apiserver_service_port));
-    combined_version_crds.metadata.annotations = Some(generate_ca_annotations());
+    combined_version_crds.spec.conversion = Some(generate_webhook_conversion(
+        &namespace,
+        apiserver_service_port,
+    ));
+    combined_version_crds.metadata.annotations = Some(generate_ca_annotations(&namespace));
     combined_version_crds
 }
 
@@ -215,13 +221,17 @@ fn remove_empty_categories(mut crds: CustomResourceDefinition) -> CustomResource
     crds
 }
 
-pub fn combined_crds(apiserver_service_port: String) -> CustomResourceDefinition {
+pub fn combined_crds(
+    namespace: String,
+    apiserver_service_port: String,
+) -> CustomResourceDefinition {
     let mut crds: Vec<CustomResourceDefinition> = BOTTLEROCKETSHADOW_CRD_METHODS
         .iter()
         .map(|crd_method| crd_method())
         .collect();
     let latest_crd = crds.pop().unwrap();
     let combined_version_crds = combine_version_in_crds(latest_crd, crds);
-    let crds_with_webhook = add_webhook_setting(combined_version_crds, apiserver_service_port);
+    let crds_with_webhook =
+        add_webhook_setting(combined_version_crds, namespace, apiserver_service_port);
     remove_empty_categories(crds_with_webhook)
 }

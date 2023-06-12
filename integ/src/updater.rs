@@ -18,9 +18,10 @@ const CERT_MANAGER_YAML: &str =
 pub enum Action {
     Apply,
     Delete,
+    Create,
 }
 
-// =^..^=   =^..^=   =^..^=   =^..^=   =^..^= Deletion and Creation of brupop resources  =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
+// =^..^=   =^..^=   =^..^=   =^..^=   =^..^= Deletion and Creation of the brupop namespace  =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
 
 // install or destroy all brupop resources
 pub async fn process_brupop_resources(action: Action, kube_config_path: &str) -> UpdaterResult<()> {
@@ -30,7 +31,7 @@ pub async fn process_brupop_resources(action: Action, kube_config_path: &str) ->
         .args([
             &action_string.to_lowercase(),
             "-f",
-            "yamlgen/deploy/bottlerocket-update-operator.yaml",
+            "bottlerocket-update-operator.yaml",
             "--kubeconfig",
             kube_config_path,
         ])

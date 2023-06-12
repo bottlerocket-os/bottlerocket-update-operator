@@ -3,7 +3,7 @@ use super::{
     scheduler::BrupopCronScheduler,
     statemachine::determine_next_node_spec,
 };
-use models::constants::{BRUPOP_INTERFACE_VERSION, LABEL_BRUPOP_INTERFACE_NAME, NAMESPACE};
+use models::constants::{BRUPOP_INTERFACE_VERSION, LABEL_BRUPOP_INTERFACE_NAME};
 use models::node::{
     brs_name_from_node_name, BottlerocketShadow, BottlerocketShadowClient, BottlerocketShadowState,
     Selector,
@@ -38,6 +38,7 @@ pub struct BrupopController<T: BottlerocketShadowClient> {
     brs_reader: Store<BottlerocketShadow>,
     node_reader: Store<Node>,
     metrics: BrupopControllerMetrics,
+    namespace: String,
 }
 
 impl<T: BottlerocketShadowClient> BrupopController<T> {
@@ -46,6 +47,7 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
         node_client: T,
         brs_reader: Store<BottlerocketShadow>,
         node_reader: Store<Node>,
+        namespace: &str,
     ) -> Self {
         // Creates brupop-controller meter via the configured
         // GlobalMeterProvider which is setup in PrometheusExporter
@@ -57,6 +59,7 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
             brs_reader,
             node_reader,
             metrics,
+            namespace: namespace.to_string(),
         }
     }
 
@@ -215,8 +218,9 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
                     name = &associated_bottlerocketshadow.as_str(),
                     "Begin deleting brs."
                 );
+
                 let bottlerocket_shadows: Api<BottlerocketShadow> =
-                    Api::namespaced(self.k8s_client.clone(), NAMESPACE);
+                    Api::namespaced(self.k8s_client.clone(), &self.namespace);
 
                 bottlerocket_shadows
                     .delete(

@@ -1,3 +1,7 @@
+# The following example shows how you can set up and use prometheus
+# and a configured scrape config to get metrics from brupop on the
+# nodes that have been updated and their status.
+
 ---
 apiVersion: v1
 kind: ServiceAccount
