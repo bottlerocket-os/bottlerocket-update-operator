@@ -46,7 +46,7 @@ Brupop will utilize a second controller to periodically scan the cluster for new
 In order to allow configuration of Brupop across the cluster, we will also associate a Custom Resource with the update operator itself.
 This will allow us to surface basic status information and controls (e.g. for enablement of optional features, like integration with AWS AutoScaling groups to ensure update reboots do not result in node termination).
 
-The Custom Resources associated with Brupop and each node that it manages will account for a total persistance of the state of the controller, which should allow the controller to be interrupted and restarted without issue.
+The Custom Resources associated with Brupop and each node that it manages will account for a total persistence of the state of the controller, which should allow the controller to be interrupted and restarted without issue.
 
 Brupop will integrate with [Prometheus](https://prometheus.io/docs/instrumenting/clientlibs/) by exposing an HTTP endpoint from which Prometheus can gather metrics, allowing customers insight into the actions that the operator is taking.
 The operator will expose metrics for state transitions, including the version of a node before and after the update takes place.
@@ -108,7 +108,7 @@ Presumably this would be a transient error, although it could ultimately mean th
 Prometheus metrics should make it possible to diagnose such problems.
 
 Nodes returning to the cluster should be watched for a set time interval to ensure that work returns to the nodes and remains health.
-If Pods on such nodes do not appear to start successfully, we should freeze Brupop’s operatio.
+If Pods on such nodes do not appear to start successfully, we should freeze Brupop’s operation.
 An operator must decide if the new Bottlerocket update is negatively impacting their fleet.
 
 ### Appendix B. Detailed Reference: Lifecycle of Kubernetes Objects

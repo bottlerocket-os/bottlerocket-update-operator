@@ -209,7 +209,7 @@ fn add_webhook_setting(
 
 /// `#[derive(CustomResource)]` set default categories to empty list
 /// causes mismatch in Kubernetes's object and YAML manifest file,
-/// futher causes ArgoCD/FluxCD constantly reapply defined manifest.
+/// further causes ArgoCD/FluxCD constantly reapply defined manifest.
 fn remove_empty_categories(mut crds: CustomResourceDefinition) -> CustomResourceDefinition {
     crds.spec.names.categories = None;
     crds

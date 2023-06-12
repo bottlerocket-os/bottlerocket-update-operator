@@ -44,7 +44,7 @@ impl<T: TokenAuthorizor> TokenAuthMiddleware<T> {
     }
 }
 
-// Middlware factory is `Transform` trait.
+// Middleware factory is `Transform` trait.
 // `S` - type of the next service
 // `B` - type of response's body
 impl<S, B, T> Transform<S, ServiceRequest> for TokenAuthMiddleware<T>

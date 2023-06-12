@@ -114,7 +114,7 @@ pub async fn nodes_exist(k8s_client: kube::client::Client) -> UpdaterResult<bool
     Ok(nodes_objectlist.iter().count() > 0)
 }
 
-/// The result type returned by instance create and termiante operations.
+/// The result type returned by instance create and terminate operations.
 type UpdaterResult<T> = std::result::Result<T, update_error::Error>;
 
 pub mod update_error {

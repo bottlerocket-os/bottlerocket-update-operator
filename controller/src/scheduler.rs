@@ -108,7 +108,7 @@ impl BrupopCronScheduler {
         let scheduler_cron_expression = get_cron_schedule_from_env()?;
 
         let scheduler = match (legacy_window, scheduler_cron_expression) {
-            // it's not allowed to set update time window and scheduler at same time, cron expression takes precendent
+            // it's not allowed to set update time window and scheduler at same time, cron expression takes precedent
             (Some(_), Some(cron_schedule)) => {
                 event!(
                     Level::WARN,
