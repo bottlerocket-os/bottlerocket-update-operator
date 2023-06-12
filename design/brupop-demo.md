@@ -104,6 +104,6 @@ class:
 * k8s uses role-based authN/authZ
 * All brupop `agent`s have the same role
     * This means they can modify `brs` objects for other nodes!
-* Solution: channel `brs` writes through a priveleged web API
+* Solution: channel `brs` writes through a privileged web API
 * guarantees requests are coming from the associated k8s `Node` using k8s `token` API
 * Only the `agent`s consume the `apiserver`

@@ -9,7 +9,7 @@ pub struct ProviderError {
     inner: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
 }
 
-/// The result type returned by instance create and termiante operations.
+/// The result type returned by instance create and terminate operations.
 pub type ProviderResult<T> = std::result::Result<T, ProviderError>;
 
 impl ProviderError {

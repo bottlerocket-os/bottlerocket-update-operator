@@ -202,7 +202,7 @@ If resource utilization by the brupop components is not a concern,
 removing the `resources` fields in the manifest will not affect the functionality of any components.
 
 ##### Exclude Nodes from Load Balancers Before Draining
-This configuration uses Kuberenetes [ServiceNodeExclusion](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/) feature.
+This configuration uses Kubernetes [ServiceNodeExclusion](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/) feature.
 `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` can be used to enable the feature to exclude the node from load balancer before draining.
 When `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` is 0 (default), the feature is disabled.
 When `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` is set to a positive integer, bottlerocket update operator will exclude the node from

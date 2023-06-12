@@ -30,7 +30,7 @@ pub type Result<T> = std::result::Result<T, apiclient_error::Error>;
 /// UpdateState represents four states during system update process
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize)]
 pub enum UpdateState {
-    // Idle: Unknow
+    // Idle: Unknown
     Idle,
     // Available: available versions system can update to
     Available,

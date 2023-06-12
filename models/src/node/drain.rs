@@ -184,7 +184,7 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
     // * There is at least one budget, in which case any of the above 3 responses (200, 429, 500) may apply.
     //
     // It's possible for an eviction to become stuck: the eviction API will never return anything other than 429 or 500. This would be due to invalid PDBs, or PDBs
-    // which cannot be satisifed with the current cluster resources. In these cases, Brupop will continuously retry to evict rather than clobber an attempt to
+    // which cannot be satisfed with the current cluster resources. In these cases, Brupop will continuously retry to evict rather than clobber an attempt to
     // protect cluster resources with PDBs. Operators must intervene manually.
     // See https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node/#stuck-evictions for details.
     RetryIf::spawn(RetryStrategy::retry_strategy(), || async {

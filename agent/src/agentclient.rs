@@ -566,7 +566,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                         _ => {
                             event!(
                                 Level::WARN,
-                                "An error occured when invoking Bottlerocket Update API"
+                                "An error occurred when invoking Bottlerocket Update API"
                             );
                             match self
                                 .update_status_in_shadow(

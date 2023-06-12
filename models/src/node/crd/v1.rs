@@ -32,7 +32,7 @@ pub enum BottlerocketShadowState {
     /// Nodes in this state have rebooted after performing an update.
     RebootedIntoUpdate,
     /// Nodes in this state have un-cordoned the node to allow work to be scheduled, and are monitoring to ensure that
-    /// the node seems healthy before marking the udpate as complete.
+    /// the node seems healthy before marking the update as complete.
     MonitoringUpdate,
 }
 
