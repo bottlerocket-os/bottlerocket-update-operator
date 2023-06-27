@@ -48,6 +48,10 @@ spec:
               value: "{{ .Values.max_concurrent_updates }}"
             - name: SCHEDULER_CRON_EXPRESSION
               value: "{{ .Values.scheduler_cron_expression}}"
+            - name: UPDATE_WINDOW_STOP
+              value: "{{ .Values.update_window_stop}}"
+            - name: UPDATE_WINDOW_START
+              value: "{{ .Values.update_window_start}}"                         
           image: {{ .Values.image }}
           name: brupop
       priorityClassName: brupop-controller-high-priority
