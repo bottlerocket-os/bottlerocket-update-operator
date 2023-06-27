@@ -48,6 +48,7 @@ spec:
               value: "{{ .Values.max_concurrent_updates }}"
             - name: SCHEDULER_CRON_EXPRESSION
               value: "{{ .Values.scheduler_cron_expression}}"
+              # UPDATE_WINDOW_STOP & UPDATE_WINDOW_START are being deprecated
             - name: UPDATE_WINDOW_STOP
               value: "{{ .Values.update_window_stop}}"
             - name: UPDATE_WINDOW_START
