@@ -34,6 +34,8 @@ const AMI_ARCH: &str = "x86_64";
 // The default name for the nodegroup
 const NODEGROUP_NAME: &str = "brupop-integ-test-nodegroup";
 
+const NAMESPACE: &str = "brupop-bottlerocket-aws";
+
 const WAIT_CERT_MANAGER_COMPLETE: tokio::time::Duration = tokio::time::Duration::from_secs(90);
 
 lazy_static! {
@@ -218,13 +220,11 @@ async fn run() -> Result<()> {
             .await
             .context(error::LoadKubeConfigSnafu)?;
 
-            // infer the default namespace from the loaded kubeconfig
-            let namespace = config.default_namespace.to_string();
             let k8s_client =
                 kube::client::Client::try_from(config).context(error::CreateK8sClientSnafu)?;
 
             info!("monitoring brupop");
-            let monitor_client = BrupopMonitor::new(IntegBrupopClient::new(k8s_client, &namespace));
+            let monitor_client = BrupopMonitor::new(IntegBrupopClient::new(k8s_client, NAMESPACE));
             monitor_client
                 .run_monitor()
                 .await

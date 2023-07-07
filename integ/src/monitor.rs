@@ -53,6 +53,7 @@ impl BrupopClient for IntegBrupopClient {
     async fn fetch_shadows(&self) -> Result<ObjectList<BottlerocketShadow>> {
         let brss: Api<BottlerocketShadow> =
             Api::namespaced(self.k8s_client.clone(), &self.namespace);
+
         let brss_object_list = brss
             .list(&ListParams::default())
             .await
