@@ -1,3 +1,34 @@
+# 1.2.0
+
+## General
+
+Added
+
+* Refactored deployment and yaml generation to use Helm templating ([#126])
+* Improved time window to become cron expression based scheduler ([#343]), ([#428])
+
+Fixed
+
+* Removed unnecessary dep on older "time" crate from chrono ([#415])
+* Fixed metrics not working for ipv6 clusters ([#406])
+* Makefile: refactors brupop-image target ([#418])
+* Cargo: use env vars when calling cargo ([#462])
+
+Misc
+
+* Numerous dependency upgrades and documentation fixes ([#446]), ([#463]), ([#476])
+
+[#126]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/126
+[#343]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/343
+[#406]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/406
+[#428]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/428
+[#463]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/463
+[#415]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/415
+[#418]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/418
+[#446]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/446
+[#462]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/462
+[#476]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/476
+
 # 1.1.0
 
 ## General
