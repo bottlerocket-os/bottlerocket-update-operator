@@ -548,7 +548,7 @@ spec:
               value: "0"
             - name: APISERVER_SERVICE_PORT
               value: "443"
-          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.0.0
+          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.2.0
           name: brupop
           resources:
             limits:
@@ -637,7 +637,7 @@ spec:
           env:
             - name: APISERVER_INTERNAL_PORT
               value: "8443"
-          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.0.0
+          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.2.0
           livenessProbe:
             httpGet:
               path: /ping
@@ -713,7 +713,7 @@ spec:
               value: "1"
             - name: SCHEDULER_CRON_EXPRESSION
               value: "* * * * * * *"
-          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.0.0
+          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.2.0
           name: brupop
       priorityClassName: brupop-controller-high-priority
       

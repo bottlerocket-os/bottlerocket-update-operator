@@ -89,7 +89,7 @@ You can use a values file when installing brupop with helm (via the `--values / 
 namespace: "brupop-bottlerocket-aws"
 
 # The image to use for brupop
-image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.1.0"
+image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.2.0"
 
 # If testing against a private image registry, you can set the pull secret to fetch images.
 # This can likely remain as `brupop` so long as you run something like the following:
