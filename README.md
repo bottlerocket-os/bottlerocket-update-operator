@@ -48,16 +48,16 @@ helm repo add brupop https://bottlerocket-os.github.io/bottlerocket-update-opera
 helm repo update
 
 # Create a namespace
-kubectl create namepace brupop-bottlerocket-aws
+kubectl create namespace brupop-bottlerocket-aws
 
 # Install the brupop CRD
 helm install \
-  brupop-crd bottlerocket-update-operator/bottlerocket-shadow \
-  --version v1.0.0 \
+  brupop-crd brupop/bottlerocket-shadow \
+  --version v1.0.0
 
 # Install the brupop operator
 helm install \
-  brupop bottlerocket-update-operator/bottlerocket-shadow \
+  brupop-operator brupop/bottlerocket-update-operator \
   --version v1.0.0
 ```
 
