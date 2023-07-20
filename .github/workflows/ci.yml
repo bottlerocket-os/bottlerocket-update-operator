@@ -1,0 +1,50 @@
+name: CI
+
+on:
+
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'COPYRIGHT'
+      - 'LICENSE**'
+      - 'design/**'
+    branches: [develop]
+
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'COPYRIGHT'
+      - 'LICENSE**'
+      - 'design/**'
+    branches: [develop]
+
+jobs:
+
+  build-binary:
+    name: build
+    runs-on:
+      group: bottlerocket
+      labels: bottlerocket_ubuntu-latest_16-core
+    steps:
+      - uses: actions/checkout@v3
+      - run: rustup update stable
+      - run: make build
+      - name: Ensure git is clean
+        shell: bash
+        run: |
+          git --no-pager diff
+          test -z "$(git status --untracked-files=all --porcelain)"
+
+  build-container:
+    name: brupop-image
+    runs-on:
+      group: bottlerocket
+      labels: bottlerocket_ubuntu-latest_16-core
+    steps:
+      - uses: actions/checkout@v3
+      - run: make brupop-image
+      - name: Ensure git is clean
+        shell: bash
+        run: |
+          git --no-pager diff
+          test -z "$(git status --untracked-files=all --porcelain)"

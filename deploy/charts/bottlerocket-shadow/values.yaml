@@ -1,0 +1,7 @@
+# Default values for bottlerocket-update-operator.
+
+# The namespace to deploy the update operator into.
+namespace: "brupop-bottlerocket-aws"
+
+# API server internal address where the CRD version conversion webhook is served
+apiserver_service_port: "443"
