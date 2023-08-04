@@ -117,12 +117,15 @@ impl<T: APIServerClient> BrupopAgent<T> {
     async fn check_node_shadow_exists(
         &self,
     ) -> std::result::Result<bool, agentclient_error::BottlerocketShadowRWError> {
-        let local_cache_has_associated_shadow = !self.brs_reader.is_empty();
-        if local_cache_has_associated_shadow {
-            Ok(true)
-        } else {
-            self.query_api_for_shadow().await
-        }
+        Retry::spawn(retry_strategy(), || async {
+            let local_cache_has_associated_shadow = !self.brs_reader.is_empty();
+            if local_cache_has_associated_shadow {
+                Ok(true)
+            } else {
+                self.query_api_for_shadow().await
+            }
+        })
+        .await
     }
 
     /// Returns whether or not the BottlerocketShadow for this node has a .status.
