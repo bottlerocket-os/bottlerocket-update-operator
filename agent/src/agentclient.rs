@@ -433,18 +433,18 @@ impl<T: APIServerClient> BrupopAgent<T> {
                 },
                 BottlerocketShadowState::StagedAndPerformedUpdate => {
                     event!(Level::INFO, "Preparing update");
-                    apiclient::prepare()
-                        .await
-                        .context(agentclient_error::UpdateActionsSnafu {
+                    apiclient::prepare_update().await.context(
+                        agentclient_error::UpdateActionsSnafu {
                             action: "Prepare".to_string(),
-                        })?;
+                        },
+                    )?;
 
                     event!(Level::INFO, "Performing update");
-                    apiclient::update()
-                        .await
-                        .context(agentclient_error::UpdateActionsSnafu {
+                    apiclient::activate_update().await.context(
+                        agentclient_error::UpdateActionsSnafu {
                             action: "Perform".to_string(),
-                        })?;
+                        },
+                    )?;
                 }
                 BottlerocketShadowState::RebootedIntoUpdate => {
                     event!(Level::INFO, "Rebooting node to complete update");
@@ -463,7 +463,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
                         self.handle_recover().await?;
                     } else {
                         self.prepare_for_update().await?;
-                        apiclient::boot_update().await.context(
+                        apiclient::boot_into_update().await.context(
                             agentclient_error::UpdateActionsSnafu {
                                 action: "Reboot".to_string(),
                             },
