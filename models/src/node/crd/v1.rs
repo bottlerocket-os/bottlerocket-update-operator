@@ -18,10 +18,11 @@ use tokio::time::Duration;
 use validator::Validate;
 
 /// BottlerocketShadowState represents a node's state in the update state machine.
-#[derive(Copy, Clone, Serialize, Deserialize, Debug, Eq, PartialEq, JsonSchema)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug, Eq, PartialEq, JsonSchema, Default)]
 pub enum BottlerocketShadowState {
     /// Nodes in this state are waiting for new updates to become available. This is both the starting and terminal state
     /// in the update process.
+    #[default]
     Idle,
     /// Nodes in this state have staged a new update image and used the kubernetes cordon and drain APIs to remove
     /// running pods.
@@ -34,12 +35,6 @@ pub enum BottlerocketShadowState {
     /// Nodes in this state have un-cordoned the node to allow work to be scheduled, and are monitoring to ensure that
     /// the node seems healthy before marking the update as complete.
     MonitoringUpdate,
-}
-
-impl Default for BottlerocketShadowState {
-    fn default() -> Self {
-        BottlerocketShadowState::Idle
-    }
 }
 
 // These constants define the maximum amount of time to allow a machine to transition *into* this state.

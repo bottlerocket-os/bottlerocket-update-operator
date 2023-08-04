@@ -62,24 +62,31 @@ enum CommandStatus {
 
 #[derive(Debug, Deserialize)]
 pub struct StagedImage {
-    image: Option<UpdateImage>,
-    next_to_boot: bool,
+    #[serde(rename = "image")]
+    _image: Option<UpdateImage>,
+    #[serde(rename = "next_to_boot")]
+    _next_to_boot: bool,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct CommandResult {
     cmd_type: UpdateCommand,
     cmd_status: CommandStatus,
-    timestamp: String,
-    exit_status: u32,
-    stderr: String,
+    #[serde(rename = "timestamp")]
+    _timestamp: String,
+    #[serde(rename = "exit_status")]
+    _exit_status: u32,
+    #[serde(rename = "stderr")]
+    _stderr: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateImage {
-    pub(super) arch: String,
+    #[serde(rename = "arch")]
+    pub(super) _arch: String,
     pub(super) version: Version,
-    pub(super) variant: String,
+    #[serde(rename = "variant")]
+    pub(super) _variant: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -90,10 +97,13 @@ pub struct OsInfo {
 #[derive(Debug, Deserialize)]
 pub struct UpdateStatus {
     update_state: UpdateState,
-    available_updates: Vec<Version>,
+    #[serde(rename = "available_updates")]
+    _available_updates: Vec<Version>,
     chosen_update: Option<UpdateImage>,
-    active_partition: Option<StagedImage>,
-    staging_partition: Option<StagedImage>,
+    #[serde(rename = "active_partition")]
+    _active_partition: Option<StagedImage>,
+    #[serde(rename = "staging_partition")]
+    _staging_partition: Option<StagedImage>,
     most_recent_command: CommandResult,
 }
 
@@ -150,7 +160,7 @@ async fn invoke_apiclient(args: Vec<String>) -> Result<Output> {
                             _ => {
                                 // API response was a non-transient error, bail out
                                 return apiclient_error::BadHttpResponseSnafu {
-                                    args: args,
+                                    args,
                                     error_content: &error_content,
                                     statuscode: error_statuscode,
                                 }

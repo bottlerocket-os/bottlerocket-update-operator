@@ -254,15 +254,11 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
 
     #[instrument(skip(self))]
     fn nodes_ready_to_update(&self) -> bool {
-        let mut shadows: Vec<BottlerocketShadow> = self.all_brss();
-        for brs in shadows.drain(..) {
+        self.all_brss().iter().any(|brs| {
             // If we determine that the spec should change, this node is a candidate to begin updating.
-            let next_spec = determine_next_node_spec(&brs);
-            if next_spec != brs.spec && is_initial_state(&brs) {
-                return true;
-            }
-        }
-        return false;
+            let next_spec = determine_next_node_spec(brs);
+            next_spec != brs.spec && is_initial_state(brs)
+        })
     }
 
     /// Runs the event loop for the Brupop controller.

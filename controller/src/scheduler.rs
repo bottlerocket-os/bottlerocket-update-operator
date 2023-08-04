@@ -67,7 +67,7 @@ impl LegacyUpdateWindow {
             Ok(_) => {
                 let start_hour: u8 = self
                     .start_time
-                    .split(":")
+                    .split(':')
                     .next()
                     .context(scheduler_error::InvalidTimeWindowSettingsSnafu {})?
                     .parse()
@@ -76,7 +76,7 @@ impl LegacyUpdateWindow {
                     })?;
                 let stop_hour: u8 = self
                     .end_time
-                    .split(":")
+                    .split(':')
                     .next()
                     .context(scheduler_error::InvalidTimeWindowSettingsSnafu {})?
                     .parse()
@@ -90,9 +90,9 @@ impl LegacyUpdateWindow {
                     format!("* * {}-23,0-{} * * * *", start_hour, stop_hour)
                 };
 
-                return Ok(cron_expression_hour);
+                Ok(cron_expression_hour)
             }
-            Err(_) => return scheduler_error::InvalidTimeWindowSettingsSnafu {}.fail(),
+            Err(_) => scheduler_error::InvalidTimeWindowSettingsSnafu {}.fail(),
         }
     }
 }
@@ -204,7 +204,7 @@ pub enum ScheduleType {
 
 fn determine_schedule_type(schedule: &Schedule) -> Result<ScheduleType> {
     let duration_between_each_schedule_datetime =
-        duration_between_next_two_points(&schedule, Utc::now())?;
+        duration_between_next_two_points(schedule, Utc::now())?;
     Ok(
         if duration_between_each_schedule_datetime.num_seconds() == 1 {
             ScheduleType::Windowed
@@ -230,20 +230,16 @@ fn duration_between_next_two_points(
 }
 
 fn std_duration(d: &chrono::Duration) -> Result<std::time::Duration> {
-    Ok(d.to_std()
-        .context(scheduler_error::ConvertToStdDurationSnafu)?)
+    d.to_std()
+        .context(scheduler_error::ConvertToStdDurationSnafu)
 }
 
 fn get_cron_schedule_from_env() -> Result<Option<String>> {
     match env::var(SCHEDULER_CRON_EXPRESSION_ENV_VAR) {
         // SCHEDULER_CRON_EXPRESSION is set
-        Ok(scheduler_cron_expression) => {
-            return Ok(Some(scheduler_cron_expression));
-        }
+        Ok(scheduler_cron_expression) => Ok(Some(scheduler_cron_expression)),
         // SCHEDULER_CRON_EXPRESSION is not set
-        Err(_) => {
-            return Ok(None);
-        }
+        Err(_) => Ok(None),
     }
 }
 

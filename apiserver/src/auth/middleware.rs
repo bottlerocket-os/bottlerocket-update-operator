@@ -100,7 +100,7 @@ where
         let authorizor = self.authorizor.clone();
 
         if self.exclude_paths.get(&request_path).is_some() {
-            Box::pin(async move { fut.await })
+            Box::pin(fut)
         } else {
             Box::pin(async move {
                 let apiserver_headers = maybe_apiserver_headers?;
