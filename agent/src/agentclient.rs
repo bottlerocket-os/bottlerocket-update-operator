@@ -1,4 +1,4 @@
-use crate::apiclient::{boot_update, get_chosen_update, get_os_info, prepare, update};
+use crate::apiclient;
 use apiserver::{
     client::APIServerClient,
     CordonAndDrainBottlerocketShadowRequest, ExcludeNodeFromLoadBalancerRequest,
@@ -81,51 +81,51 @@ impl<T: APIServerClient> BrupopAgent<T> {
         }
     }
 
+    /// Checks the kubernetes API for the shadow object associated with this node.
+    #[instrument(skip(self), err)]
+    async fn query_api_for_shadow(
+        &self,
+    ) -> std::result::Result<bool, agentclient_error::BottlerocketShadowRWError> {
+        let bottlerocket_shadows: Api<BottlerocketShadow> =
+            Api::namespaced(self.k8s_client.clone(), &self.namespace);
+
+        match bottlerocket_shadows
+            .get(&self.associated_bottlerocketshadow_name.clone())
+            .await
+        {
+            // 404 not found response error is OK for this use, which means associated BottlerocketShadow doesn't exist
+            Err(kube::Error::Api(error_response)) if error_response.code == 404 => Ok(false),
+
+            // It's not possible to know whether or not the BottlerocketShadow exists, so we return an error
+            Err(kube::Error::Api(error_response)) => {
+                agentclient_error::FetchBottlerocketShadowErrorCodeSnafu {
+                    code: error_response.code,
+                }
+                .fail()
+            }
+
+            Err(e) => Err(e).context(agentclient_error::UnableFetchBottlerocketShadowSnafu {
+                node_name: &self.associated_bottlerocketshadow_name.clone(),
+            }),
+
+            Ok(_) => Ok(true),
+        }
+    }
+
+    /// Returns whether or not a BottlerocketShadow exists for this node.
     #[instrument(skip(self), err)]
     async fn check_node_shadow_exists(
         &self,
     ) -> std::result::Result<bool, agentclient_error::BottlerocketShadowRWError> {
-        // try to check if node associated BottlerocketShadow exist in the store first. If it's not present in the
-        // store(either associated BottlerocketShadow doesn't exist or store data delays), make the API call for second round check.
-
-        let associated_bottlerocketshadow = self.brs_reader.state().clone();
-        if !associated_bottlerocketshadow.is_empty() {
+        let local_cache_has_associated_shadow = !self.brs_reader.is_empty();
+        if local_cache_has_associated_shadow {
             Ok(true)
         } else {
-            let bottlerocket_shadows: Api<BottlerocketShadow> =
-                Api::namespaced(self.k8s_client.clone(), &self.namespace);
-
-            // handle the special case which associated BottlerocketShadow does exist but communication with the k8s API fails for other errors.
-            if let Err(e) = bottlerocket_shadows
-                .get(&self.associated_bottlerocketshadow_name.clone())
-                .await
-            {
-                match e {
-                    // 404 not found response error is OK for this use, which means associated BottlerocketShadow doesn't exist
-                    kube::Error::Api(error_response) => {
-                        if error_response.code == 404 {
-                            return Ok(false);
-                        } else {
-                            return agentclient_error::FetchBottlerocketShadowErrorCodeSnafu {
-                                code: error_response.code,
-                            }
-                            .fail();
-                        }
-                    }
-                    // Any other type of errors can not present that associated BottlerocketShadow doesn't exist, need return error
-                    _ => {
-                        return Err(e).context(
-                            agentclient_error::UnableFetchBottlerocketShadowSnafu {
-                                node_name: &self.associated_bottlerocketshadow_name.clone(),
-                            },
-                        );
-                    }
-                }
-            }
-            Ok(true)
+            self.query_api_for_shadow().await
         }
     }
 
+    /// Returns whether or not the BottlerocketShadow for this node has a .status.
     #[instrument(skip(self), err)]
     async fn check_shadow_status_exists(&self) -> Result<bool> {
         Ok(self.fetch_shadow().await?.status.is_some())
@@ -186,10 +186,10 @@ impl<T: APIServerClient> BrupopAgent<T> {
         state: BottlerocketShadowState,
         shadow_error_info: ShadowErrorInfo,
     ) -> Result<BottlerocketShadowStatus> {
-        let os_info = get_os_info()
+        let os_info = apiclient::get_os_info()
             .await
             .context(agentclient_error::BottlerocketShadowStatusVersionSnafu)?;
-        let update_version = match get_chosen_update()
+        let update_version = match apiclient::get_chosen_update()
             .await
             .context(agentclient_error::BottlerocketShadowStatusChosenUpdateSnafu)?
         {
@@ -430,14 +430,14 @@ impl<T: APIServerClient> BrupopAgent<T> {
                 },
                 BottlerocketShadowState::StagedAndPerformedUpdate => {
                     event!(Level::INFO, "Preparing update");
-                    prepare()
+                    apiclient::prepare()
                         .await
                         .context(agentclient_error::UpdateActionsSnafu {
                             action: "Prepare".to_string(),
                         })?;
 
                     event!(Level::INFO, "Performing update");
-                    update()
+                    apiclient::update()
                         .await
                         .context(agentclient_error::UpdateActionsSnafu {
                             action: "Perform".to_string(),
@@ -460,11 +460,11 @@ impl<T: APIServerClient> BrupopAgent<T> {
                         self.handle_recover().await?;
                     } else {
                         self.prepare_for_update().await?;
-                        boot_update()
-                            .await
-                            .context(agentclient_error::UpdateActionsSnafu {
+                        apiclient::boot_update().await.context(
+                            agentclient_error::UpdateActionsSnafu {
                                 action: "Reboot".to_string(),
-                            })?;
+                            },
+                        )?;
                     }
                 }
                 BottlerocketShadowState::MonitoringUpdate => {
@@ -597,7 +597,7 @@ impl<T: APIServerClient> BrupopAgent<T> {
 
 /// Check that the currently running version is the one requested by the controller.
 async fn running_desired_version(spec: &BottlerocketShadowSpec) -> Result<bool> {
-    let os_info = get_os_info()
+    let os_info = apiclient::get_os_info()
         .await
         .context(agentclient_error::BottlerocketShadowStatusVersionSnafu)?;
     Ok(match spec.version() {
