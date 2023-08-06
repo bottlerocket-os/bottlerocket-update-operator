@@ -43,6 +43,10 @@ spec:
           env:
             - name: APISERVER_INTERNAL_PORT
               value: "{{ .Values.apiserver_internal_port }}"
+            - name: LOGGING_FORMATTER
+              value: "{{ .Values.logging_formatter }}"
+            - name: LOGGING_ANSI_ENABLED
+              value: "{{ .Values.logging_ansi_enabled }}"
           image: {{ .Values.image }}
           livenessProbe:
             httpGet:

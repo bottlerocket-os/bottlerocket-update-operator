@@ -48,6 +48,10 @@ spec:
               value: "{{ .Values.max_concurrent_updates }}"
             - name: SCHEDULER_CRON_EXPRESSION
               value: "{{ .Values.scheduler_cron_expression}}"
+            - name: LOGGING_FORMATTER
+              value: "{{ .Values.logging_formatter }}"
+            - name: LOGGING_ANSI_ENABLED
+              value: "{{ .Values.logging_ansi_enabled }}"
           image: {{ .Values.image }}
           name: brupop
       priorityClassName: brupop-controller-high-priority
