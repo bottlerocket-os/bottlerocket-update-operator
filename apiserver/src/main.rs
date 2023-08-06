@@ -1,7 +1,7 @@
 use apiserver::api::{self, APIServerSettings};
-use apiserver::telemetry::init_telemetry;
 use apiserver_error::{StartServerSnafu, StartTelemetrySnafu};
 use models::node::K8SBottlerocketShadowClient;
+use models::telemetry;
 use tracing::{event, Level};
 
 use opentelemetry::sdk::export::metrics::aggregation;
@@ -33,7 +33,7 @@ async fn main() {
 }
 
 async fn run_server() -> Result<(), apiserver_error::Error> {
-    init_telemetry().context(StartTelemetrySnafu)?;
+    telemetry::init_telemetry_from_env().context(StartTelemetrySnafu)?;
     let controller = controllers::basic(
         processors::factory(
             selectors::simple::histogram([1.0, 2.0, 5.0, 10.0, 20.0, 50.0]),
@@ -102,7 +102,7 @@ pub mod apiserver_error {
 
         #[snafu(display("Unable to start API server telemetry: '{}'", source))]
         StartTelemetry {
-            source: apiserver::telemetry::telemetry_error::Error,
+            source: models::telemetry::TelemetryConfigError,
         },
 
         #[snafu(display("Unable to start API server: '{}'", source))]

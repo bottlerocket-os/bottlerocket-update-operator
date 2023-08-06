@@ -246,7 +246,6 @@ dependencies = [
  "k8s-openapi",
  "kube",
  "models",
- "opentelemetry",
  "semver",
  "serde",
  "serde_json",
@@ -254,7 +253,6 @@ dependencies = [
  "tokio",
  "tokio-retry",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -358,7 +356,6 @@ dependencies = [
  "tokio-retry",
  "tracing",
  "tracing-actix-web",
- "tracing-subscriber",
  "webpki",
 ]
 
@@ -1023,11 +1020,11 @@ dependencies = [
  "prometheus",
  "regex",
  "semver",
+ "serde",
  "serde_plain",
  "snafu",
  "tokio",
  "tracing",
- "tracing-subscriber",
  "validator",
 ]
 
@@ -2167,16 +2164,19 @@ dependencies = [
  "lazy_static",
  "maplit",
  "mockall",
+ "opentelemetry",
  "regex",
  "reqwest",
  "schemars",
  "semver",
  "serde",
  "serde_json",
+ "serde_plain",
  "snafu",
  "tokio",
  "tokio-retry",
  "tracing",
+ "tracing-subscriber",
  "validator",
 ]
 
