@@ -24,7 +24,7 @@ jobs:
     name: build
     runs-on:
       group: bottlerocket
-      labels: bottlerocket_ubuntu-latest_16-core
+      labels: bottlerocket_ubuntu-latest_8-core
     steps:
       - uses: actions/checkout@v3
       - run: rustup update stable
@@ -39,7 +39,7 @@ jobs:
     name: brupop-image
     runs-on:
       group: bottlerocket
-      labels: bottlerocket_ubuntu-latest_16-core
+      labels: bottlerocket_ubuntu-latest_8-core
     steps:
       - uses: actions/checkout@v3
       - run: make brupop-image
