@@ -65,7 +65,8 @@ async fn run_agent() -> Result<()> {
         .fields(format!("metadata.name={}", associated_bottlerocketshadow_name).as_str());
     let brs_store = reflector::store::Writer::<BottlerocketShadow>::default();
     let brs_reader = brs_store.as_reader();
-    let brs_reflector = reflector::reflector(brs_store, watcher(brss, brs_config));
+    let brs_reflector =
+        reflector::reflector(brs_store, watcher(brss, brs_config).default_backoff());
     let brs_drainer = brs_reflector
         .touched_objects()
         .filter_map(|x| async move { std::result::Result::ok(x) })
@@ -80,7 +81,8 @@ async fn run_agent() -> Result<()> {
     let nodes: Api<Node> = Api::all(k8s_client.clone());
     let nodes_store = reflector::store::Writer::<Node>::default();
     let node_reader = nodes_store.as_reader();
-    let node_reflector = reflector::reflector(nodes_store, watcher(nodes, node_config));
+    let node_reflector =
+        reflector::reflector(nodes_store, watcher(nodes, node_config).default_backoff());
     let node_drainer = node_reflector
         .touched_objects()
         .filter_map(|x| async move { std::result::Result::ok(x) })

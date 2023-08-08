@@ -25,6 +25,9 @@ use tracing::{event, instrument, Level};
 // Defines the length time after which the controller will take actions.
 const ACTION_INTERVAL: Duration = Duration::from_secs(2);
 
+// The interval between control loop polls if no nodes are detected.
+const CANNOT_FIND_ANY_NODES_WAIT_INTERVAL: Duration = Duration::from_secs(10);
+
 // Defines environment variable name used to fetch max concurrent update number.
 const MAX_CONCURRENT_UPDATE_ENV_VAR: &str = "MAX_CONCURRENT_UPDATE";
 
@@ -278,6 +281,17 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
         // On every iteration of the event loop, we reconstruct the state of the controller and determine its
         // next actions. This is to ensure that the operator would behave consistently even if suddenly restarted.
         loop {
+            if self.all_brss().is_empty() {
+                event!(
+                    Level::INFO,
+                    "Nothing to do: The bottlerocket-update-operator is not aware of any BottlerocketShadow objects. \
+                    Is the bottlerocket-shadow CRD installed? Are nodes labelled so that the agent is deployed to them? \
+                    See the project's README for more information.",
+                );
+                sleep(CANNOT_FIND_ANY_NODES_WAIT_INTERVAL).await;
+                continue;
+            }
+
             let active_set = self.active_brs_set();
             event!(Level::TRACE, ?active_set, "Found active set of nodes.");
 

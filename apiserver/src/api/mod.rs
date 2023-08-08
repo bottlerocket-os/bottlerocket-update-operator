@@ -131,7 +131,8 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
         watcher(
             pods,
             Config::default().labels(&format!("{}={}", LABEL_COMPONENT, AGENT)),
-        ),
+        )
+        .default_backoff(),
     );
     let drainer = pod_reflector.touched_objects()
         .filter_map(|x| async move {
