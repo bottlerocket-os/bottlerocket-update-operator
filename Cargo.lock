@@ -254,7 +254,6 @@ dependencies = [
  "tokio",
  "tokio-retry",
  "tracing",
- "tracing-opentelemetry",
  "tracing-subscriber",
 ]
 
@@ -359,7 +358,6 @@ dependencies = [
  "tokio-retry",
  "tracing",
  "tracing-actix-web",
- "tracing-opentelemetry",
  "tracing-subscriber",
  "webpki",
 ]
@@ -1029,7 +1027,6 @@ dependencies = [
  "snafu",
  "tokio",
  "tracing",
- "tracing-opentelemetry",
  "tracing-subscriber",
  "validator",
 ]
@@ -3415,20 +3412,6 @@ dependencies = [
  "lazy_static",
  "log",
  "tracing-core",
-]
-
-[[package]]
-name = "tracing-opentelemetry"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21ebb87a95ea13271332df069020513ab70bdb5637ca42d6e492dc3bbbad48de"
-dependencies = [
- "once_cell",
- "opentelemetry",
- "tracing",
- "tracing-core",
- "tracing-log",
- "tracing-subscriber",
 ]
 
 [[package]]
