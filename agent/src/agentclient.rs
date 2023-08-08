@@ -117,15 +117,12 @@ impl<T: APIServerClient> BrupopAgent<T> {
     async fn check_node_shadow_exists(
         &self,
     ) -> std::result::Result<bool, agentclient_error::BottlerocketShadowRWError> {
-        Retry::spawn(retry_strategy(), || async {
-            let local_cache_has_associated_shadow = !self.brs_reader.is_empty();
-            if local_cache_has_associated_shadow {
-                Ok(true)
-            } else {
-                self.query_api_for_shadow().await
-            }
-        })
-        .await
+        let local_cache_has_associated_shadow = !self.brs_reader.is_empty();
+        if local_cache_has_associated_shadow {
+            Ok(true)
+        } else {
+            self.query_api_for_shadow().await
+        }
     }
 
     /// Returns whether or not the BottlerocketShadow for this node has a .status.
@@ -326,20 +323,26 @@ impl<T: APIServerClient> BrupopAgent<T> {
 
     #[instrument(skip(self))]
     async fn create_shadow_if_not_exist(&self) -> Result<()> {
-        let shadow_exists = self.check_node_shadow_exists().await?;
-        if !shadow_exists {
-            self.create_metadata_shadow().await?;
-        }
-        Ok(())
+        Retry::spawn(retry_strategy(), || async {
+            let shadow_exists = self.check_node_shadow_exists().await?;
+            if !shadow_exists {
+                self.create_metadata_shadow().await?;
+            }
+            Ok(())
+        })
+        .await
     }
 
     #[instrument(skip(self))]
     async fn initialize_shadow_if_not_initialized(&self) -> Result<()> {
-        let shadow_status_exists = self.check_shadow_status_exists().await?;
-        if !shadow_status_exists {
-            self.initialize_metadata_shadow().await?;
-        }
-        Ok(())
+        Retry::spawn(retry_strategy(), || async {
+            let shadow_status_exists = self.check_shadow_status_exists().await?;
+            if !shadow_status_exists {
+                self.initialize_metadata_shadow().await?;
+            }
+            Ok(())
+        })
+        .await
     }
 
     #[instrument(skip(self))]
