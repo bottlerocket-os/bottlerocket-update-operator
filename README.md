@@ -146,6 +146,17 @@ scheduler_cron_expression: "* * * * * * *"
 apiserver_internal_port: "8443"
 # API server internal address where the CRD version conversion webhook is served
 apiserver_service_port: "443"
+
+# Formatter for the logs emitted by brupop.
+# Options are:
+# * full - Human-readable, single-line logs
+# * compact - A variant of full optimized for shorter line lengths
+# * pretty - "Excessively pretty" logs optimized for human-readable terminal output.
+# * json - Newline-delimited JSON-formatted logs.
+logging_formatter: "pretty"
+# Whether or not to enable ANSI colors on log messages.
+# Makes the output "pretty" in terminals, but may add noise to web-based log utilities.
+logging_ansi_enabled: "true"
 ```
 
 #### Configure API server ports

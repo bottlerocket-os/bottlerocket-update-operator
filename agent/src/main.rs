@@ -12,11 +12,10 @@ use kube::{
 };
 use models::constants::{AGENT_TOKEN_PATH, AGENT_TOKEN_PROJECTION_MOUNT_PATH};
 use models::node::{brs_name_from_node_name, BottlerocketShadow};
+use models::telemetry;
 
-use opentelemetry::sdk::propagation::TraceContextPropagator;
 use snafu::{OptionExt, ResultExt};
 use tracing::{event, Level};
-use tracing_subscriber::{fmt, layer::SubscriberExt, EnvFilter, Registry};
 
 use std::convert::TryFrom;
 use std::env;
@@ -40,7 +39,7 @@ async fn main() {
 }
 
 async fn run_agent() -> Result<()> {
-    init_telemetry()?;
+    telemetry::init_telemetry_from_env().context(agent_error::TelemetryInitSnafu)?;
 
     let incluster_config = kube::Config::incluster_dns().context(agent_error::ConfigCreateSnafu)?;
     let namespace = incluster_config.default_namespace.to_string();
@@ -119,23 +118,9 @@ async fn run_agent() -> Result<()> {
     Ok(())
 }
 
-/// Initializes global tracing and telemetry state for the agent.
-pub fn init_telemetry() -> Result<()> {
-    opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
-
-    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-    let stdio_formatting_layer = fmt::layer().pretty();
-    let subscriber = Registry::default()
-        .with(env_filter)
-        .with(stdio_formatting_layer);
-    tracing::subscriber::set_global_default(subscriber)
-        .context(agent_error::TracingConfigurationSnafu)?;
-
-    Ok(())
-}
-
 pub mod agent_error {
     use agent::agentclient::agentclient_error;
+    use models::telemetry;
     use snafu::Snafu;
 
     #[derive(Debug, Snafu)]
@@ -167,6 +152,11 @@ pub mod agent_error {
 
         #[snafu(display("The Kubernetes WATCH on {} objects has failed.", object))]
         KubernetesWatcherFailed { object: String },
+
+        #[snafu(display("Error configuring telemetry: '{}'", source))]
+        TelemetryInit {
+            source: telemetry::TelemetryConfigError,
+        },
 
         #[snafu(display("Error configuring tracing: '{}'", source))]
         TracingConfiguration {

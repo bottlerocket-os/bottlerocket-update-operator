@@ -4,6 +4,7 @@ use controller::{telemetry::vending_metrics, BrupopController};
 use models::{
     constants::CONTROLLER_INTERNAL_PORT,
     node::{BottlerocketShadow, K8SBottlerocketShadowClient},
+    telemetry,
 };
 
 use actix_web::{web::Data, App, HttpServer};
@@ -22,19 +23,15 @@ use kube::{
 
 use opentelemetry::sdk::export::metrics::aggregation;
 use opentelemetry::sdk::metrics::{controllers, processors, selectors};
-use opentelemetry::sdk::propagation::TraceContextPropagator;
 use snafu::ResultExt;
 use tracing::{event, Level};
-use tracing_subscriber::{fmt, layer::SubscriberExt, EnvFilter, Registry};
-
-const DEFAULT_TRACE_LEVEL: &str = "info";
 
 /// The module-wide result type.
 type Result<T> = std::result::Result<T, controller_error::Error>;
 
 #[actix_web::main]
 async fn main() -> Result<()> {
-    init_telemetry()?;
+    telemetry::init_telemetry_from_env().context(controller_error::TelemetryInitSnafu)?;
 
     let incluster_config =
         kube::Config::incluster_dns().context(controller_error::ConfigCreateSnafu)?;
@@ -135,23 +132,9 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn init_telemetry() -> Result<()> {
-    opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
-
-    let env_filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(DEFAULT_TRACE_LEVEL));
-    let stdio_formatting_layer = fmt::layer().pretty();
-    let subscriber = Registry::default()
-        .with(env_filter)
-        .with(stdio_formatting_layer);
-    tracing::subscriber::set_global_default(subscriber)
-        .context(controller_error::TracingConfigurationSnafu)?;
-
-    Ok(())
-}
-
 pub mod controller_error {
     use controller::controllerclient_error;
+    use models::telemetry;
     use snafu::Snafu;
 
     #[derive(Debug, Snafu)]
@@ -176,11 +159,6 @@ pub mod controller_error {
         #[snafu(display("The Kubernetes WATCH on {} objects has failed.", object))]
         KubernetesWatcherFailed { object: String },
 
-        #[snafu(display("Error configuring tracing: '{}'", source))]
-        TracingConfiguration {
-            source: tracing::subscriber::SetGlobalDefaultError,
-        },
-
         #[snafu(display("Error determining the cluster server address: '{}'", source))]
         MissingClusterIPFamily { source: std::env::VarError },
 
@@ -189,5 +167,10 @@ pub mod controller_error {
 
         #[snafu(display("Failed to run prometheus on controller"))]
         PrometheusError,
+
+        #[snafu(display("Error configuring telemetry: '{}'", source))]
+        TelemetryInit {
+            source: telemetry::TelemetryConfigError,
+        },
     }
 }

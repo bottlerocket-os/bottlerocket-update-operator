@@ -49,6 +49,10 @@ spec:
               value: "{{ .Values.exclude_from_lb_wait_time_in_sec }}"
             - name: APISERVER_SERVICE_PORT
               value: "{{ .Values.apiserver_service_port }}"
+            - name: LOGGING_FORMATTER
+              value: "{{ .Values.logging_formatter }}"
+            - name: LOGGING_ANSI_ENABLED
+              value: "{{ .Values.logging_ansi_enabled }}"
           image: {{ .Values.image }}
           name: brupop
           resources:

@@ -4,11 +4,8 @@ use crate::constants::HEADER_BRUPOP_NODE_NAME;
 use actix_web::body::MessageBody;
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use lazy_static::lazy_static;
-use opentelemetry::sdk::propagation::TraceContextPropagator;
-use snafu::ResultExt;
 use tracing::Span;
 use tracing_actix_web::{DefaultRootSpanBuilder, RootSpanBuilder};
-use tracing_subscriber::{fmt, layer::SubscriberExt, EnvFilter, Registry};
 
 use std::collections::HashSet;
 
@@ -49,33 +46,5 @@ impl RootSpanBuilder for BrupopApiserverRootSpanBuilder {
         response: &std::result::Result<ServiceResponse<B>, actix_web::Error>,
     ) {
         DefaultRootSpanBuilder::on_request_end(span, response);
-    }
-}
-
-/// Initializes global tracing and telemetry state for the apiserver.
-pub fn init_telemetry() -> Result<(), telemetry_error::Error> {
-    opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
-
-    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-    let stdio_formatting_layer = fmt::layer().pretty();
-    let subscriber = Registry::default()
-        .with(env_filter)
-        .with(stdio_formatting_layer);
-    tracing::subscriber::set_global_default(subscriber)
-        .context(telemetry_error::TracingConfigurationSnafu)?;
-
-    Ok(())
-}
-
-pub mod telemetry_error {
-    use snafu::Snafu;
-
-    #[derive(Debug, Snafu)]
-    #[snafu(visibility(pub))]
-    pub enum Error {
-        #[snafu(display("Error configuring tracing: '{}'", source))]
-        TracingConfiguration {
-            source: tracing::subscriber::SetGlobalDefaultError,
-        },
     }
 }
