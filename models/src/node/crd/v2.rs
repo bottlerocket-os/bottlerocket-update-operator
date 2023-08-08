@@ -19,10 +19,11 @@ use std::str::FromStr;
 use tokio::time::Duration;
 use validator::Validate;
 /// BottlerocketShadowState represents a node's state in the update state machine.
-#[derive(Copy, Clone, Serialize, Deserialize, Debug, Eq, PartialEq, JsonSchema)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug, Eq, PartialEq, JsonSchema, Default)]
 pub enum BottlerocketShadowState {
     /// Nodes in this state are waiting for new updates to become available. This is both the starting, terminal and recovery state
     /// in the update process.
+    #[default]
     Idle,
     /// Nodes in this state have staged a new update image, have installed the new image, and have updated the partition table
     /// to mark it as the new active image.
@@ -36,12 +37,6 @@ pub enum BottlerocketShadowState {
     MonitoringUpdate,
     /// Nodes in this state have crashed due to Bottlerocket Update API call failure.
     ErrorReset,
-}
-
-impl Default for BottlerocketShadowState {
-    fn default() -> Self {
-        BottlerocketShadowState::Idle
-    }
 }
 
 // These constants define the maximum amount of time to allow a machine to transition *into* this state.

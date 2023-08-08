@@ -6,130 +6,266 @@ Bottlerocket Update API: https://github.com/bottlerocket-os/bottlerocket/tree/de
 Bottlerocket apiclient: https://github.com/bottlerocket-os/bottlerocket/tree/develop/sources/api/apiclient
 */
 
-use semver::Version;
-use serde::Deserialize;
-use snafu::{ensure, ResultExt};
-use std::process::{Command, Output};
-use tokio::time::{sleep, Duration};
-use tracing::{event, Level};
-
-const API_CLIENT_BIN: &str = "apiclient";
-const UPDATES_STATUS_URI: &str = "/updates/status";
-const OS_URI: &str = "/os";
-const REFRESH_UPDATES_URI: &str = "/actions/refresh-updates";
-const PREPARE_UPDATES_URI: &str = "/actions/prepare-update";
-const ACTIVATE_UPDATES_URI: &str = "/actions/activate-update";
-const REBOOT_URI: &str = "/actions/reboot";
-const MAX_ATTEMPTS: i8 = 5;
-const UPDATE_API_SLEEP_DURATION: Duration = Duration::from_millis(10000);
-const UPDATE_API_BUSY_STATUSCODE: &str = "423";
+use self::api::{CommandStatus, UpdateCommand, UpdateState};
+pub use self::api::{OsInfo, UpdateImage};
+use snafu::ensure;
+use std::process::Output;
 
 /// The module-wide result type.
 pub type Result<T> = std::result::Result<T, apiclient_error::Error>;
 
-/// UpdateState represents four states during system update process
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize)]
-pub enum UpdateState {
-    // Idle: Unknown
-    Idle,
-    // Available: available versions system can update to
-    Available,
-    // Staged: processing system update (refresh, prepare, activate)
-    Staged,
-    // Ready: successfully complete update commands, ready to reboot
-    Ready,
+/// extract OS info from the local system.
+pub async fn get_os_info() -> Result<OsInfo> {
+    api::get_os_info().await
 }
 
-/// UpdateCommand represents three commands to update system
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum UpdateCommand {
-    // Refresh: refresh the list of available updates
-    Refresh,
-    // Prepare: request that the update be downloaded and applied to disk
-    Prepare,
-    // Activate: proceed to "activate" the update
-    Activate,
+// get chosen update which contains latest Bottlerocket OS can update to.
+pub async fn get_chosen_update() -> Result<Option<UpdateImage>> {
+    let update_status = api::get_update_status().await?;
+
+    ensure!(
+        update_status.most_recent_command.cmd_type == UpdateCommand::Refresh
+            && update_status.most_recent_command.cmd_status == CommandStatus::Success,
+        apiclient_error::RefreshUpdateSnafu
+    );
+
+    Ok(update_status.chosen_update)
 }
 
-/// CommandStatus represents three status after running update command
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize)]
-enum CommandStatus {
-    Success,
-    Failed,
-    Unknown,
+pub async fn prepare_update() -> Result<()> {
+    let update_status = api::get_update_status().await?;
+
+    ensure!(
+        update_status.update_state == UpdateState::Available
+            || update_status.update_state == UpdateState::Staged,
+        apiclient_error::UpdateStageSnafu {
+            expect_state: "Available or Staged".to_string(),
+            update_state: update_status.update_state,
+        },
+    );
+
+    // Download the update and apply it to the inactive partition
+    api::prepare_update().await?;
+
+    // Raise error if failed to prepare update or update action performed out of band
+    let recent_command = api::get_update_status().await?.most_recent_command;
+    ensure!(
+        recent_command.cmd_type == UpdateCommand::Prepare
+            || recent_command.cmd_status == CommandStatus::Success,
+        apiclient_error::PrepareUpdateSnafu
+    );
+
+    Ok(())
 }
 
-#[derive(Debug, Deserialize)]
-pub struct StagedImage {
-    image: Option<UpdateImage>,
-    next_to_boot: bool,
+pub async fn activate_update() -> Result<()> {
+    let update_status = api::get_update_status().await?;
+
+    ensure!(
+        update_status.update_state == UpdateState::Staged,
+        apiclient_error::UpdateStageSnafu {
+            expect_state: "Staged".to_string(),
+            update_state: update_status.update_state,
+        }
+    );
+
+    // Activate the prepared update
+    api::activate_update().await?;
+
+    // Raise error if failed to activate update or update action performed out of band
+    let recent_command = api::get_update_status().await?.most_recent_command;
+
+    ensure!(
+        recent_command.cmd_type == UpdateCommand::Activate
+            || recent_command.cmd_status == CommandStatus::Success,
+        apiclient_error::UpdateSnafu
+    );
+
+    Ok(())
 }
 
-#[derive(Debug, Deserialize)]
-pub struct CommandResult {
-    cmd_type: UpdateCommand,
-    cmd_status: CommandStatus,
-    timestamp: String,
-    exit_status: u32,
-    stderr: String,
+// Reboot the host into the activated update
+pub async fn boot_into_update() -> Result<Output> {
+    let update_status = api::get_update_status().await?;
+
+    ensure!(
+        update_status.update_state == UpdateState::Ready,
+        apiclient_error::UpdateStageSnafu {
+            expect_state: "Ready".to_string(),
+            update_state: update_status.update_state,
+        }
+    );
+
+    api::reboot().await
 }
 
-#[derive(Debug, Deserialize)]
-pub struct UpdateImage {
-    pub(super) arch: String,
-    pub(super) version: Version,
-    pub(super) variant: String,
-}
+pub(super) mod api {
+    //! Low-level Bottlerocket update API interactions
+    use super::{apiclient_error, Result};
+    use governor::{
+        clock::DefaultClock,
+        middleware::NoOpMiddleware,
+        state::{InMemoryState, NotKeyed},
+        Quota, RateLimiter,
+    };
+    use lazy_static::lazy_static;
+    use semver::Version;
+    use serde::Deserialize;
+    use snafu::ResultExt;
+    use std::process::{Command, Output};
+    use tokio::time::Duration;
+    use tokio_retry::{
+        strategy::{jitter, FixedInterval},
+        Retry,
+    };
+    use tracing::{event, Level};
 
-#[derive(Debug, Deserialize)]
-pub struct OsInfo {
-    pub version_id: Version,
-}
+    const API_CLIENT_BIN: &str = "apiclient";
+    const UPDATE_API_BUSY_STATUSCODE: &str = "423";
+    const ACTIVATE_UPDATES_URI: &str = "/actions/activate-update";
+    const OS_URI: &str = "/os";
+    const PREPARE_UPDATES_URI: &str = "/actions/prepare-update";
+    const REBOOT_URI: &str = "/actions/reboot";
+    const REFRESH_UPDATES_URI: &str = "/actions/refresh-updates";
+    const UPDATES_STATUS_URI: &str = "/updates/status";
 
-#[derive(Debug, Deserialize)]
-pub struct UpdateStatus {
-    update_state: UpdateState,
-    available_updates: Vec<Version>,
-    chosen_update: Option<UpdateImage>,
-    active_partition: Option<StagedImage>,
-    staging_partition: Option<StagedImage>,
-    most_recent_command: CommandResult,
-}
+    type SimpleRateLimiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>;
 
-fn get_raw_args(mut args: Vec<String>) -> Vec<String> {
-    let mut subcommand_args = vec!["raw".to_string(), "-u".to_string()];
-    subcommand_args.append(&mut args);
+    lazy_static! {
+        static ref UPDATE_API_RATE_LIMITER: SimpleRateLimiter =
+            RateLimiter::direct(Quota::with_period(Duration::from_secs(10)).unwrap());
+    }
 
-    subcommand_args
-}
+    pub(super) fn get_raw_args(mut args: Vec<String>) -> Vec<String> {
+        let mut subcommand_args = vec!["raw".to_string(), "-u".to_string()];
+        subcommand_args.append(&mut args);
 
-/// Extract error statuscode from stderr string
-/// Error Example:
-/// "Failed POST request to '/actions/refresh-updates': Status 423 when POSTing /actions/refresh-updates: Update lock held\n"
-fn extract_status_code_from_error(error: &str) -> &str {
-    let error_content_split_by_status: Vec<&str> = error.split("Status").collect();
-    let error_content_split_by_whitespace: Vec<&str> = error_content_split_by_status[1]
-        .split_whitespace()
-        .collect();
-    error_content_split_by_whitespace[0]
-}
+        subcommand_args
+    }
 
-/// Apiclient binary has been volume mounted into the agent container, so agent is able to
-/// invoke `/bin apiclient` to interact with the Bottlerocket Update API.
-/// This function helps to invoke apiclient raw command.
-async fn invoke_apiclient(args: Vec<String>) -> Result<Output> {
-    let mut attempts: i8 = 0;
-    // Retry up to 5 times in case the Update API is busy; Waiting 10 seconds between each attempt.
-    while attempts < MAX_ATTEMPTS {
-        let output = Command::new(API_CLIENT_BIN)
-            .args(&args)
-            .output()
-            .context(apiclient_error::ApiClientRawCommandSnafu { args: args.clone() })?;
+    #[derive(Debug, Deserialize)]
+    pub struct UpdateStatus {
+        pub update_state: UpdateState,
+        #[serde(rename = "available_updates")]
+        pub _available_updates: Vec<Version>,
+        pub chosen_update: Option<UpdateImage>,
+        #[serde(rename = "active_partition")]
+        pub _active_partition: Option<StagedImage>,
+        #[serde(rename = "staging_partition")]
+        pub _staging_partition: Option<StagedImage>,
+        pub most_recent_command: CommandResult,
+    }
 
-        match output.status.success() {
-            true => return Ok(output),
-            false => {
+    /// UpdateState represents four states during system update process
+    #[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize)]
+    pub enum UpdateState {
+        // Idle: Unknown
+        Idle,
+        // Available: available versions system can update to
+        Available,
+        // Staged: processing system update (refresh, prepare, activate)
+        Staged,
+        // Ready: successfully complete update commands, ready to reboot
+        Ready,
+    }
+
+    #[derive(Debug, Deserialize)]
+    pub struct UpdateImage {
+        #[serde(rename = "arch")]
+        pub _arch: String,
+        pub version: Version,
+        #[serde(rename = "variant")]
+        pub _variant: String,
+    }
+
+    /// UpdateCommand represents three commands to update system
+    #[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize)]
+    #[serde(rename_all = "lowercase")]
+    pub enum UpdateCommand {
+        // Refresh: refresh the list of available updates
+        Refresh,
+        // Prepare: request that the update be downloaded and applied to disk
+        Prepare,
+        // Activate: proceed to "activate" the update
+        Activate,
+    }
+
+    /// CommandStatus represents three status after running update command
+    #[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize)]
+    pub enum CommandStatus {
+        Success,
+        Failed,
+        Unknown,
+    }
+
+    #[derive(Debug, Deserialize)]
+    pub struct StagedImage {
+        #[serde(rename = "image")]
+        _image: Option<UpdateImage>,
+        #[serde(rename = "next_to_boot")]
+        _next_to_boot: bool,
+    }
+
+    #[derive(Debug, Deserialize)]
+    pub struct CommandResult {
+        pub cmd_type: UpdateCommand,
+        pub cmd_status: CommandStatus,
+        #[serde(rename = "timestamp")]
+        _timestamp: String,
+        #[serde(rename = "exit_status")]
+        _exit_status: u32,
+        #[serde(rename = "stderr")]
+        _stderr: String,
+    }
+
+    #[derive(Debug, Deserialize)]
+    pub struct OsInfo {
+        pub version_id: Version,
+    }
+
+    /// Extract error statuscode from stderr string
+    /// Error Example:
+    /// "Failed POST request to '/actions/refresh-updates': Status 423 when POSTing /actions/refresh-updates: Update lock held\n"
+    fn extract_status_code_from_error(error: &str) -> &str {
+        let error_content_split_by_status: Vec<&str> = error.split("Status").collect();
+        let error_content_split_by_whitespace: Vec<&str> = error_content_split_by_status[1]
+            .split_whitespace()
+            .collect();
+        error_content_split_by_whitespace[0]
+    }
+
+    /// Wait time between invoking the Bottlerocket API
+    const RETRY_DELAY: Duration = Duration::from_secs(10);
+    /// Number of retries while invoking the Bottlerocket API
+    const NUM_RETRIES: usize = 5;
+
+    /// Retry strategy for invoking the Bottlerocket API.
+    /// Retries to the bottlerocket API occur on a fixed interval with jitter.
+    fn retry_strategy() -> impl Iterator<Item = Duration> {
+        FixedInterval::new(RETRY_DELAY)
+            .map(jitter)
+            .take(NUM_RETRIES)
+    }
+
+    /// Apiclient binary has been volume mounted into the agent container, so agent is able to
+    /// invoke `/bin apiclient` to interact with the Bottlerocket Update API.
+    /// This function helps to invoke apiclient raw command.
+    pub(super) async fn invoke_apiclient(
+        args: Vec<String>,
+        rate_limiter: Option<&SimpleRateLimiter>,
+    ) -> Result<Output> {
+        Retry::spawn(retry_strategy(), || async {
+            if let Some(rate_limiter) = rate_limiter {
+                rate_limiter.until_ready().await;
+            }
+            let output = Command::new(API_CLIENT_BIN)
+                .args(&args)
+                .output()
+                .context(apiclient_error::ApiClientRawCommandSnafu { args: args.clone() })?;
+
+            if output.status.success() {
+                Ok(output)
+            } else {
                 // Return value `exit status` is Option. When the value has `some` value, we need extract error info from stderr and handle those errors.
                 // Otherwise, on Unix, this will return `None` if the process was terminated by a signal. Signal termination is not considered a success.
                 // Apiclient `Reboot` command will send signal to terminate the process, so we have to consider this situation and have extra logic to recognize
@@ -142,21 +278,23 @@ async fn invoke_apiclient(args: Vec<String>) -> Result<Output> {
 
                         match error_statuscode {
                             UPDATE_API_BUSY_STATUSCODE => {
-                                event!(Level::INFO, "API server busy, retrying later ...");
-                                // Retry after ten seconds if we get a 423 Locked response (update API busy)
-                                sleep(UPDATE_API_SLEEP_DURATION).await;
-                                attempts += 1;
+                                event!(
+                                    Level::INFO,
+                                    "The lock for the update API is held by another process ..."
+                                );
+                                apiclient_error::UpdateApiUnavailableSnafu { args: args.clone() }
+                                    .fail()
                             }
                             _ => {
                                 // API response was a non-transient error, bail out
-                                return apiclient_error::BadHttpResponseSnafu {
-                                    args: args,
+                                apiclient_error::BadHttpResponseSnafu {
+                                    args: args.clone(),
                                     error_content: &error_content,
                                     statuscode: error_statuscode,
                                 }
-                                .fail();
+                                .fail()
                             }
-                        };
+                        }
                     }
                     // when it returns `None`, this part will treat it as success and then gracefully exit brupop agent.
                     _ => {
@@ -168,166 +306,79 @@ async fn invoke_apiclient(args: Vec<String>) -> Result<Output> {
                     }
                 }
             }
-        }
+        })
+        .await
     }
-    // Update API is currently unavailable, bail out
-    Err(apiclient_error::Error::UpdateApiUnavailable { args })
-}
 
-pub async fn get_update_status() -> Result<UpdateStatus> {
-    // Refresh list of updates and check if there are any available
-    refresh_updates().await?;
+    pub(super) async fn refresh_updates() -> Result<Output> {
+        let raw_args = vec![
+            REFRESH_UPDATES_URI.to_string(),
+            "-m".to_string(),
+            "POST".to_string(),
+        ];
 
-    let raw_args = vec![UPDATES_STATUS_URI.to_string()];
+        invoke_apiclient(get_raw_args(raw_args), Some(&UPDATE_API_RATE_LIMITER)).await
+    }
 
-    let update_status_output = invoke_apiclient(get_raw_args(raw_args)).await?;
+    pub(super) async fn prepare_update() -> Result<()> {
+        let raw_args = vec![
+            PREPARE_UPDATES_URI.to_string(),
+            "-m".to_string(),
+            "POST".to_string(),
+        ];
 
-    let update_status_string = String::from_utf8_lossy(&update_status_output.stdout).to_string();
-    let update_status: UpdateStatus = serde_json::from_str(&update_status_string)
-        .context(apiclient_error::UpdateStatusContentSnafu)?;
+        invoke_apiclient(get_raw_args(raw_args), Some(&UPDATE_API_RATE_LIMITER)).await?;
 
-    Ok(update_status)
-}
+        Ok(())
+    }
 
-/// extract OS info from the local system. For now this is just the version id.
-pub async fn get_os_info() -> Result<OsInfo> {
-    let raw_args = vec![OS_URI.to_string()];
+    pub(super) async fn activate_update() -> Result<()> {
+        let raw_args = vec![
+            ACTIVATE_UPDATES_URI.to_string(),
+            "-m".to_string(),
+            "POST".to_string(),
+        ];
 
-    let os_info_output = invoke_apiclient(get_raw_args(raw_args)).await?;
+        invoke_apiclient(get_raw_args(raw_args), Some(&UPDATE_API_RATE_LIMITER)).await?;
 
-    let os_info_content_string = String::from_utf8_lossy(&os_info_output.stdout).to_string();
-    let os_info: OsInfo =
-        serde_json::from_str(&os_info_content_string).context(apiclient_error::OsContentSnafu)?;
+        Ok(())
+    }
 
-    Ok(os_info)
-}
+    pub(super) async fn get_update_status() -> Result<UpdateStatus> {
+        refresh_updates().await?;
 
-pub async fn refresh_updates() -> Result<Output> {
-    let raw_args = vec![
-        REFRESH_UPDATES_URI.to_string(),
-        "-m".to_string(),
-        "POST".to_string(),
-    ];
+        let raw_args = vec![UPDATES_STATUS_URI.to_string()];
+        let update_status_output =
+            invoke_apiclient(get_raw_args(raw_args), Some(&UPDATE_API_RATE_LIMITER)).await?;
 
-    invoke_apiclient(get_raw_args(raw_args)).await
-}
+        let update_status_string =
+            String::from_utf8_lossy(&update_status_output.stdout).to_string();
+        let update_status: UpdateStatus = serde_json::from_str(&update_status_string)
+            .context(apiclient_error::UpdateStatusContentSnafu)?;
 
-pub async fn prepare_update() -> Result<()> {
-    let raw_args = vec![
-        PREPARE_UPDATES_URI.to_string(),
-        "-m".to_string(),
-        "POST".to_string(),
-    ];
+        Ok(update_status)
+    }
 
-    invoke_apiclient(get_raw_args(raw_args)).await?;
+    pub(super) async fn reboot() -> Result<Output> {
+        let raw_args = vec![REBOOT_URI.to_string(), "-m".to_string(), "POST".to_string()];
 
-    Ok(())
-}
+        invoke_apiclient(get_raw_args(raw_args), None).await
+    }
 
-pub async fn activate_update() -> Result<()> {
-    let raw_args = vec![
-        ACTIVATE_UPDATES_URI.to_string(),
-        "-m".to_string(),
-        "POST".to_string(),
-    ];
+    pub(super) async fn get_os_info() -> Result<OsInfo> {
+        let raw_args = vec![OS_URI.to_string()];
 
-    invoke_apiclient(get_raw_args(raw_args)).await?;
+        let os_info_output = invoke_apiclient(get_raw_args(raw_args), None).await?;
 
-    Ok(())
-}
+        let os_info_content_string = String::from_utf8_lossy(&os_info_output.stdout).to_string();
+        let os_info: OsInfo = serde_json::from_str(&os_info_content_string)
+            .context(apiclient_error::OsContentSnafu)?;
 
-pub async fn reboot() -> Result<Output> {
-    let raw_args = vec![REBOOT_URI.to_string(), "-m".to_string(), "POST".to_string()];
-
-    invoke_apiclient(get_raw_args(raw_args)).await
-}
-
-// get chosen update which contains latest Bottlerocket OS can update to.
-pub async fn get_chosen_update() -> Result<Option<UpdateImage>> {
-    // Refresh list of updates and check if there are any available
-    refresh_updates().await?;
-
-    let update_status = get_update_status().await?;
-
-    // Raise error if failed to refresh update or update acton performed out of band
-    ensure!(
-        update_status.most_recent_command.cmd_type == UpdateCommand::Refresh
-            && update_status.most_recent_command.cmd_status == CommandStatus::Success,
-        apiclient_error::RefreshUpdateSnafu
-    );
-
-    Ok(update_status.chosen_update)
-}
-
-pub async fn prepare() -> Result<()> {
-    let update_status = get_update_status().await?;
-
-    ensure!(
-        update_status.update_state == UpdateState::Available
-            || update_status.update_state == UpdateState::Staged,
-        apiclient_error::UpdateStageSnafu {
-            expect_state: "Available or Staged".to_string(),
-            update_state: update_status.update_state,
-        },
-    );
-
-    // Download the update and apply it to the inactive partition
-    prepare_update().await?;
-
-    // Raise error if failed to prepare update or update action performed out of band
-    let recent_command = get_update_status().await?.most_recent_command;
-    ensure!(
-        recent_command.cmd_type == UpdateCommand::Prepare
-            || recent_command.cmd_status == CommandStatus::Success,
-        apiclient_error::PrepareUpdateSnafu
-    );
-
-    Ok(())
-}
-
-pub async fn update() -> Result<()> {
-    let update_status = get_update_status().await?;
-
-    ensure!(
-        update_status.update_state == UpdateState::Staged,
-        apiclient_error::UpdateStageSnafu {
-            expect_state: "Staged".to_string(),
-            update_state: update_status.update_state,
-        }
-    );
-
-    // Activate the prepared update
-    activate_update().await?;
-
-    // Raise error if failed to activate update or update action performed out of band
-    let recent_command = get_update_status().await?.most_recent_command;
-
-    ensure!(
-        recent_command.cmd_type == UpdateCommand::Activate
-            || recent_command.cmd_status == CommandStatus::Success,
-        apiclient_error::UpdateSnafu
-    );
-
-    Ok(())
-}
-
-// Reboot the host into the activated update
-pub async fn boot_update() -> Result<Output> {
-    let update_status = get_update_status().await?;
-
-    ensure!(
-        update_status.update_state == UpdateState::Ready,
-        apiclient_error::UpdateStageSnafu {
-            expect_state: "Ready".to_string(),
-            update_state: update_status.update_state,
-        }
-    );
-
-    reboot().await
+        Ok(os_info)
+    }
 }
 
 pub mod apiclient_error {
-
     use crate::apiclient::UpdateState;
     use snafu::Snafu;
 

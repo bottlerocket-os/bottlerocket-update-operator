@@ -198,7 +198,7 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
                     break;
                 }
                 Err(kube::Error::Api(e)) => {
-                    let status_code = StatusCode::from_u16(e.code as u16);
+                    let status_code = StatusCode::from_u16(e.code);
                     match status_code {
                         Ok(StatusCode::TOO_MANY_REQUESTS) => {
                             event!(
