@@ -29,18 +29,6 @@ rules:
       - update
       - delete
   - apiGroups:
-      - apps
-    resources:
-      - deployments
-    verbs:
-      - create
-      - delete
-      - deletecollection
-      - get
-      - list
-      - patch
-      - update
-  - apiGroups:
       - ""
     resources:
       - nodes
