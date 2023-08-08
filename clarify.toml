@@ -24,7 +24,8 @@ skip-files = [
     "src/testdata/LICENSE", # we aren't using the test data
 ]
 
-[clarify.regex-automata]
+[[clarify.regex-automata]]
+version = "^0.1"
 expression = "Unlicense OR MIT"
 license-files = [
     { path = "LICENSE-MIT", hash = 0x616d8a83 },
@@ -36,6 +37,14 @@ skip-files = [
     "data/fowler-tests/LICENSE",
     # this file describes what licenses apply to the sources, and when they apply
     "COPYING"
+]
+
+[[clarify.regex-automata]]
+version = "^0.3"
+expression = "MIT OR Apache-2.0"
+license-files = [
+    { path = "LICENSE-MIT", hash = 0xb755395b },
+    { path = "LICENSE-APACHE", hash = 0x24b54f4b },
 ]
 
 [clarify.regex-syntax]
