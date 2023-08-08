@@ -1,18 +1,14 @@
 /// This module contains client implementations that are useful for testing purposes.
-use super::{error::Result, APIServerClient};
-use crate::{
-    CordonAndDrainBottlerocketShadowRequest, CreateBottlerocketShadowRequest,
-    ExcludeNodeFromLoadBalancerRequest, RemoveNodeExclusionFromLoadBalancerRequest,
-    UncordonBottlerocketShadowRequest, UpdateBottlerocketShadowRequest,
-};
+use crate::client::prelude::*;
+use async_trait::async_trait;
+use mockall::{mock, predicate::*};
 use models::node::{BottlerocketShadow, BottlerocketShadowStatus};
 
-use async_trait::async_trait;
-
-use mockall::{mock, predicate::*};
+type Result<T> = std::result::Result<T, ClientError>;
 
 mock! {
     /// A Mock APIServerClient for use in tests.
+    #[derive(Debug)]
     pub APIServerClient {}
     #[async_trait]
     impl APIServerClient for APIServerClient {

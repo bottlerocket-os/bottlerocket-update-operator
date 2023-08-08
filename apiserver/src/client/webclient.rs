@@ -1,23 +1,19 @@
-use super::error::{self, Result};
 use crate::{
+    client::{error, prelude::*},
     constants::{
         EXCLUDE_NODE_FROM_LB_ENDPOINT, HEADER_BRUPOP_K8S_AUTH_TOKEN, HEADER_BRUPOP_NODE_NAME,
         HEADER_BRUPOP_NODE_UID, NODE_CORDON_AND_DRAIN_ENDPOINT, NODE_RESOURCE_ENDPOINT,
         NODE_UNCORDON_ENDPOINT, REMOVE_NODE_EXCLUSION_TO_LB_ENDPOINT,
     },
-    CordonAndDrainBottlerocketShadowRequest, CreateBottlerocketShadowRequest,
-    ExcludeNodeFromLoadBalancerRequest, RemoveNodeExclusionFromLoadBalancerRequest,
-    UncordonBottlerocketShadowRequest, UpdateBottlerocketShadowRequest,
 };
+use async_trait::async_trait;
 use models::{
     constants::{APISERVER_SERVICE_NAME, CA_NAME, TLS_KEY_MOUNT_PATH},
     node::{BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowStatus},
 };
-
-use async_trait::async_trait;
 use snafu::ResultExt;
-use std::io::Read;
 use std::{env, fs};
+use std::{fmt::Debug, io::Read};
 use tokio::time::Duration;
 use tokio_retry::{
     strategy::{jitter, ExponentialBackoff},
@@ -25,6 +21,8 @@ use tokio_retry::{
 };
 use tracing::instrument;
 use tracing::{event, Level};
+
+type Result<T> = std::result::Result<T, ClientError>;
 
 // The web client uses exponential backoff.
 // These values configure how long to delay between tries.
@@ -41,7 +39,7 @@ fn retry_strategy() -> impl Iterator<Item = Duration> {
 }
 
 #[async_trait]
-pub trait APIServerClient {
+pub trait APIServerClient: Debug + Send + Sync {
     async fn create_bottlerocket_shadow(
         &self,
         req: CreateBottlerocketShadowRequest,
