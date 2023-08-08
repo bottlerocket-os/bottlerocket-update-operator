@@ -113,12 +113,14 @@ pub(super) mod api {
     use serde::Deserialize;
     use snafu::ResultExt;
     use std::process::{Command, Output};
-    use tokio::time::{sleep, Duration};
+    use tokio::time::Duration;
+    use tokio_retry::{
+        strategy::{jitter, FixedInterval},
+        Retry,
+    };
     use tracing::{event, Level};
 
     const API_CLIENT_BIN: &str = "apiclient";
-    const MAX_ATTEMPTS: i8 = 5;
-    const UPDATE_API_SLEEP_DURATION: Duration = Duration::from_millis(10000);
     const UPDATE_API_BUSY_STATUSCODE: &str = "423";
     const ACTIVATE_UPDATES_URI: &str = "/actions/activate-update";
     const OS_URI: &str = "/os";
@@ -232,6 +234,19 @@ pub(super) mod api {
         error_content_split_by_whitespace[0]
     }
 
+    /// Wait time between invoking the Bottlerocket API
+    const RETRY_DELAY: Duration = Duration::from_secs(10);
+    /// Number of retries while invoking the Bottlerocket API
+    const NUM_RETRIES: usize = 5;
+
+    /// Retry strategy for invoking the Bottlerocket API.
+    /// Retries to the bottlerocket API occur on a fixed interval with jitter.
+    fn retry_strategy() -> impl Iterator<Item = Duration> {
+        FixedInterval::new(RETRY_DELAY)
+            .map(jitter)
+            .take(NUM_RETRIES)
+    }
+
     /// Apiclient binary has been volume mounted into the agent container, so agent is able to
     /// invoke `/bin apiclient` to interact with the Bottlerocket Update API.
     /// This function helps to invoke apiclient raw command.
@@ -239,9 +254,7 @@ pub(super) mod api {
         args: Vec<String>,
         rate_limiter: Option<&SimpleRateLimiter>,
     ) -> Result<Output> {
-        let mut attempts: i8 = 0;
-        // Retry up to 5 times in case the Update API is busy; Waiting 10 seconds between each attempt.
-        while attempts < MAX_ATTEMPTS {
+        Retry::spawn(retry_strategy(), || async {
             if let Some(rate_limiter) = rate_limiter {
                 rate_limiter.until_ready().await;
             }
@@ -250,51 +263,51 @@ pub(super) mod api {
                 .output()
                 .context(apiclient_error::ApiClientRawCommandSnafu { args: args.clone() })?;
 
-            match output.status.success() {
-                true => return Ok(output),
-                false => {
-                    // Return value `exit status` is Option. When the value has `some` value, we need extract error info from stderr and handle those errors.
-                    // Otherwise, on Unix, this will return `None` if the process was terminated by a signal. Signal termination is not considered a success.
-                    // Apiclient `Reboot` command will send signal to terminate the process, so we have to consider this situation and have extra logic to recognize
-                    // return value `None` as success and terminate the process properly.
-                    match output.status.code() {
-                        // when return value has `some` code, this part will handle those errors properly.
-                        Some(_code) => {
-                            let error_content = String::from_utf8_lossy(&output.stderr).to_string();
-                            let error_statuscode = extract_status_code_from_error(&error_content);
+            if output.status.success() {
+                Ok(output)
+            } else {
+                // Return value `exit status` is Option. When the value has `some` value, we need extract error info from stderr and handle those errors.
+                // Otherwise, on Unix, this will return `None` if the process was terminated by a signal. Signal termination is not considered a success.
+                // Apiclient `Reboot` command will send signal to terminate the process, so we have to consider this situation and have extra logic to recognize
+                // return value `None` as success and terminate the process properly.
+                match output.status.code() {
+                    // when return value has `some` code, this part will handle those errors properly.
+                    Some(_code) => {
+                        let error_content = String::from_utf8_lossy(&output.stderr).to_string();
+                        let error_statuscode = extract_status_code_from_error(&error_content);
 
-                            match error_statuscode {
-                                UPDATE_API_BUSY_STATUSCODE => {
-                                    event!(Level::INFO, "The lock for the update API is held by another process ...");
-                                    // Retry after ten seconds if we get a 423 Locked response (update API busy)
-                                    sleep(UPDATE_API_SLEEP_DURATION).await;
-                                    attempts += 1;
+                        match error_statuscode {
+                            UPDATE_API_BUSY_STATUSCODE => {
+                                event!(
+                                    Level::INFO,
+                                    "The lock for the update API is held by another process ..."
+                                );
+                                apiclient_error::UpdateApiUnavailableSnafu { args: args.clone() }
+                                    .fail()
+                            }
+                            _ => {
+                                // API response was a non-transient error, bail out
+                                apiclient_error::BadHttpResponseSnafu {
+                                    args: args.clone(),
+                                    error_content: &error_content,
+                                    statuscode: error_statuscode,
                                 }
-                                _ => {
-                                    // API response was a non-transient error, bail out
-                                    return apiclient_error::BadHttpResponseSnafu {
-                                        args,
-                                        error_content: &error_content,
-                                        statuscode: error_statuscode,
-                                    }
-                                    .fail();
-                                }
-                            };
+                                .fail()
+                            }
                         }
-                        // when it returns `None`, this part will treat it as success and then gracefully exit brupop agent.
-                        _ => {
-                            event!(
-                                Level::INFO,
-                                "Bottlerocket node is terminated by reboot signal"
-                            );
-                            std::process::exit(0)
-                        }
+                    }
+                    // when it returns `None`, this part will treat it as success and then gracefully exit brupop agent.
+                    _ => {
+                        event!(
+                            Level::INFO,
+                            "Bottlerocket node is terminated by reboot signal"
+                        );
+                        std::process::exit(0)
                     }
                 }
             }
-        }
-        // Update API is currently unavailable, bail out
-        Err(apiclient_error::Error::UpdateApiUnavailable { args })
+        })
+        .await
     }
 
     pub(super) async fn refresh_updates() -> Result<Output> {
