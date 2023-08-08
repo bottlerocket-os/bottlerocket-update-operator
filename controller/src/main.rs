@@ -64,7 +64,10 @@ async fn main() -> Result<()> {
     let exporter = opentelemetry_prometheus::exporter(controller).init();
 
     // Setup and run a reflector, ensuring that `BottlerocketShadow` updates are reflected to the controller.
-    let brs_reflector = reflector::reflector(brs_store, watcher(brss, Config::default()));
+    let brs_reflector = reflector::reflector(
+        brs_store,
+        watcher(brss, Config::default()).default_backoff(),
+    );
     let brs_drainer = brs_reflector
         .touched_objects()
         .filter_map(|x| async move { std::result::Result::ok(x) })
@@ -80,7 +83,10 @@ async fn main() -> Result<()> {
     let nodes: Api<Node> = Api::all(k8s_client.clone());
     let nodes_store = reflector::store::Writer::<Node>::default();
     let node_reader = nodes_store.as_reader();
-    let node_reflector = reflector::reflector(nodes_store, watcher(nodes, Config::default()));
+    let node_reflector = reflector::reflector(
+        nodes_store,
+        watcher(nodes, Config::default()).default_backoff(),
+    );
     let node_drainer = node_reflector
         .touched_objects()
         .filter_map(|x| async move { std::result::Result::ok(x) })
