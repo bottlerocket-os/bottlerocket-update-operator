@@ -26,7 +26,7 @@ use tracing::{event, instrument, Level};
 // The reflector uses exponential backoff.
 // These values configure how long to delay between tries.
 const RETRY_BASE_DELAY: Duration = Duration::from_millis(1000);
-const RETRY_MAX_DELAY: Duration = Duration::from_secs(10);
+const RETRY_MAX_DELAY: Duration = Duration::from_secs(30);
 const NUM_RETRIES: usize = 5;
 
 const AGENT_SLEEP_DURATION: Duration = Duration::from_secs(5);
