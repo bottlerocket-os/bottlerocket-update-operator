@@ -1,5 +1,5 @@
 use agent::agentclient::BrupopAgent;
-use apiserver::client::K8SAPIServerClient;
+use apiserver::client::{K8SAPIServerClient, RateLimitedAPIServerClient};
 use futures::StreamExt;
 use k8s_openapi::api::core::v1::Node;
 use kube::{
@@ -13,14 +13,12 @@ use kube::{
 use models::constants::{AGENT_TOKEN_PATH, AGENT_TOKEN_PROJECTION_MOUNT_PATH};
 use models::node::{brs_name_from_node_name, BottlerocketShadow};
 use models::telemetry;
-
 use snafu::{OptionExt, ResultExt};
-use tracing::{event, Level};
-
 use std::convert::TryFrom;
 use std::env;
 use std::fs;
 use std::path::Path;
+use tracing::{event, Level};
 
 const TERMINATION_LOG: &str = "/dev/termination-log";
 
@@ -52,8 +50,10 @@ async fn run_agent() -> Result<()> {
     let token_path = token_path.to_str().context(agent_error::AssertionSnafu {
         message: "Token path (defined in models/agent.rs) is not valid unicode.",
     })?;
-    let apiserver_client = K8SAPIServerClient::new(token_path.to_string(), &namespace)
-        .context(agent_error::ApiClientSnafu)?;
+    let apiserver_client = RateLimitedAPIServerClient::default(
+        K8SAPIServerClient::new(token_path.to_string(), &namespace)
+            .context(agent_error::ApiClientSnafu)?,
+    );
 
     // Get node and BottlerocketShadow names
     let associated_node_name = env::var("MY_NODE_NAME").context(agent_error::GetNodeNameSnafu)?;
