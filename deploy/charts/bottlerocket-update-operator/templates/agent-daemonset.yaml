@@ -57,10 +57,11 @@ spec:
           name: brupop
           resources:
             limits:
-              memory: 50Mi
-            requests:
               cpu: 10m
               memory: 50Mi
+            requests:
+              cpu: 5m
+              memory: 8Mi
           securityContext:
             seLinuxOptions:
               level: s0
