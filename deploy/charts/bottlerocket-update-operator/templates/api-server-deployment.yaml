@@ -24,6 +24,14 @@ spec:
       namespace: {{ .Values.namespace }}
     spec:
       affinity:
+        {{- with .Values.apiserver_podAffinity }}
+        podAffinity:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.apiserver_podAntiAffinity }}
+        podAntiAffinity:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -37,6 +45,14 @@ spec:
                     values:
                       - amd64
                       - arm64
+      {{- with .Values.apiserver_tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.apiserver_nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - command:
             - "./apiserver"

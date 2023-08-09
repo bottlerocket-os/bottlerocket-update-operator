@@ -23,6 +23,14 @@ spec:
       namespace: {{ .Values.namespace }}
     spec:
       affinity:
+        {{- with .Values.controller_podAffinity }}
+        podAffinity:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.controller_podAntiAffinity }}
+        podAntiAffinity:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -36,6 +44,14 @@ spec:
                     values:
                       - amd64
                       - arm64
+      {{- with .Values.controller_tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controller_nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - command:
             - "./controller"
