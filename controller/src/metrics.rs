@@ -43,6 +43,23 @@ impl BrupopHostsData {
             hosts_state_count,
         })
     }
+
+    /// Marks all current gauges at 0, then writes the new metrics into the store.
+    fn update_counters(&mut self, other: &BrupopHostsData) {
+        update_counter(&mut self.hosts_version_count, &other.hosts_version_count);
+        update_counter(&mut self.hosts_state_count, &other.hosts_state_count);
+    }
+}
+
+/// Updates a population counter from a stateless input.
+///
+/// All current state in the counter is set to 0, then new counts are copied from the incoming state.
+fn update_counter(base: &mut HashMap<String, u64>, other: &HashMap<String, u64>) {
+    base.iter_mut().for_each(|(_k, v)| *v = 0);
+
+    other.iter().for_each(|(k, v)| {
+        *base.entry(k.clone()).or_default() = *v;
+    });
 }
 
 impl BrupopControllerMetrics {
@@ -88,7 +105,7 @@ impl BrupopControllerMetrics {
     /// Update shared mut ref to trigger ValueRecorder observe data.
     pub fn emit_metrics(&self, data: BrupopHostsData) {
         if let Ok(mut host_data) = self.brupop_shared_hosts_data.try_lock() {
-            *host_data = data;
+            host_data.update_counters(&data);
         }
     }
 }
@@ -101,5 +118,77 @@ pub mod error {
     pub enum MetricsError {
         #[snafu(display("Failed to serialize Shadow state: '{}'", source))]
         SerializeState { source: serde_plain::Error },
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashMap;
+
+    use maplit::hashmap;
+
+    use crate::metrics::update_counter;
+
+    #[test]
+    fn test_update_counter() {
+        let test_cases = vec![
+            (
+                hashmap! {
+                    "a" => 5,
+                    "b" => 10,
+                    "c" => 15,
+                },
+                hashmap! {
+                    "a" => 11,
+
+                },
+                hashmap! {
+                    "a" => 11,
+                    "b" => 0,
+                    "c" => 0,
+                },
+            ),
+            (
+                hashmap! {
+                    "a" => 1,
+                },
+                hashmap! {
+                    "b" => 11,
+                    "c" => 12,
+                },
+                hashmap! {
+                    "a" => 0,
+                    "b" => 11,
+                    "c" => 12,
+                },
+            ),
+            (
+                hashmap! {
+                    "a" => 1,
+                },
+                hashmap! {
+                    "a" => 2,
+                },
+                hashmap! {
+                    "a" => 2,
+                },
+            ),
+        ];
+
+        fn stringify(hashmap: HashMap<&str, u64>) -> HashMap<String, u64> {
+            hashmap
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v))
+                .collect()
+        }
+
+        for (base, other, expected) in test_cases.into_iter() {
+            let mut base = stringify(base);
+            let other = stringify(other);
+            let expected = stringify(expected);
+
+            update_counter(&mut base, &other);
+            assert_eq!(&base, &expected);
+        }
     }
 }
