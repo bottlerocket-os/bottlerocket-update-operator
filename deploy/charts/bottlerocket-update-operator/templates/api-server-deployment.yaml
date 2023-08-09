@@ -47,6 +47,8 @@ spec:
               value: "{{ .Values.logging_formatter }}"
             - name: LOGGING_ANSI_ENABLED
               value: "{{ .Values.logging_ansi_enabled }}"
+            - name: TRACING_FILTER_DIRECTIVE
+              value: "{{ .Values.apiserver_tracing_filter }}"
           image: {{ .Values.image }}
           livenessProbe:
             httpGet:
