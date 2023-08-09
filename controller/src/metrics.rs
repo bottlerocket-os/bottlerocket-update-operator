@@ -1,7 +1,8 @@
+use models::node::BottlerocketShadow;
 use opentelemetry::{metrics::Meter, Key};
+use snafu::ResultExt;
 use std::collections::HashMap;
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tracing::instrument;
 
 const HOST_VERSION_KEY: Key = Key::from_static_str("bottlerocket_version");
@@ -12,32 +13,35 @@ pub struct BrupopControllerMetrics {
     brupop_shared_hosts_data: Arc<Mutex<BrupopHostsData>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct BrupopHostsData {
-    hosts_version_count_map: HashMap<String, u64>,
-    hosts_state_count_map: HashMap<String, u64>,
+    hosts_version_count: HashMap<String, u64>,
+    hosts_state_count: HashMap<String, u64>,
 }
 
 impl BrupopHostsData {
-    pub fn new(
-        hosts_version_count_map: HashMap<String, u64>,
-        hosts_state_count_map: HashMap<String, u64>,
-    ) -> Self {
-        BrupopHostsData {
-            hosts_version_count_map,
-            hosts_state_count_map,
-        }
-    }
-}
+    /// Computes point-in-time metrics for the cluster's hosts based on a set of BottlerocketShadows.
+    pub fn from_shadows(brss: &[BottlerocketShadow]) -> Result<Self, error::MetricsError> {
+        let mut hosts_version_count = HashMap::new();
+        let mut hosts_state_count = HashMap::new();
 
-impl Default for BrupopHostsData {
-    fn default() -> Self {
-        let hosts_version_count_map = HashMap::new();
-        let hosts_state_count_map = HashMap::new();
-        BrupopHostsData {
-            hosts_version_count_map,
-            hosts_state_count_map,
-        }
+        brss.iter()
+            .filter_map(|brs| brs.status.as_ref())
+            .try_for_each(|brs_status| {
+                let host_version = brs_status.current_version().to_string();
+                let host_state = brs_status.current_state;
+
+                *hosts_version_count.entry(host_version).or_default() += 1;
+                *hosts_state_count
+                    .entry(serde_plain::to_string(&host_state).context(error::SerializeStateSnafu)?)
+                    .or_default() += 1;
+
+                Ok(())
+            })?;
+        Ok(Self {
+            hosts_version_count,
+            hosts_state_count,
+        })
     }
 }
 
@@ -62,16 +66,16 @@ impl BrupopControllerMetrics {
 
         let _ = meter.register_callback(move |cx| {
             let data = hosts_data_clone_for_version.lock().unwrap();
-            for (host_version, count) in &data.hosts_version_count_map {
-                let labels = vec![HOST_VERSION_KEY.string(host_version.clone())];
+            for (host_version, count) in &data.hosts_version_count {
+                let labels = vec![HOST_VERSION_KEY.string(host_version.to_string())];
                 brupop_hosts_version_observer.observe(cx, *count, &labels);
             }
         });
 
         let _ = meter.register_callback(move |cx| {
             let data = hosts_data_clone_for_state.lock().unwrap();
-            for (host_state, count) in &data.hosts_state_count_map {
-                let labels = vec![HOST_STATE_KEY.string(host_state.clone())];
+            for (host_state, count) in &data.hosts_state_count {
+                let labels = vec![HOST_STATE_KEY.string(host_state.to_string())];
                 brupop_hosts_state_observer.observe(cx, *count, &labels);
             }
         });
@@ -86,5 +90,16 @@ impl BrupopControllerMetrics {
         if let Ok(mut host_data) = self.brupop_shared_hosts_data.try_lock() {
             *host_data = data;
         }
+    }
+}
+
+pub mod error {
+    use snafu::Snafu;
+
+    #[derive(Debug, Snafu)]
+    #[snafu(visibility(pub))]
+    pub enum MetricsError {
+        #[snafu(display("Failed to serialize Shadow state: '{}'", source))]
+        SerializeState { source: serde_plain::Error },
     }
 }
