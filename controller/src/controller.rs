@@ -1,6 +1,7 @@
+use crate::metrics;
+
 use super::{
-    metrics::{BrupopControllerMetrics, BrupopHostsData},
-    scheduler::BrupopCronScheduler,
+    metrics::BrupopControllerMetrics, scheduler::BrupopCronScheduler,
     statemachine::determine_next_node_spec,
 };
 use models::constants::{BRUPOP_INTERFACE_VERSION, LABEL_BRUPOP_INTERFACE_NAME};
@@ -16,7 +17,7 @@ use kube::Api;
 use kube::ResourceExt;
 use opentelemetry::global;
 use snafu::ResultExt;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::env;
 use tokio::time::{sleep, Duration};
 
@@ -167,39 +168,10 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
 
     #[instrument(skip(self))]
     fn emit_metrics(&self) -> Result<()> {
-        let data = self.fetch_data()?;
-        self.metrics.emit_metrics(data);
+        let metrics_data = metrics::BrupopHostsData::from_shadows(&self.all_brss())
+            .context(controllerclient_error::MetricsComputeSnafu)?;
+        self.metrics.emit_metrics(metrics_data);
         Ok(())
-    }
-
-    /// Fetch the custom resources status for all resources
-    /// to gather the information on hosts's bottlerocket version
-    /// and brupop state.
-    #[instrument(skip(self))]
-    fn fetch_data(&self) -> Result<BrupopHostsData> {
-        let mut hosts_version_count_map = HashMap::new();
-        let mut hosts_state_count_map = HashMap::new();
-
-        for brs in self.all_brss() {
-            if let Some(brs_status) = brs.status {
-                let current_version = brs_status.current_version().to_string();
-                let current_state = brs_status.current_state;
-
-                *hosts_version_count_map.entry(current_version).or_default() += 1;
-                *hosts_state_count_map
-                    .entry(serde_plain::to_string(&current_state).context(
-                        controllerclient_error::AssertionSnafu {
-                            msg: "unable to parse current_state".to_string(),
-                        },
-                    )?)
-                    .or_default() += 1;
-            }
-        }
-
-        Ok(BrupopHostsData::new(
-            hosts_version_count_map,
-            hosts_state_count_map,
-        ))
     }
 
     #[instrument(skip(self, nodes, brss_name))]
@@ -633,12 +605,6 @@ pub mod controllerclient_error {
     #[derive(Debug, Snafu)]
     #[snafu(visibility(pub))]
     pub enum Error {
-        #[snafu(display("Controller failed due to {}: '{}'", msg, source))]
-        Assertion {
-            msg: String,
-            source: serde_plain::Error,
-        },
-
         #[snafu(display("Failed to delete node via kubernetes API: '{}'", source))]
         DeleteNode { source: kube::Error },
 
@@ -675,6 +641,11 @@ pub mod controllerclient_error {
 
         #[snafu(display("Error creating maintenance time: '{}'", source))]
         MaintenanceTimeError { source: scheduler_error::Error },
+
+        #[snafu(display("Failed to compute cluster metrics: '{}'", source))]
+        MetricsCompute {
+            source: crate::metrics::error::MetricsError,
+        },
 
         #[snafu(display("Unable to find next scheduled time and sleep: '{}'", source))]
         SleepUntilNextSchedule { source: scheduler_error::Error },
