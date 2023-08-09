@@ -36,7 +36,7 @@ To install the bottlerocket-shadow CRD locally, run:
 ```
 helm install \
   brupop-crd \
-  deploy/charts/bottlerocket-shadow \
+  deploy/charts/bottlerocket-shadow
 ```
 
 ### Cert-manager
