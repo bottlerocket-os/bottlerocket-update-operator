@@ -4,9 +4,11 @@ use serde::Deserialize;
 use snafu::ResultExt;
 use std::env;
 use tracing::Subscriber;
-use tracing_subscriber::{fmt, layer::SubscriberExt, EnvFilter, Registry};
+use tracing_subscriber::{filter::LevelFilter, fmt, layer::SubscriberExt, EnvFilter, Registry};
 
-const DEFAULT_TRACE_LEVEL: &str = "info";
+const DEFAULT_TRACING_FILTER_DIRECTIVE: LevelFilter = LevelFilter::INFO;
+
+const TRACING_FILTER_DIRECTIVE_ENV_VAR: &str = "TRACING_FILTER_DIRECTIVE";
 const LOGGING_FORMATTER_ENV_VAR: &str = "LOGGING_FORMATTER";
 const LOGGING_ANSI_ENABLED_ENV_VAR: &str = "LOGGING_ANSI_ENABLED";
 
@@ -100,8 +102,10 @@ impl MessageFormat {
 pub fn init_telemetry_from_env() -> Result<()> {
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
 
-    let env_filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(DEFAULT_TRACE_LEVEL));
+    let env_filter = EnvFilter::builder()
+        .with_default_directive(DEFAULT_TRACING_FILTER_DIRECTIVE.into())
+        .with_env_var(TRACING_FILTER_DIRECTIVE_ENV_VAR)
+        .from_env_lossy();
 
     let subscriber = Registry::default().with(env_filter);
     let subscriber = LogFormatter::try_from_env()?.add_format_layer(subscriber);

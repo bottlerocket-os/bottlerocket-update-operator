@@ -67,3 +67,9 @@ logging_formatter: "pretty"
 # Whether or not to enable ANSI colors on log messages.
 # Makes the output "pretty" in terminals, but may add noise to web-based log utilities.
 logging_ansi_enabled: "true"
+# Controls the filter for tracing/log messages.
+# This can be as simple as a log-level (e.g. "info", "debug", "error"), but also supports more complex directives.
+# See https://docs.rs/tracing-subscriber/0.3.17/tracing_subscriber/filter/struct.EnvFilter.html#directives
+controller_tracing_filter: "info"
+agent_tracing_filter: "info"
+apiserver_tracing_filter: "info"
