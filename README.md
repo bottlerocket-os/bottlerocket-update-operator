@@ -85,7 +85,7 @@ You can use a values file when installing brupop with helm (via the `--values / 
 namespace: "brupop-bottlerocket-aws"
 
 # The image to use for brupop
-image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.2.0"
+image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.3.0"
 
 # Placement controls
 # The agent is a daemonset, so the only controls that apply to it are tolerations.
