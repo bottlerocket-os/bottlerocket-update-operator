@@ -1,7 +1,0 @@
-Thank you for installing the Bottlerocket Shadow CRD!
-
-This CRD is meant to be used with the bottlerocket-update-operator (affectionately called "brupop")
-and can be installed with:
-
-$ helm install brupop bottlerocket-update-operator/bottlerocket-shadow \
-  --version v1.0.0
