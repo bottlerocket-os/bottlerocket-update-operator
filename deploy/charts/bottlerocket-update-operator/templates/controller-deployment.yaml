@@ -23,11 +23,11 @@ spec:
       namespace: {{ .Values.namespace }}
     spec:
       affinity:
-        {{- with .Values.controller_podAffinity }}
+        {{- with .Values.placement.controller.podAffinity }}
         podAffinity:
           {{- toYaml . | nindent 10 }}
         {{- end }}
-        {{- with .Values.controller_podAntiAffinity }}
+        {{- with .Values.placement.controller.podAntiAffinity }}
         podAntiAffinity:
           {{- toYaml . | nindent 10 }}
         {{- end }}
@@ -44,11 +44,11 @@ spec:
                     values:
                       - amd64
                       - arm64
-      {{- with .Values.controller_tolerations }}
+      {{- with .Values.placement.controller.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.controller_nodeSelector }}
+      {{- with .Values.placement.controller.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -65,11 +65,11 @@ spec:
             - name: SCHEDULER_CRON_EXPRESSION
               value: "{{ .Values.scheduler_cron_expression}}"
             - name: LOGGING_FORMATTER
-              value: "{{ .Values.logging_formatter }}"
+              value: "{{ .Values.logging.formatter }}"
             - name: LOGGING_ANSI_ENABLED
-              value: "{{ .Values.logging_ansi_enabled }}"
+              value: "{{ .Values.logging.ansi_enabled }}"
             - name: TRACING_FILTER_DIRECTIVE
-              value: "{{ .Values.controller_tracing_filter }}"
+              value: "{{ .Values.logging.controller.tracing_filter }}"
           image: {{ .Values.image }}
           name: brupop
       priorityClassName: brupop-controller-high-priority
