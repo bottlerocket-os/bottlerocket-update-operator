@@ -10,7 +10,7 @@ IMAGE_NAME = $(IMAGE_REPO_NAME)$(IMAGE_ARCH_SUFFIX):$(IMAGE_VERSION)$(addprefix 
 # `example-org/example-image`. If the repository includes the architecture name,
 # IMAGE_ARCH_SUFFIX must be overridden as needed.
 IMAGE_REPO_NAME = $(shell basename `git rev-parse --show-toplevel`)
-# IMAGE_VERSION is the semver version that's tagged on the image.
+# IMAGE_VERSION is the semver version that's tagged on the image and helm charts.
 IMAGE_VERSION = $(shell cat VERSION)
 # SHORT_SHA is the revision that the container image was built with.
 SHORT_SHA = $(shell git describe --abbrev=8 --always --dirty='-dev' --exclude '*' 2>/dev/null || echo "unknown")
@@ -32,10 +32,20 @@ DISTFILE = $(DESTDIR:/=)/$(subst /,_,$(IMAGE_NAME)).tar.gz
 BOTTLEROCKET_SDK_VERSION = v0.33.0
 BOTTLEROCKET_SDK_ARCH = $(UNAME_ARCH)
 
+# Tools used during the chart release lifecycle
+export KUBECONFORM_VERSION = v0.6.3
+export HELMV3_VERSION = v3.6.3
+
 BUILDER_IMAGE = public.ecr.aws/bottlerocket/bottlerocket-sdk-$(BOTTLEROCKET_SDK_ARCH):$(BOTTLEROCKET_SDK_VERSION)
 
 export CARGO_ENV_VARS = CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 export CARGO_HOME = $(TOP)/.cargo
+
+export CHART_BUILD_DIR := $(TOP)/chartbuild
+export CHART_TMP_DIR := $(CHART_BUILD_DIR)/tmp
+export CHART_TOOLS_DIR := $(CHART_BUILD_DIR)/tools
+export CHARTS_DIR := $(TOP)/deploy/charts
+export PATH := $(CHART_TOOLS_DIR):$(PATH)
 
 image: check-licenses brupop-image
 
@@ -78,6 +88,7 @@ dist: check-licenses brupop-image
 
 clean:
 	-rm -rf target
+	-rm -rf chartbuild
 	rm -f -- '$(DISTFILE)'
 
 check-crd-golden-diff:
@@ -99,3 +110,23 @@ manifest:
 		-o yaml >> bottlerocket-update-operator.yaml && \
 	helm template deploy/charts/bottlerocket-shadow >> bottlerocket-update-operator.yaml && \
 	helm template deploy/charts/bottlerocket-update-operator >> bottlerocket-update-operator.yaml
+
+verify-charts:
+	scripts/validate-charts.sh
+	scripts/validate-chart-versions.sh
+	scripts/lint-charts.sh
+
+package-charts:
+	mkdir -p $(CHART_BUILD_DIR)
+	scripts/package-charts.sh
+
+publish-charts: package-charts
+	scripts/publish-charts.sh
+
+install-charts-toolchain:
+	mkdir -p $(CHART_BUILD_DIR)
+	mkdir -p $(CHART_TOOLS_DIR)
+	scripts/install-toolchain.sh
+
+version:
+	@echo ${IMAGE_VERSION}
