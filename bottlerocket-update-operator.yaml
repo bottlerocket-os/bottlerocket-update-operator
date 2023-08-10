@@ -293,18 +293,6 @@ rules:
       - update
       - watch
   - apiGroups:
-      - apps
-    resources:
-      - deployments
-    verbs:
-      - create
-      - delete
-      - deletecollection
-      - get
-      - list
-      - patch
-      - update
-  - apiGroups:
       - ""
     resources:
       - pods
@@ -357,18 +345,6 @@ rules:
       - patch
       - update
       - delete
-  - apiGroups:
-      - apps
-    resources:
-      - deployments
-    verbs:
-      - create
-      - delete
-      - deletecollection
-      - get
-      - list
-      - patch
-      - update
   - apiGroups:
       - ""
     resources:
@@ -548,14 +524,21 @@ spec:
               value: "0"
             - name: APISERVER_SERVICE_PORT
               value: "443"
-          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.2.0
+            - name: LOGGING_FORMATTER
+              value: "pretty"
+            - name: LOGGING_ANSI_ENABLED
+              value: "true"
+            - name: TRACING_FILTER_DIRECTIVE
+              value: "info"
+          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.3.0
           name: brupop
           resources:
             limits:
-              memory: 50Mi
-            requests:
               cpu: 10m
               memory: 50Mi
+            requests:
+              cpu: 5m
+              memory: 8Mi
           securityContext:
             seLinuxOptions:
               level: s0
@@ -618,6 +601,17 @@ spec:
       namespace: brupop-bottlerocket-aws
     spec:
       affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: brupop.bottlerocket.aws/component
+                  operator: In
+                  values:
+                  - apiserver
+              topologyKey: kubernetes.io/hostname
+            weight: 1
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -637,7 +631,13 @@ spec:
           env:
             - name: APISERVER_INTERNAL_PORT
               value: "8443"
-          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.2.0
+            - name: LOGGING_FORMATTER
+              value: "pretty"
+            - name: LOGGING_ANSI_ENABLED
+              value: "true"
+            - name: TRACING_FILTER_DIRECTIVE
+              value: "info"
+          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.3.0
           livenessProbe:
             httpGet:
               path: /ping
@@ -713,7 +713,13 @@ spec:
               value: "1"
             - name: SCHEDULER_CRON_EXPRESSION
               value: "* * * * * * *"
-          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.2.0
+            - name: LOGGING_FORMATTER
+              value: "pretty"
+            - name: LOGGING_ANSI_ENABLED
+              value: "true"
+            - name: TRACING_FILTER_DIRECTIVE
+              value: "info"
+          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.3.0
           name: brupop
       priorityClassName: brupop-controller-high-priority
       
