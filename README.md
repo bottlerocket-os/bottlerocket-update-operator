@@ -180,22 +180,28 @@ apiserver_internal_port: "8443"
 # API server internal address where the CRD version conversion webhook is served
 apiserver_service_port: "443"
 
-# Formatter for the logs emitted by brupop.
-# Options are:
-# * full - Human-readable, single-line logs
-# * compact - A variant of full optimized for shorter line lengths
-# * pretty - "Excessively pretty" logs optimized for human-readable terminal output.
-# * json - Newline-delimited JSON-formatted logs.
-logging_formatter: "pretty"
-# Whether or not to enable ANSI colors on log messages.
-# Makes the output "pretty" in terminals, but may add noise to web-based log utilities.
-logging_ansi_enabled: "true"
-# Controls the filter for tracing/log messages.
-# This can be as simple as a log-level (e.g. "info", "debug", "error"), but also supports more complex directives.
-# See https://docs.rs/tracing-subscriber/0.3.17/tracing_subscriber/filter/struct.EnvFilter.html#directives
-controller_tracing_filter: "info"
-agent_tracing_filter: "info"
-apiserver_tracing_filter: "info"
+logging:
+  # Formatter for the logs emitted by brupop.
+  # Options are:
+  # * full - Human-readable, single-line logs
+  # * compact - A variant of full optimized for shorter line lengths
+  # * pretty - "Excessively pretty" logs optimized for human-readable terminal output.
+  # * json - Newline-delimited JSON-formatted logs.
+  formatter: "pretty"
+  # Whether or not to enable ANSI colors on log messages.
+  # Makes the output "pretty" in terminals, but may add noise to web-based log utilities.
+  ansi_enabled: "true"
+
+  # Controls the filter for tracing/log messages.
+  # This can be as simple as a log-level (e.g. "info", "debug", "error"), but also supports more complex directives.
+  # See https://docs.rs/tracing-subscriber/0.3.17/tracing_subscriber/filter/struct.EnvFilter.html#directives
+  controller:
+    tracing_filter: "info"
+  agent:
+    tracing_filter: "info"
+  apiserver:
+    tracing_filter: "info"
+
 ```
 
 #### Configure API server ports

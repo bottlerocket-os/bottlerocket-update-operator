@@ -65,11 +65,11 @@ spec:
             - name: SCHEDULER_CRON_EXPRESSION
               value: "{{ .Values.scheduler_cron_expression}}"
             - name: LOGGING_FORMATTER
-              value: "{{ .Values.logging_formatter }}"
+              value: "{{ .Values.logging.formatter }}"
             - name: LOGGING_ANSI_ENABLED
-              value: "{{ .Values.logging_ansi_enabled }}"
+              value: "{{ .Values.logging.ansi_enabled }}"
             - name: TRACING_FILTER_DIRECTIVE
-              value: "{{ .Values.controller_tracing_filter }}"
+              value: "{{ .Values.logging.controller.tracing_filter }}"
           image: {{ .Values.image }}
           name: brupop
       priorityClassName: brupop-controller-high-priority

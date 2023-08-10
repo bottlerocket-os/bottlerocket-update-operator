@@ -60,11 +60,11 @@ spec:
             - name: APISERVER_INTERNAL_PORT
               value: "{{ .Values.apiserver_internal_port }}"
             - name: LOGGING_FORMATTER
-              value: "{{ .Values.logging_formatter }}"
+              value: "{{ .Values.logging.formatter }}"
             - name: LOGGING_ANSI_ENABLED
-              value: "{{ .Values.logging_ansi_enabled }}"
+              value: "{{ .Values.logging.ansi_enabled }}"
             - name: TRACING_FILTER_DIRECTIVE
-              value: "{{ .Values.apiserver_tracing_filter }}"
+              value: "{{ .Values.logging.apiserver.tracing_filter }}"
           image: {{ .Values.image }}
           livenessProbe:
             httpGet:
