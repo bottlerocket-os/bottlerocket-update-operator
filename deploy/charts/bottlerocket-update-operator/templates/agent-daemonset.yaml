@@ -37,7 +37,7 @@ spec:
                     values:
                       - amd64
                       - arm64
-      {{- with .Values.agent_tolerations }}
+      {{- with .Values.placement.agent.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}

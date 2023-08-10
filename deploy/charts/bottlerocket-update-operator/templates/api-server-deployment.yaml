@@ -24,11 +24,11 @@ spec:
       namespace: {{ .Values.namespace }}
     spec:
       affinity:
-        {{- with .Values.apiserver_podAffinity }}
+        {{- with .Values.placement.apiserver.podAffinity }}
         podAffinity:
           {{- toYaml . | nindent 10 }}
         {{- end }}
-        {{- with .Values.apiserver_podAntiAffinity }}
+        {{- with .Values.placement.apiserver.podAntiAffinity }}
         podAntiAffinity:
           {{- toYaml . | nindent 10 }}
         {{- end }}
@@ -45,11 +45,11 @@ spec:
                     values:
                       - amd64
                       - arm64
-      {{- with .Values.apiserver_tolerations }}
+      {{- with .Values.placement.apiserver.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.apiserver_nodeSelector }}
+      {{- with .Values.placement.apiserver.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}

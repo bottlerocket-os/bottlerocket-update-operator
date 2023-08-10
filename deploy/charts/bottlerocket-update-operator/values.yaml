@@ -6,35 +6,38 @@ namespace: "brupop-bottlerocket-aws"
 # The image to use for brupop
 image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.2.0"
 
-
 # Placement controls
-# The agent is a daemonset, so the only controls that apply to it are tolerations.
+# See the Kubernetes documentation about placement controls for more details:
+# * https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+# * https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+# * https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
+placement:
+  agent:
+    # The agent is a daemonset, so the only controls that apply to it are tolerations.
+    tolerations: []
 
-# https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-agent_tolerations: []
-controller_tolerations: []
-apiserver_tolerations: []
+  controller:
+    tolerations: []
+    nodeSelector: {}
+    podAffinity: {}
+    podAntiAffinity: {}
 
-# https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
-controller_nodeSelector: {}
-apiserver_nodeSelector: {}
-
-# https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
-controller_podAffinity: {}
-apiserver_podAffinity:  {}
-controller_podAntiAffinity: {}
-# By default, apiserver pods prefer not to be scheduled to the same node.
-apiserver_podAntiAffinity:
-  preferredDuringSchedulingIgnoredDuringExecution:
-    - weight: 1
-      podAffinityTerm:
-        labelSelector:
-          matchExpressions:
-          - key: brupop.bottlerocket.aws/component
-            operator: In
-            values:
-            - apiserver
-        topologyKey: kubernetes.io/hostname
+  apiserver:
+    tolerations: []
+    nodeSelector: {}
+    podAffinity: {}
+    # By default, apiserver pods prefer not to be scheduled to the same node.
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 1
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+              - key: brupop.bottlerocket.aws/component
+                operator: In
+                values:
+                - apiserver
+            topologyKey: kubernetes.io/hostname
 
 # If testing against a private image registry, you can set the pull secret to fetch images.
 # This can likely remain as `brupop` so long as you run something like the following:
