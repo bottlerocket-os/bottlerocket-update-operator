@@ -4,7 +4,7 @@ TOP := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 
 # IMAGE_NAME is the full name of the container image being built. This may be
 # specified to fully control the name of the container image's tag.
-IMAGE_NAME = $(IMAGE_REPO_NAME)$(IMAGE_ARCH_SUFFIX):$(IMAGE_VERSION)$(addprefix -,$(SHORT_SHA))
+IMAGE_NAME ?= $(IMAGE_REPO_NAME)$(IMAGE_ARCH_SUFFIX):$(IMAGE_VERSION)$(addprefix -,$(SHORT_SHA))
 # IMAGE_REPO_NAME is the image's full name in a container image registry. This
 # could be an ECR Repository name or a Docker Hub name such as
 # `example-org/example-image`. If the repository includes the architecture name,
@@ -13,21 +13,21 @@ IMAGE_REPO_NAME = $(shell basename `git rev-parse --show-toplevel`)
 # IMAGE_VERSION is the semver version that's tagged on the image and helm charts.
 IMAGE_VERSION = $(shell cat VERSION)
 # SHORT_SHA is the revision that the container image was built with.
-SHORT_SHA = $(shell git describe --abbrev=8 --always --dirty='-dev' --exclude '*' 2>/dev/null || echo "unknown")
+SHORT_SHA ?= $(shell git describe --abbrev=8 --always --dirty='-dev' --exclude '*' 2>/dev/null || echo "unknown")
 # IMAGE_ARCH_SUFFIX is the runtime architecture designator for the container
 # image, it is appended to the IMAGE_NAME unless the name is specified.
-IMAGE_ARCH_SUFFIX = $(addprefix -,$(ARCH))
+IMAGE_ARCH_SUFFIX ?= $(addprefix -,$(ARCH))
 
 # UNAME_ARCH is the runtime architecture of the building host.
 UNAME_ARCH = $(shell uname -m)
 # ARCH is the target architecture which is being built for.
-ARCH = $(lastword $(subst :, ,$(filter $(UNAME_ARCH):%,x86_64:amd64 aarch64:arm64)))
+ARCH ?= $(lastword $(subst :, ,$(filter $(UNAME_ARCH):%,x86_64:amd64 aarch64:arm64)))
 
 # DESTDIR is where the release artifacts will be written.
-DESTDIR = .
+DESTDIR ?= .
 # DISTFILE is the path to the dist target's output file - the container image
 # tarball.
-DISTFILE = $(DESTDIR:/=)/$(subst /,_,$(IMAGE_NAME)).tar.gz
+DISTFILE ?= $(DESTDIR:/=)/$(subst /,_,$(IMAGE_NAME)).tar.gz
 
 BOTTLEROCKET_SDK_VERSION = v0.33.0
 BOTTLEROCKET_SDK_ARCH = $(UNAME_ARCH)
