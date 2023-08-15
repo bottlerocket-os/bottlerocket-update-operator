@@ -51,7 +51,14 @@ image: check-licenses brupop-image
 
 # Fetches crates from upstream
 fetch:
-	$(CARGO_ENV_VARS) cargo fetch --locked
+	docker run --rm \
+		--user "$(shell id -u):$(shell id -g)" \
+		--security-opt label=disable \
+		--env CARGO_HOME="/src/.cargo" \
+		--volume "$(TOP):/src" \
+		--workdir "/src/" \
+		"$(BUILDER_IMAGE)" \
+		bash -c "$(CARGO_ENV_VARS) cargo fetch --locked"
 
 dev-tools:
 	cargo install cargo-insta
