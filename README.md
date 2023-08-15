@@ -51,14 +51,10 @@ helm repo update
 kubectl create namespace brupop-bottlerocket-aws
 
 # Install the brupop CRD
-helm install \
-  brupop-crd brupop/bottlerocket-shadow \
-  --version v1.0.0
+helm install brupop-crd brupop/bottlerocket-shadow
 
 # Install the brupop operator
-helm install \
-  brupop-operator brupop/bottlerocket-update-operator \
-  --version v1.0.0
+helm install brupop-operator brupop/bottlerocket-update-operator
 ```
 
 This will create the custom resource definition, roles, deployments, etc., and use the latest update operator image available in [Amazon ECR Public](https://gallery.ecr.aws/bottlerocket/bottlerocket-update-operator).
@@ -89,7 +85,7 @@ You can use a values file when installing brupop with helm (via the `--values / 
 namespace: "brupop-bottlerocket-aws"
 
 # The image to use for brupop
-image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.2.0"
+image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.3.0"
 
 # Placement controls
 # See the Kubernetes documentation about placement controls for more details:
@@ -204,7 +200,9 @@ logging:
 
 ```
 
-#### Configure API server ports
+#### Configuration via Kubernetes yaml
+
+##### Configure API server ports
 
 If you'd like to configure what ports the API server uses,
 adjust the value that is consumed in the container environment:
@@ -284,7 +282,7 @@ For example:
       ...
 ```
 
-#### Set Up Max Concurrent Update
+##### Set Up Max Concurrent Update
 
 `MAX_CONCURRENT_UPDATE` can be used to specify the max concurrent updates during updating.
 When `MAX_CONCURRENT_UPDATE` is a positive integer, the bottlerocket update operator
@@ -314,7 +312,7 @@ For example:
               value: "1"
 ```
 
-#### Set scheduler
+##### Set scheduler
 `SCHEDULER_CRON_EXPRESSION` can be used to specify the scheduler in which updates are permitted.
 When `SCHEDULER_CRON_EXPRESSION` is "* * * * * * *" (default), the feature is disabled.
 
@@ -351,7 +349,7 @@ For example (schedule to run update operator at 03:00 PM on Monday ):
               value: "* * * * * * *"
 ```
 
-#### Set an Update Time Window - DEPRECATED
+##### Set an Update Time Window - DEPRECATED
 
 **Note**: these settings are deprecated and will be removed in a future release.
 Time window settings cannot be used in combination with the preferred cron expression format and will be ignored.
@@ -421,7 +419,7 @@ If all nodes in the cluster are running Bottlerocket and require the same `updat
 kubectl label node $(kubectl get nodes -o jsonpath='{.items[*].metadata.name}') bottlerocket.aws/updater-interface-version=2.0.0
 ```
 
-##### Automatic labeling via Bottlerocket user-data
+#### Automatic labeling via Bottlerocket user-data
 
 You can automatically [add Kubernetes labels to your Bottlerocket nodes via the settings provided in user data](https://github.com/bottlerocket-os/bottlerocket#kubernetes-settings)
 when your nodes are provisioned:
@@ -432,7 +430,7 @@ when your nodes are provisioned:
 "bottlerocket.aws/updater-interface-version" = "2.0.0"
 ```
 
-##### Automatic labeling via `eksctl`
+#### Automatic labeling via `eksctl`
 
 If you're using `eksctl`, you can automatically add labels to nodegroups. For example:
 

@@ -78,7 +78,7 @@ The following configuration values are supported:
 namespace: "brupop-bottlerocket-aws"
 
 # The image to use for brupop
-image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.2.0"
+image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.3.0"
 
 # Placement controls
 # See the Kubernetes documentation about placement controls for more details:

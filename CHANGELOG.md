@@ -1,3 +1,38 @@
+# 1.3.0
+
+## General
+
+Added
+
+* Added the ability to configure log formatting and filtering options via Helm values ([#503], [#512], [#516])
+* Added the ability to configure pod placement via Helm values ([#513], [#516])
+
+Fixed
+
+* Improved rate-limiting and backoff between the agent and the local Bottlerocket update API ([#496], [#505])
+* Improved rate-limiting and backoff between the agent and Brupop's apiserver ([#505])
+* Added backoff to requests to Kubernetes `watch` APIs ([#506])
+* Fixed an issue that caused Prometheus metrics to include stale data ([#511])
+* Fixed incorrect resource requests for the agent pod in the Helm chart ([#504])
+* Removed unnecessary rbac permissions granted to the apiserver and controller ([#507])
+
+Misc
+
+* Numerous dependency upgrades and documentation fixes ([#502], [#498], [#506])
+
+[#496]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/496
+[#498]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/496
+[#502]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/503
+[#503]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/503
+[#504]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/504
+[#505]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/505
+[#506]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/506
+[#507]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/507
+[#511]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/511
+[#512]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/512
+[#513]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/513
+[#516]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/516
+
 # 1.2.0
 
 ## General
