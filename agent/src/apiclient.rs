@@ -119,7 +119,7 @@ pub(super) mod api {
         strategy::{jitter, ExponentialBackoff},
         Retry,
     };
-    use tracing::{event, Level};
+    use tracing::{event, instrument, Level};
 
     const API_CLIENT_BIN: &str = "apiclient";
     const UPDATE_API_BUSY_STATUSCODE: &str = "423";
@@ -256,13 +256,22 @@ pub(super) mod api {
     /// Apiclient binary has been volume mounted into the agent container, so agent is able to
     /// invoke `/bin apiclient` to interact with the Bottlerocket Update API.
     /// This function helps to invoke apiclient raw command.
+    #[instrument(skip(rate_limiter))]
     pub(super) async fn invoke_apiclient(
         args: Vec<String>,
         rate_limiter: Option<&SimpleRateLimiter>,
     ) -> Result<Output> {
         Retry::spawn(retry_strategy(), || async {
+            event!(Level::DEBUG, "Invoking apiclient: {:?}", args);
             if let Some(rate_limiter) = rate_limiter {
-                rate_limiter.until_ready().await;
+                if let Err(e) = rate_limiter.check() {
+                    event!(
+                        Level::DEBUG,
+                        "apiclient rate limited until {:?}",
+                        e.earliest_possible()
+                    );
+                    rate_limiter.until_ready().await;
+                }
             }
             let output = Command::new(API_CLIENT_BIN)
                 .args(&args)
@@ -316,6 +325,7 @@ pub(super) mod api {
         .await
     }
 
+    #[instrument]
     pub(super) async fn refresh_updates() -> Result<Output> {
         let raw_args = vec![
             REFRESH_UPDATES_URI.to_string(),
@@ -326,6 +336,7 @@ pub(super) mod api {
         invoke_apiclient(get_raw_args(raw_args), Some(&UPDATE_API_RATE_LIMITER)).await
     }
 
+    #[instrument]
     pub(super) async fn prepare_update() -> Result<()> {
         let raw_args = vec![
             PREPARE_UPDATES_URI.to_string(),
@@ -338,6 +349,7 @@ pub(super) mod api {
         Ok(())
     }
 
+    #[instrument]
     pub(super) async fn activate_update() -> Result<()> {
         let raw_args = vec![
             ACTIVATE_UPDATES_URI.to_string(),
@@ -350,6 +362,7 @@ pub(super) mod api {
         Ok(())
     }
 
+    #[instrument]
     pub(super) async fn get_update_status() -> Result<UpdateStatus> {
         refresh_updates().await?;
 
@@ -365,12 +378,14 @@ pub(super) mod api {
         Ok(update_status)
     }
 
+    #[instrument]
     pub(super) async fn reboot() -> Result<Output> {
         let raw_args = vec![REBOOT_URI.to_string(), "-m".to_string(), "POST".to_string()];
 
         invoke_apiclient(get_raw_args(raw_args), None).await
     }
 
+    #[instrument]
     pub(super) async fn get_os_info() -> Result<OsInfo> {
         let raw_args = vec![OS_URI.to_string()];
 
