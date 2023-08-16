@@ -13,6 +13,7 @@ dotenv = "0.15"
 futures = "0.3"
 governor = "0.6"
 lazy_static = "1"
+nonzero_ext = "0.3"
 tracing = "0.1"
 
 # k8s-openapi must match the version required by kube and enable a k8s version feature

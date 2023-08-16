@@ -109,6 +109,7 @@ pub(super) mod api {
         Quota, RateLimiter,
     };
     use lazy_static::lazy_static;
+    use nonzero_ext::nonzero;
     use semver::Version;
     use serde::Deserialize;
     use snafu::ResultExt;
@@ -132,8 +133,11 @@ pub(super) mod api {
     type SimpleRateLimiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>;
 
     lazy_static! {
-        static ref UPDATE_API_RATE_LIMITER: SimpleRateLimiter =
-            RateLimiter::direct(Quota::with_period(Duration::from_secs(10)).unwrap());
+        static ref UPDATE_API_RATE_LIMITER: SimpleRateLimiter = RateLimiter::direct(
+            Quota::with_period(Duration::from_secs(10))
+                .unwrap()
+                .allow_burst(nonzero!(2u32))
+        );
     }
 
     pub(super) fn get_raw_args(mut args: Vec<String>) -> Vec<String> {

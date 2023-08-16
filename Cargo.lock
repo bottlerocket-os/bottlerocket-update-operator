@@ -248,6 +248,7 @@ dependencies = [
  "kube",
  "lazy_static",
  "models",
+ "nonzero_ext",
  "semver",
  "serde",
  "serde_json",
