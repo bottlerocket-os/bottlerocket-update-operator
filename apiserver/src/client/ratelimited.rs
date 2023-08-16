@@ -58,9 +58,7 @@ where
 }
 
 /// Rate at which request token bucket refills.
-const DEFAULT_REQUESTS_PER_MINUTE: NonZeroU32 = nonzero!(2u32);
-/// Maximum request tokens that can be stored.
-const DEFAULT_BURST_TOKENS: NonZeroU32 = nonzero!(5u32);
+const DEFAULT_REQUESTS_PER_MINUTE: NonZeroU32 = nonzero!(8u32);
 /// Maximum jitter between tokens being added to the bucket.
 const DEFAULT_MAX_JITTER: Duration = Duration::from_secs(10);
 
@@ -73,9 +71,9 @@ where
     WC: APIServerClient,
 {
     pub fn default(wrapped_client: WC) -> Self {
-        let rate_limiter = Arc::new(SimpleRateLimiter::direct(
-            Quota::per_minute(DEFAULT_REQUESTS_PER_MINUTE).allow_burst(DEFAULT_BURST_TOKENS),
-        ));
+        let rate_limiter = Arc::new(SimpleRateLimiter::direct(Quota::per_minute(
+            DEFAULT_REQUESTS_PER_MINUTE,
+        )));
         let jitter = Some(Jitter::up_to(DEFAULT_MAX_JITTER));
         Self {
             wrapped_client,
