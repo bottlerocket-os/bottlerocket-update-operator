@@ -85,7 +85,8 @@ You can use a values file when installing brupop with helm (via the `--values / 
 namespace: "brupop-bottlerocket-aws"
 
 # The image to use for brupop
-image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.3.0"
+# This defaults to the image built alongside a particular helm chart, but you can override it by uncommenting this line:
+# image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.3.0"
 
 # Placement controls
 # See the Kubernetes documentation about placement controls for more details:
