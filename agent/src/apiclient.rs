@@ -115,7 +115,7 @@ pub(super) mod api {
     use std::process::{Command, Output};
     use tokio::time::Duration;
     use tokio_retry::{
-        strategy::{jitter, FixedInterval},
+        strategy::{jitter, ExponentialBackoff},
         Retry,
     };
     use tracing::{event, Level};
@@ -235,14 +235,16 @@ pub(super) mod api {
     }
 
     /// Wait time between invoking the Bottlerocket API
-    const RETRY_DELAY: Duration = Duration::from_secs(10);
+    const RETRY_BASE_DELAY: Duration = Duration::from_secs(10);
+    const RETRY_MAX_DELAY: Duration = Duration::from_secs(60);
     /// Number of retries while invoking the Bottlerocket API
     const NUM_RETRIES: usize = 5;
 
     /// Retry strategy for invoking the Bottlerocket API.
     /// Retries to the bottlerocket API occur on a fixed interval with jitter.
     fn retry_strategy() -> impl Iterator<Item = Duration> {
-        FixedInterval::new(RETRY_DELAY)
+        ExponentialBackoff::from_millis(RETRY_BASE_DELAY.as_millis() as u64)
+            .max_delay(RETRY_MAX_DELAY)
             .map(jitter)
             .take(NUM_RETRIES)
     }
