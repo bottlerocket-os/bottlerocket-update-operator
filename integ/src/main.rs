@@ -1,3 +1,4 @@
+use argh::FromArgs;
 use lazy_static::lazy_static;
 use log::info;
 use snafu::{ensure, OptionExt, ResultExt};
@@ -5,7 +6,6 @@ use std::convert::TryFrom;
 use std::env::temp_dir;
 use std::fs;
 use std::process;
-use structopt::StructOpt;
 
 use aws_sdk_ec2::model::ArchitectureValues;
 
@@ -53,46 +53,142 @@ async fn main() {
     }
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(FromArgs, Debug, Clone)]
+/// the brupop integration test
 pub(crate) struct Arguments {
-    #[structopt(global = true, long = "--cluster-name", default_value = CLUSTER_NAME)]
-    cluster_name: String,
-
-    #[structopt(global = true, long = "--region", default_value = DEFAULT_REGION)]
-    region: String,
-
-    #[structopt(global = true, long = "--nodegroup-name", default_value = NODEGROUP_NAME)]
-    nodegroup_name: String,
-
-    #[structopt(
-        global = true,
-        long = "--kube-config-path",
-        default_value = DEFAULT_KUBECONFIG_FILE_NAME
-    )]
-    kube_config_path: String,
-
-    #[structopt(subcommand)]
+    #[argh(subcommand)]
     subcommand: SubCommand,
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(FromArgs, Debug, Clone)]
+#[argh(subcommand)]
 enum SubCommand {
     IntegrationTest(IntegrationTestArgs),
-    Monitor,
-    Clean,
+    Monitor(MonitorArgs),
+    Clean(CleanArgs),
 }
 
-// Stores user-supplied arguments for the 'integration-test' subcommand.
-#[derive(StructOpt, Debug)]
+#[derive(FromArgs, Debug, Clone)]
+/// monitor an ongoing integration test
+#[argh(subcommand, name = "monitor")]
+struct MonitorArgs {
+    /// name of the cluster that tests run in
+    #[argh(option, default = "CLUSTER_NAME.to_string()")]
+    cluster_name: String,
+
+    /// the region that the cluster is in
+    #[argh(option, default = "DEFAULT_REGION.to_string()")]
+    region: String,
+
+    /// path to the kubeconfig for this cluster
+    #[argh(option, default = "DEFAULT_KUBECONFIG_FILE_NAME.to_string()")]
+    kube_config_path: String,
+}
+
+#[derive(FromArgs, Debug, Clone)]
+/// clean up nodegroups after testing
+#[argh(subcommand, name = "clean")]
+struct CleanArgs {
+    /// name of the cluster that tests run in
+    #[argh(option, default = "CLUSTER_NAME.to_string()")]
+    cluster_name: String,
+
+    /// the region that the cluster is in
+    #[argh(option, default = "DEFAULT_REGION.to_string()")]
+    region: String,
+
+    /// the nodegroup to create for the test
+    #[argh(option, default = "NODEGROUP_NAME.to_string()")]
+    nodegroup_name: String,
+
+    /// path to the kubeconfig for this cluster
+    #[argh(option, default = "DEFAULT_KUBECONFIG_FILE_NAME.to_string()")]
+    kube_config_path: String,
+}
+
+#[derive(FromArgs, Debug, Clone)]
+/// starts integration tests
+#[argh(subcommand, name = "integration-test")]
 pub struct IntegrationTestArgs {
-    #[structopt(long = "--bottlerocket-version")]
+    /// name of the cluster that tests run in
+    #[argh(option, default = "CLUSTER_NAME.to_string()")]
+    cluster_name: String,
+
+    /// the region that the cluster is in
+    #[argh(option, default = "DEFAULT_REGION.to_string()")]
+    region: String,
+
+    /// the nodegroup to create for the test
+    #[argh(option, default = "NODEGROUP_NAME.to_string()")]
+    nodegroup_name: String,
+
+    /// path to the kubeconfig for this cluster
+    #[argh(option, default = "DEFAULT_KUBECONFIG_FILE_NAME.to_string()")]
+    kube_config_path: String,
+
+    /// the version of bottlerocket to test
+    #[argh(option)]
     bottlerocket_version: String,
 
-    #[structopt(long = "--arch", default_value = AMI_ARCH)]
+    /// the architecture of the given AMI
+    #[argh(option, default = "AMI_ARCH.to_string()")]
     ami_arch: String,
 }
 
-async fn generate_kubeconfig(arguments: &Arguments) -> Result<String> {
+/// All subcommands have a few common arguments, but `argh` doesn't support hoisting these into a "global" struct in
+/// the same way that e.g. `clap` does. So we implement a "global" struct and some conversions here.
+mod commonargs {
+    use super::*;
+
+    /// Arguments shared by most subcommands
+    #[derive(Debug, Clone)]
+    pub struct CommonArgs {
+        pub cluster_name: String,
+        pub region: String,
+        pub kube_config_path: String,
+    }
+
+    impl From<&Arguments> for CommonArgs {
+        fn from(arguments: &Arguments) -> Self {
+            match &arguments.subcommand {
+                SubCommand::IntegrationTest(args) => args.into(),
+                SubCommand::Monitor(args) => args.into(),
+                SubCommand::Clean(args) => args.into(),
+            }
+        }
+    }
+
+    impl From<&MonitorArgs> for CommonArgs {
+        fn from(monitor_args: &MonitorArgs) -> Self {
+            Self {
+                cluster_name: monitor_args.cluster_name.clone(),
+                region: monitor_args.region.clone(),
+                kube_config_path: monitor_args.kube_config_path.clone(),
+            }
+        }
+    }
+    impl From<&CleanArgs> for CommonArgs {
+        fn from(clean_args: &CleanArgs) -> Self {
+            Self {
+                cluster_name: clean_args.cluster_name.clone(),
+                region: clean_args.region.clone(),
+                kube_config_path: clean_args.kube_config_path.clone(),
+            }
+        }
+    }
+    impl From<&IntegrationTestArgs> for CommonArgs {
+        fn from(integ_args: &IntegrationTestArgs) -> Self {
+            Self {
+                cluster_name: integ_args.cluster_name.clone(),
+                region: integ_args.region.clone(),
+                kube_config_path: integ_args.kube_config_path.clone(),
+            }
+        }
+    }
+}
+use commonargs::CommonArgs;
+
+async fn generate_kubeconfig(arguments: &CommonArgs) -> Result<String> {
     // default kube config path is /temp/{CLUSTER_NAME}-{REGION}/kubeconfig.yaml
     let kube_config_path = generate_kubeconfig_file_path(arguments).await?;
 
@@ -113,7 +209,7 @@ async fn generate_kubeconfig(arguments: &Arguments) -> Result<String> {
     Ok(kube_config_path)
 }
 
-async fn generate_kubeconfig_file_path(arguments: &Arguments) -> Result<String> {
+async fn generate_kubeconfig_file_path(arguments: &CommonArgs) -> Result<String> {
     let unique_kube_config_temp_dir = get_kube_config_temp_dir_path(arguments)?;
 
     fs::create_dir_all(&unique_kube_config_temp_dir).context(error::CreateDirSnafu)?;
@@ -126,7 +222,7 @@ async fn generate_kubeconfig_file_path(arguments: &Arguments) -> Result<String> 
     Ok(kube_config_path)
 }
 
-fn get_kube_config_temp_dir_path(arguments: &Arguments) -> Result<String> {
+fn get_kube_config_temp_dir_path(arguments: &CommonArgs) -> Result<String> {
     let unique_tmp_dir_name = format!("{}-{}", arguments.cluster_name, arguments.region);
     let unique_kube_config_temp_dir = format!(
         "{}/{}",
@@ -154,16 +250,19 @@ fn args_validation(args: &Arguments) -> Result<()> {
 
 async fn run() -> Result<()> {
     // Parse and store the args passed to the program
-    let args = Arguments::from_args();
+    let args: Arguments = argh::from_env();
 
     // Validate the args
     args_validation(&args)?;
+
+    let subcommand = &args.subcommand;
+    let args: CommonArgs = (&args).into();
 
     let cluster_info = get_cluster_info(&args.cluster_name, &args.region)
         .await
         .context(error::GetClusterInfoSnafu)?;
 
-    match &args.subcommand {
+    match subcommand {
         SubCommand::IntegrationTest(integ_test_args) => {
             // Generate kubeconfig if no input value for argument `kube_config_path`
             let kube_config_path: String = match args.kube_config_path.as_str() {
@@ -175,7 +274,7 @@ async fn run() -> Result<()> {
             info!("Creating EC2 instances via nodegroup ...");
             create_nodegroup(
                 cluster_info,
-                &args.nodegroup_name,
+                &integ_test_args.nodegroup_name,
                 &integ_test_args.ami_arch,
                 &integ_test_args.bottlerocket_version,
             )
@@ -203,7 +302,7 @@ async fn run() -> Result<()> {
                 .await
                 .context(error::RunBrupopSnafu)?;
         }
-        SubCommand::Monitor => {
+        SubCommand::Monitor(_) => {
             // generate kubeconfig path if no input value for argument `kube_config_path`
             let kube_config_path: String = match args.kube_config_path.as_str() {
                 DEFAULT_KUBECONFIG_FILE_NAME => generate_kubeconfig_file_path(&args).await?,
@@ -230,7 +329,7 @@ async fn run() -> Result<()> {
                 .await
                 .context(error::MonitorBrupopSnafu)?;
         }
-        SubCommand::Clean => {
+        SubCommand::Clean(clean_args) => {
             // Generate kubeconfig path if no input value for argument `kube_config_path`
             let kube_config_path: String = match args.kube_config_path.as_str() {
                 DEFAULT_KUBECONFIG_FILE_NAME => generate_kubeconfig_file_path(&args).await?,
@@ -251,7 +350,7 @@ async fn run() -> Result<()> {
 
             // Terminate nodegroup created by integration test.
             info!("Terminating nodegroup ...");
-            terminate_nodegroup(cluster_info, &args.nodegroup_name)
+            terminate_nodegroup(cluster_info, &clean_args.nodegroup_name)
                 .await
                 .context(error::TerminateNodeGroupSnafu)?;
 

@@ -37,10 +37,6 @@ skip-tree = [
     # actix-http uses older and newer versions of crates like rustc_version and
     # semver, for build vs. runtime dependencies.
     { name = "actix-http", version = "3.0.0-beta.10" },
-    # clap uses an older version of strsim, which clashed with the one used by darling_core.
-    { name = "clap", version = "2.34.0" },
-    # structopt-derive uses an older version of heck, which clashed with the one used by strum_macros.
-    { name = "structopt-derive", version = "0.4.18"},
     # aws-smithy-client brings in several lagging dependencies that can be ignored
     # since it is only used in the integration tests
     { name = "integ" }
