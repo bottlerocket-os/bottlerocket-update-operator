@@ -115,7 +115,7 @@ pub async fn create_nodegroup(
 
     // Ensure the nodegroup reach a active state.
     tokio::time::timeout(
-        Duration::from_secs(300),
+        Duration::from_secs(900),
         wait_for_conforming_nodegroup(&eks_client, &cluster.name, "create", nodegroup_name),
     )
     .await
@@ -143,7 +143,7 @@ pub async fn terminate_nodegroup(cluster: ClusterInfo, nodegroup_name: &str) -> 
 
     // Ensure the instances reach a terminated state.
     tokio::time::timeout(
-        Duration::from_secs(500),
+        Duration::from_secs(900),
         wait_for_conforming_nodegroup(&eks_client, &cluster.name, "delete", nodegroup_name),
     )
     .await
