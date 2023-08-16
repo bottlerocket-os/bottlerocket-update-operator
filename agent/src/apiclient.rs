@@ -21,6 +21,8 @@ pub async fn get_os_info() -> Result<OsInfo> {
 
 // get chosen update which contains latest Bottlerocket OS can update to.
 pub async fn get_chosen_update() -> Result<Option<UpdateImage>> {
+    api::refresh_updates().await?;
+
     let update_status = api::get_update_status().await?;
 
     ensure!(
@@ -364,8 +366,6 @@ pub(super) mod api {
 
     #[instrument]
     pub(super) async fn get_update_status() -> Result<UpdateStatus> {
-        refresh_updates().await?;
-
         let raw_args = vec![UPDATES_STATUS_URI.to_string()];
         let update_status_output =
             invoke_apiclient(get_raw_args(raw_args), Some(&UPDATE_API_RATE_LIMITER)).await?;
