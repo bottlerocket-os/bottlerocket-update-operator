@@ -2,15 +2,16 @@
 use crate::client::prelude::*;
 use async_trait::async_trait;
 use governor::{
-    clock::{DefaultClock, ReasonablyRealtime},
+    clock::{Clock, DefaultClock, ReasonablyRealtime},
     middleware::NoOpMiddleware,
     state::{DirectStateStore, InMemoryState, NotKeyed},
-    Jitter, Quota, RateLimiter,
+    Quota, RateLimiter,
 };
 use models::node::{BottlerocketShadow, BottlerocketShadowStatus};
 use nonzero_ext::nonzero;
 use std::{fmt::Debug, sync::Arc};
-use std::{num::NonZeroU32, ops::Deref, time::Duration};
+use std::{num::NonZeroU32, ops::Deref};
+use tracing::{event, Level};
 
 type Result<T> = std::result::Result<T, ClientError>;
 
@@ -19,7 +20,7 @@ pub struct RateLimitedAPIServerClient<WC, S, C, RL>
 where
     WC: APIServerClient,
     S: DirectStateStore + Debug,
-    C: ReasonablyRealtime + Debug,
+    C: ReasonablyRealtime + Clock + Debug,
     RL: Deref<Target = RateLimiter<NotKeyed, S, C, NoOpMiddleware<C::Instant>>>
         + Send
         + Sync
@@ -27,40 +28,39 @@ where
 {
     rate_limiter: RL,
     wrapped_client: WC,
-    jitter: Option<Jitter>,
 }
 
 impl<WC, S, C, RL> RateLimitedAPIServerClient<WC, S, C, RL>
 where
     WC: APIServerClient,
     S: DirectStateStore + Debug,
-    C: ReasonablyRealtime + Debug,
+    C: ReasonablyRealtime + Clock + Debug,
     RL: Deref<Target = RateLimiter<NotKeyed, S, C, NoOpMiddleware<C::Instant>>>
         + Send
         + Sync
         + Debug,
 {
-    pub fn new(wrapped_client: WC, rate_limiter: RL, jitter: Option<Jitter>) -> Self {
+    pub fn new(wrapped_client: WC, rate_limiter: RL) -> Self {
         Self {
             wrapped_client,
             rate_limiter,
-            jitter,
         }
     }
 
     async fn rate_limit(&self) {
-        if let Some(jitter) = self.jitter {
-            self.rate_limiter.until_ready_with_jitter(jitter).await;
-        } else {
+        if let Err(e) = self.rate_limiter.check() {
+            event!(
+                Level::DEBUG,
+                "Rate limited while calling api server for {}.",
+                e
+            );
             self.rate_limiter.until_ready().await;
         }
     }
 }
 
 /// Rate at which request token bucket refills.
-const DEFAULT_REQUESTS_PER_MINUTE: NonZeroU32 = nonzero!(8u32);
-/// Maximum jitter between tokens being added to the bucket.
-const DEFAULT_MAX_JITTER: Duration = Duration::from_secs(10);
+const DEFAULT_REQUESTS_PER_MINUTE: NonZeroU32 = nonzero!(4u32);
 
 /// Default rate limiter.
 type SimpleRateLimiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>;
@@ -74,11 +74,9 @@ where
         let rate_limiter = Arc::new(SimpleRateLimiter::direct(Quota::per_minute(
             DEFAULT_REQUESTS_PER_MINUTE,
         )));
-        let jitter = Some(Jitter::up_to(DEFAULT_MAX_JITTER));
         Self {
             wrapped_client,
             rate_limiter,
-            jitter,
         }
     }
 }
@@ -88,7 +86,7 @@ impl<WC, S, C, RL> APIServerClient for RateLimitedAPIServerClient<WC, S, C, RL>
 where
     WC: APIServerClient,
     S: DirectStateStore + Sync + Send + Debug,
-    C: ReasonablyRealtime + Sync + Send + Debug,
+    C: ReasonablyRealtime + Clock + Sync + Send + Debug,
     RL: Deref<Target = RateLimiter<NotKeyed, S, C, NoOpMiddleware<C::Instant>>>
         + Send
         + Sync
