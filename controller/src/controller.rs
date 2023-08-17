@@ -134,6 +134,11 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
                 .context(controllerclient_error::UpdateNodeSpecSnafu)
         } else {
             // Otherwise, we need to ensure that the node is making progress in a timely fashion.
+            event!(
+                Level::TRACE,
+                node = ?node.name_any(),
+                "Node is still making progress towards its current spec."
+            );
 
             // TODO(seankell) Timeout handling will be added in a future PR.
             Ok(())
@@ -147,11 +152,29 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
     #[instrument(skip(self))]
     async fn find_and_update_ready_brs(&self) -> Result<Option<BottlerocketShadow>> {
         let mut shadows: Vec<BottlerocketShadow> = self.all_brss();
+        event!(
+            Level::TRACE,
+            shadows = ?shadows.iter().map(|i| i.name_any()).collect::<Vec<_>>(),
+            "Checking shadows for any that are ready to update."
+        );
 
         sort_shadows(&mut shadows, &get_associated_bottlerocketshadow_name()?);
+        event!(
+            Level::TRACE,
+            shadows = ?shadows.iter().map(|i| i.name_any()).collect::<Vec<_>>(),
+            "Sorted shadows by update priority."
+        );
+
         for brs in shadows.drain(..) {
             // If we determine that the spec should change, this node is a candidate to begin updating.
             let next_spec = determine_next_node_spec(&brs);
+            event!(
+                Level::TRACE,
+                brs = ?brs.name_any(),
+                current_spec = ?brs.spec,
+                ?next_spec,
+                "Evaluated next spec for node {}", brs.name_any()
+            );
             if next_spec != brs.spec && is_initial_state(&brs) {
                 match self.progress_node(brs.clone()).await {
                     Ok(_) => return Ok(Some(brs)),
@@ -265,7 +288,7 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
             }
 
             let active_set = self.active_brs_set();
-            event!(Level::TRACE, ?active_set, "Found active set of nodes.");
+            event!(Level::TRACE, active_set = ?active_set.keys().collect::<Vec<_>>(), "Found active set of nodes.");
 
             // when current is outside of a scheduled maintenance window, controlle should keep updating active nodes
             // if there are any ongoing updates. Otherwise it should sleep until next maintenance window.
@@ -289,13 +312,20 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
                 // change, to ensure that errors resulting in multiple nodes changing state simultaneously is not unrecoverable.
                 let active_set = self.active_brs_set();
                 let active_set_size = active_set.len();
-                event!(Level::TRACE, ?active_set, "Found active set of nodes.");
+                event!(Level::TRACE, active_set = ?active_set.keys().collect::<Vec<_>>(), "Found active set of nodes.");
 
                 if !active_set.is_empty() {
                     self.progress_active_set(active_set).await?;
                 }
                 // Bring one more node each time if the active nodes size is less than MAX_CONCURRENT_UPDATE setting.
-                if active_set_size < get_max_concurrent_update()? {
+                let max_concurrent_updates = get_max_concurrent_update()?;
+                if active_set_size < max_concurrent_updates {
+                    event!(
+                        Level::TRACE,
+                        ?active_set_size,
+                        ?max_concurrent_updates,
+                        "Searching for more nodes to update."
+                    );
                     // If there's nothing to operate on, check to see if any other nodes are ready for action.
                     let new_active_node = self.find_and_update_ready_brs().await?;
                     if let Some(brs) = new_active_node {

@@ -21,6 +21,8 @@ pub async fn get_os_info() -> Result<OsInfo> {
 
 // get chosen update which contains latest Bottlerocket OS can update to.
 pub async fn get_chosen_update() -> Result<Option<UpdateImage>> {
+    api::refresh_updates().await?;
+
     let update_status = api::get_update_status().await?;
 
     ensure!(
@@ -109,16 +111,17 @@ pub(super) mod api {
         Quota, RateLimiter,
     };
     use lazy_static::lazy_static;
+    use nonzero_ext::nonzero;
     use semver::Version;
     use serde::Deserialize;
     use snafu::ResultExt;
     use std::process::{Command, Output};
     use tokio::time::Duration;
     use tokio_retry::{
-        strategy::{jitter, FixedInterval},
+        strategy::{jitter, ExponentialBackoff},
         Retry,
     };
-    use tracing::{event, Level};
+    use tracing::{event, instrument, Level};
 
     const API_CLIENT_BIN: &str = "apiclient";
     const UPDATE_API_BUSY_STATUSCODE: &str = "423";
@@ -132,8 +135,11 @@ pub(super) mod api {
     type SimpleRateLimiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>;
 
     lazy_static! {
-        static ref UPDATE_API_RATE_LIMITER: SimpleRateLimiter =
-            RateLimiter::direct(Quota::with_period(Duration::from_secs(10)).unwrap());
+        static ref UPDATE_API_RATE_LIMITER: SimpleRateLimiter = RateLimiter::direct(
+            Quota::with_period(Duration::from_secs(10))
+                .unwrap()
+                .allow_burst(nonzero!(2u32))
+        );
     }
 
     pub(super) fn get_raw_args(mut args: Vec<String>) -> Vec<String> {
@@ -235,14 +241,16 @@ pub(super) mod api {
     }
 
     /// Wait time between invoking the Bottlerocket API
-    const RETRY_DELAY: Duration = Duration::from_secs(10);
+    const RETRY_BASE_DELAY: Duration = Duration::from_secs(10);
+    const RETRY_MAX_DELAY: Duration = Duration::from_secs(60);
     /// Number of retries while invoking the Bottlerocket API
     const NUM_RETRIES: usize = 5;
 
     /// Retry strategy for invoking the Bottlerocket API.
     /// Retries to the bottlerocket API occur on a fixed interval with jitter.
     fn retry_strategy() -> impl Iterator<Item = Duration> {
-        FixedInterval::new(RETRY_DELAY)
+        ExponentialBackoff::from_millis(RETRY_BASE_DELAY.as_millis() as u64)
+            .max_delay(RETRY_MAX_DELAY)
             .map(jitter)
             .take(NUM_RETRIES)
     }
@@ -250,13 +258,22 @@ pub(super) mod api {
     /// Apiclient binary has been volume mounted into the agent container, so agent is able to
     /// invoke `/bin apiclient` to interact with the Bottlerocket Update API.
     /// This function helps to invoke apiclient raw command.
+    #[instrument(skip(rate_limiter))]
     pub(super) async fn invoke_apiclient(
         args: Vec<String>,
         rate_limiter: Option<&SimpleRateLimiter>,
     ) -> Result<Output> {
         Retry::spawn(retry_strategy(), || async {
+            event!(Level::DEBUG, "Invoking apiclient: {:?}", args);
             if let Some(rate_limiter) = rate_limiter {
-                rate_limiter.until_ready().await;
+                if let Err(e) = rate_limiter.check() {
+                    event!(
+                        Level::DEBUG,
+                        "apiclient rate limited until {:?}",
+                        e.earliest_possible()
+                    );
+                    rate_limiter.until_ready().await;
+                }
             }
             let output = Command::new(API_CLIENT_BIN)
                 .args(&args)
@@ -310,6 +327,7 @@ pub(super) mod api {
         .await
     }
 
+    #[instrument]
     pub(super) async fn refresh_updates() -> Result<Output> {
         let raw_args = vec![
             REFRESH_UPDATES_URI.to_string(),
@@ -320,6 +338,7 @@ pub(super) mod api {
         invoke_apiclient(get_raw_args(raw_args), Some(&UPDATE_API_RATE_LIMITER)).await
     }
 
+    #[instrument]
     pub(super) async fn prepare_update() -> Result<()> {
         let raw_args = vec![
             PREPARE_UPDATES_URI.to_string(),
@@ -332,6 +351,7 @@ pub(super) mod api {
         Ok(())
     }
 
+    #[instrument]
     pub(super) async fn activate_update() -> Result<()> {
         let raw_args = vec![
             ACTIVATE_UPDATES_URI.to_string(),
@@ -344,9 +364,8 @@ pub(super) mod api {
         Ok(())
     }
 
+    #[instrument]
     pub(super) async fn get_update_status() -> Result<UpdateStatus> {
-        refresh_updates().await?;
-
         let raw_args = vec![UPDATES_STATUS_URI.to_string()];
         let update_status_output =
             invoke_apiclient(get_raw_args(raw_args), Some(&UPDATE_API_RATE_LIMITER)).await?;
@@ -359,12 +378,14 @@ pub(super) mod api {
         Ok(update_status)
     }
 
+    #[instrument]
     pub(super) async fn reboot() -> Result<Output> {
         let raw_args = vec![REBOOT_URI.to_string(), "-m".to_string(), "POST".to_string()];
 
         invoke_apiclient(get_raw_args(raw_args), None).await
     }
 
+    #[instrument]
     pub(super) async fn get_os_info() -> Result<OsInfo> {
         let raw_args = vec![OS_URI.to_string()];
 

@@ -5,15 +5,21 @@ use apiserver::{
     RemoveNodeExclusionFromLoadBalancerRequest, UncordonBottlerocketShadowRequest,
     {CreateBottlerocketShadowRequest, UpdateBottlerocketShadowRequest},
 };
+use chrono::{DateTime, Utc};
+use governor::{
+    clock::DefaultClock,
+    middleware::NoOpMiddleware,
+    state::{InMemoryState, NotKeyed},
+    Quota, RateLimiter,
+};
+use k8s_openapi::api::core::v1::Node;
+use kube::runtime::reflector::Store;
+use kube::Api;
+use lazy_static::lazy_static;
 use models::node::{
     BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowSpec,
     BottlerocketShadowState, BottlerocketShadowStatus,
 };
-
-use chrono::{DateTime, Utc};
-use k8s_openapi::api::core::v1::Node;
-use kube::runtime::reflector::Store;
-use kube::Api;
 use snafu::{OptionExt, ResultExt};
 use std::env;
 use tokio::time::{sleep, Duration};
@@ -30,6 +36,14 @@ const RETRY_MAX_DELAY: Duration = Duration::from_secs(30);
 const NUM_RETRIES: usize = 5;
 
 const AGENT_SLEEP_DURATION: Duration = Duration::from_secs(5);
+const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(120);
+
+type SimpleRateLimiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>;
+
+lazy_static! {
+    static ref CHECK_UPDATE_RATE_LIMITER: SimpleRateLimiter =
+        RateLimiter::direct(Quota::with_period(UPDATE_CHECK_INTERVAL).unwrap());
+}
 
 /// The module-wide result type.
 pub type Result<T> = std::result::Result<T, agentclient_error::Error>;
@@ -189,14 +203,23 @@ impl<T: APIServerClient> BrupopAgent<T> {
         let os_info = apiclient::get_os_info()
             .await
             .context(agentclient_error::BottlerocketShadowStatusVersionSnafu)?;
-        let update_version = match apiclient::get_chosen_update()
-            .await
-            .context(agentclient_error::BottlerocketShadowStatusChosenUpdateSnafu)?
-        {
-            Some(chosen_update) => chosen_update.version,
-            // if chosen update is null which means current node already in latest version, assign current version value to it.
-            _ => os_info.version_id.clone(),
-        };
+
+        // If enough time has elapsed, ask the Bottlerocket API if any updates are available.
+        let update_version = if CHECK_UPDATE_RATE_LIMITER.check().is_ok() {
+            event!(Level::INFO, "Checking for Bottlerocket updates.");
+            apiclient::get_chosen_update()
+                .await
+                .context(agentclient_error::BottlerocketShadowStatusChosenUpdateSnafu)?
+                .map(|chosen_update| chosen_update.version)
+        } else {
+            // Rate limited, don't check for updates, just return whatever version we last returned.
+            self.fetch_shadow()
+                .await?
+                .status
+                .map(|status| status.target_version())
+        }
+        // If we can't determine a version to update to, just return our current version
+        .unwrap_or(os_info.version_id.clone());
 
         Ok(BottlerocketShadowStatus::new(
             os_info.version_id.clone(),
@@ -572,7 +595,8 @@ impl<T: APIServerClient> BrupopAgent<T> {
                         _ => {
                             event!(
                                 Level::WARN,
-                                "An error occurred when invoking Bottlerocket Update API"
+                                "An error occurred when invoking Bottlerocket Update API: '{}'",
+                                e
                             );
                             match self
                                 .update_status_in_shadow(
