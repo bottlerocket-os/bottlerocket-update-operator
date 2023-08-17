@@ -34,9 +34,6 @@ multiple-versions = "deny"
 wildcards = "deny"
 
 skip-tree = [
-    # actix-http uses older and newer versions of crates like rustc_version and
-    # semver, for build vs. runtime dependencies.
-    { name = "actix-http", version = "3.0.0-beta.10" },
     # aws-smithy-client brings in several lagging dependencies that can be ignored
     # since it is only used in the integration tests
     { name = "integ" }
