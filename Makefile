@@ -29,7 +29,7 @@ DESTDIR ?= .
 # tarball.
 DISTFILE ?= $(DESTDIR:/=)/$(subst /,_,$(IMAGE_NAME)).tar.gz
 
-BOTTLEROCKET_SDK_VERSION = v0.33.0
+BOTTLEROCKET_SDK_VERSION = v0.34.0
 BOTTLEROCKET_SDK_ARCH = $(UNAME_ARCH)
 
 # Tools used during the chart release lifecycle
