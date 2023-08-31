@@ -53,7 +53,7 @@ pub enum Error {
     CertExtract { path: String, source: io::Error },
 
     #[snafu(display("Failed to add CA to cert store: {}", source))]
-    CertStore { source: webpki::Error },
+    CertStore { source: rustls::Error },
 
     #[snafu(display("Failed to build TLS config from loaded certs: {}", source))]
     TLSConfigBuild { source: rustls::Error },

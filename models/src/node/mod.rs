@@ -4,11 +4,13 @@ mod drain;
 
 pub use self::client::client_error::Error as BottlerocketShadowClientError;
 pub use self::client::*;
-pub use self::crd::*;
-pub use self::error::Error as BottlerocketShadowError;
-
-/// The module-wide result type.
-type Result<T> = std::result::Result<T, error::Error>;
+// pub use self::crd::*;
+pub use self::crd::{
+    brs_name_from_node_name, combined_crds, error, v1, v2, BottlerocketShadow,
+    BottlerocketShadowResource, BottlerocketShadowSelector, BottlerocketShadowSpec,
+    BottlerocketShadowState, BottlerocketShadowStatus, Result, Selector,
+};
+pub use crd::error::Error as BottlerocketShadowError;
 
 use lazy_static::lazy_static;
 pub use semver::Version;
