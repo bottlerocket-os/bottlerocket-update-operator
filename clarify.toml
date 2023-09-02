@@ -115,5 +115,4 @@ license-files = [
 expression = "ISC"
 license-files = [
     { path = "LICENSE", hash = 0x001c7e6c },
-    { path = "third-party/chromium/LICENSE", hash = 0x9b209a1a },
 ]

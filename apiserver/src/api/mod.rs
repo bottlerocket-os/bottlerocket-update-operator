@@ -45,7 +45,7 @@ use rustls::{
 };
 use rustls_pemfile::{certs, pkcs8_private_keys};
 use snafu::{OptionExt, ResultExt};
-use std::{env, fs::File, io::BufReader};
+use std::{env, fs::File, io::BufReader, sync::Arc};
 use tokio::time::{sleep, Duration};
 use tracing::{event, Level};
 use tracing_actix_web::TracingLogger;
@@ -216,7 +216,7 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
         cert_store.add(&ca).context(error::CertStoreSnafu)?;
     }
 
-    let verifier = AllowAnyAnonymousOrAuthenticatedClient::new(cert_store);
+    let verifier = Arc::new(AllowAnyAnonymousOrAuthenticatedClient::new(cert_store));
 
     let tls_config_builder = ServerConfig::builder()
         .with_safe_defaults()
@@ -276,7 +276,7 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
                 web::get().to(ping::health_check),
             )
     })
-    .bind_rustls(server_addr, tls_config)
+    .bind_rustls_021(server_addr, tls_config)
     .context(error::HttpServerSnafu)?
     .run();
 
