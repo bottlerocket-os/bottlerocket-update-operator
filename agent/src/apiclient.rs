@@ -258,7 +258,7 @@ pub(super) mod api {
     /// Apiclient binary has been volume mounted into the agent container, so agent is able to
     /// invoke `/bin apiclient` to interact with the Bottlerocket Update API.
     /// This function helps to invoke apiclient raw command.
-    #[instrument(skip(rate_limiter))]
+    #[instrument(err, skip(rate_limiter))]
     pub(super) async fn invoke_apiclient(
         args: Vec<String>,
         rate_limiter: Option<&SimpleRateLimiter>,
@@ -296,7 +296,7 @@ pub(super) mod api {
                         match error_statuscode {
                             UPDATE_API_BUSY_STATUSCODE => {
                                 event!(
-                                    Level::INFO,
+                                    Level::DEBUG,
                                     "The lock for the update API is held by another process ..."
                                 );
                                 apiclient_error::UpdateApiUnavailableSnafu { args: args.clone() }
@@ -442,7 +442,7 @@ pub mod apiclient_error {
             statuscode: String,
         },
 
-        #[snafu(display("Unable to process command apiclient {}: update API unavailable: retries exhausted", args.join(" ")))]
+        #[snafu(display("Unable to process command apiclient {}: The lock for the update API is held by another process. Retries exhausted.", args.join(" ")))]
         UpdateApiUnavailable { args: Vec<String> },
 
         #[snafu(display("Unable to parse version information: '{}'", source))]
