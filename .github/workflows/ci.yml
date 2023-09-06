@@ -26,7 +26,7 @@ jobs:
       group: bottlerocket
       labels: bottlerocket_ubuntu-latest_8-core
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: rustup update stable
       - run: make build
       - name: Ensure git is clean
@@ -41,7 +41,7 @@ jobs:
       group: bottlerocket
       labels: bottlerocket_ubuntu-latest_8-core
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: make brupop-image
       - name: Ensure git is clean
         shell: bash
