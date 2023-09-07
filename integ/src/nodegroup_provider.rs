@@ -10,22 +10,22 @@ use std::fmt::Debug;
 use std::process::Command;
 use std::time::Duration;
 
-use aws_sdk_eks::model::IpFamily;
+use aws_sdk_eks::types::IpFamily;
 
 use aws_config::meta::region::RegionProviderChain;
-use aws_sdk_ec2::error::DescribeLaunchTemplatesError;
-use aws_sdk_ec2::model::{
+use aws_sdk_ec2::types::{
     ArchitectureValues, InstanceType, LaunchTemplateHttpTokensState,
     LaunchTemplateInstanceMetadataOptionsRequest, LaunchTemplateTagSpecificationRequest,
     RequestLaunchTemplateData, ResourceType, Tag,
 };
 
-use aws_sdk_ec2::output::DescribeLaunchTemplatesOutput;
-use aws_sdk_ec2::types::SdkError;
-use aws_sdk_ec2::Region;
-use aws_sdk_eks::model::{LaunchTemplateSpecification, NodegroupScalingConfig, NodegroupStatus};
-use aws_sdk_iam::error::{GetInstanceProfileError, GetInstanceProfileErrorKind};
-use aws_sdk_iam::output::GetInstanceProfileOutput;
+use aws_sdk_ec2::config::Region;
+use aws_sdk_ec2::error::SdkError;
+use aws_sdk_ec2::operation::describe_launch_templates::DescribeLaunchTemplatesError;
+use aws_sdk_ec2::operation::describe_launch_templates::DescribeLaunchTemplatesOutput;
+use aws_sdk_eks::types::{LaunchTemplateSpecification, NodegroupScalingConfig, NodegroupStatus};
+use aws_sdk_iam::operation::get_instance_profile::GetInstanceProfileError;
+use aws_sdk_iam::operation::get_instance_profile::GetInstanceProfileOutput;
 
 use crate::eks_provider::{ClusterDnsIpInfo, ClusterInfo};
 use crate::error::{IntoProviderError, ProviderError, ProviderResult};
@@ -566,10 +566,7 @@ fn instance_profile_exists(
         Ok(_) => true,
         Err(err) => !matches!(
             err.into_service_error(),
-            GetInstanceProfileError {
-                kind: GetInstanceProfileErrorKind::NoSuchEntityException(_),
-                ..
-            }
+            GetInstanceProfileError::NoSuchEntityException(_)
         ),
     }
 }
