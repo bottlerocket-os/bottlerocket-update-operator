@@ -11,6 +11,12 @@ For a deep dive on installing Brupop, how it works, and its integration with Bot
 
 ## Getting Started
 
+### Version Support Policy
+
+As per our policy, Brupop follows the semantic versioning (semver) principles, ensuring that any updates in minor versions do not introduce any breaking or backward-incompatible changes. However, please note that we only provide security patches for the latest minor version. Therefore, it is highly recommended to always keep your Brupop installation up to date with the latest available version.
+
+For example: If `v1.3.0` is the latest Brupop release, then, `v1.3` (latest minor version) will be considered as supported and `v1.3.0` (latest available version) will be the recommended version of Brupop to be installed. When `v1.3.1` is released, then that version will be considered as recommended.
+
 ### Installation
 
 1. Brupop uses [cert-manager](https://cert-manager.io) to manage self-signed certificates used by the Bottlerocket update operator. To install cert-manager:
