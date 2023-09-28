@@ -30,7 +30,7 @@ dependencies = [
  "actix-service",
  "actix-tls",
  "actix-utils",
- "ahash 0.8.3",
+ "ahash",
  "base64 0.21.2",
  "bitflags 2.4.0",
  "brotli",
@@ -169,7 +169,7 @@ dependencies = [
  "actix-tls",
  "actix-utils",
  "actix-web-codegen",
- "ahash 0.8.3",
+ "ahash",
  "bytes",
  "bytestring",
  "cfg-if",
@@ -258,17 +258,6 @@ dependencies = [
  "tokio",
  "tokio-retry",
  "tracing",
-]
-
-[[package]]
-name = "ahash"
-version = "0.7.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcb51a0695d8f838b1ee009b3fbf66bda078cd64590202a864a8f3e8c4315c47"
-dependencies = [
- "getrandom",
- "once_cell",
- "version_check",
 ]
 
 [[package]]
@@ -413,9 +402,9 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "awc"
-version = "3.1.1"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87ef547a81796eb2dfe9b345aba34c2e08391a0502493711395b36dd64052b69"
+checksum = "7fa3c705a9c7917ac0f41c0757a0a747b43bbc29b0b364b081bd7c5fc67fb223"
 dependencies = [
  "actix-codec",
  "actix-http",
@@ -423,7 +412,6 @@ dependencies = [
  "actix-service",
  "actix-tls",
  "actix-utils",
- "ahash 0.7.6",
  "base64 0.21.2",
  "bytes",
  "cfg-if",
@@ -1539,7 +1527,7 @@ version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c6201b9ff9fd90a5a3bac2e56a830d0caa509576f0e503818ee82c181b3437a"
 dependencies = [
- "ahash 0.8.3",
+ "ahash",
  "allocator-api2",
 ]
 
@@ -2023,7 +2011,7 @@ version = "0.85.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "381224caa8a6fc16f8251cf1fd6d8678cdf5366f33000a923e4c54192e4b25b5"
 dependencies = [
- "ahash 0.8.3",
+ "ahash",
  "async-trait",
  "backoff",
  "derivative",
