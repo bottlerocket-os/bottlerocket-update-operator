@@ -7,7 +7,7 @@ use std::env::temp_dir;
 use std::fs;
 use std::process;
 
-use aws_sdk_ec2::model::ArchitectureValues;
+use aws_sdk_ec2::types::ArchitectureValues;
 
 use kube::config::{Config, KubeConfigOptions, Kubeconfig};
 

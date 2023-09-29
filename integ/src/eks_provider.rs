@@ -4,9 +4,9 @@
 !*/
 
 use aws_config::meta::region::RegionProviderChain;
-use aws_sdk_ec2::model::{Filter, SecurityGroup, Subnet};
-use aws_sdk_ec2::Region;
-use aws_sdk_eks::model::IpFamily;
+use aws_sdk_ec2::config::Region;
+use aws_sdk_ec2::types::{Filter, SecurityGroup, Subnet};
+use aws_sdk_eks::types::IpFamily;
 
 use crate::error::{IntoProviderError, ProviderError, ProviderResult};
 
