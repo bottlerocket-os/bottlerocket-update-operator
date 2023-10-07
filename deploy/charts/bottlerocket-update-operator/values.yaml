@@ -111,3 +111,7 @@ logging:
     tracing_filter: "info"
   apiserver:
     tracing_filter: "info"
+
+prometheus:
+  serviceMonitor:
+    enabled: false
