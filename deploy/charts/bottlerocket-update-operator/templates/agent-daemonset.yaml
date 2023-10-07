@@ -62,12 +62,7 @@ spec:
           image: {{ .Values.image }}
           name: brupop
           resources:
-            limits:
-              cpu: 10m
-              memory: 50Mi
-            requests:
-              cpu: 5m
-              memory: 8Mi
+            {{- toYaml .Values.resources.agent.resources | nindent 12 }}
           securityContext:
             seLinuxOptions:
               level: s0
