@@ -10,7 +10,7 @@ models = { path = "../models", version = "0.1.0" }
 
 argh = "0.1"
 aws-config = "0.56.1"
-aws-sdk-ec2 = "0.30.0"
+aws-sdk-ec2 = "0.33.1"
 aws-sdk-eks = "0.33.0"
 aws-sdk-iam = "0.30.0"
 aws-sdk-ssm = "0.30.0"
