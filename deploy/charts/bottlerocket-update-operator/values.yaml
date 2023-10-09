@@ -113,5 +113,6 @@ logging:
     tracing_filter: "info"
 
 prometheus:
-  serviceMonitor:
-    enabled: false
+  controller:
+    serviceMonitor:
+      enabled: false
