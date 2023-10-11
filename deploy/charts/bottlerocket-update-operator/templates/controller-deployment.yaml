@@ -72,6 +72,8 @@ spec:
               value: "{{ .Values.logging.controller.tracing_filter }}"
           image: {{ .Values.image }}
           name: brupop
+          resources:
+            {{- toYaml .Values.resources.controller.resources | nindent 12 }}
       priorityClassName: brupop-controller-high-priority
       {{ if ((.Values.image_pull_secrets)) }}
       image_pull_secrets: 

@@ -81,6 +81,8 @@ spec:
               port: {{ .Values.apiserver_internal_port }}
               scheme: HTTPS
             initialDelaySeconds: 5
+          resources:
+            {{- toYaml .Values.resources.apiserver.resources | nindent 12 }}
           volumeMounts:
             - mountPath: /etc/brupop-tls-keys
               name: bottlerocket-tls-keys
