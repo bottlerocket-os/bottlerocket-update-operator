@@ -1,0 +1,22 @@
+{{- if .Values.prometheus.controller.serviceMonitor.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: brupop-controller
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/component: brupop-controller
+    app.kubernetes.io/managed-by: brupop
+    app.kubernetes.io/part-of: brupop
+    brupop.bottlerocket.aws/component: brupop-controller
+spec:
+  endpoints:
+  - port: main
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.namespace }}
+  selector:
+    matchLabels:
+      brupop.bottlerocket.aws/component: brupop-controller
+{{- end }}
+

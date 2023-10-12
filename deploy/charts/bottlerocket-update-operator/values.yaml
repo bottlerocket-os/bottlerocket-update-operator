@@ -112,6 +112,11 @@ logging:
   apiserver:
     tracing_filter: "info"
 
+prometheus:
+  controller:
+    serviceMonitor:
+      enabled: false
+
 resources:
   agent:
     resources:

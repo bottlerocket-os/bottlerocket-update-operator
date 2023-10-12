@@ -16,5 +16,6 @@ spec:
   ports:
     - port: 80
       targetPort: 8080
+      name: main
   selector:
     brupop.bottlerocket.aws/component: brupop-controller
