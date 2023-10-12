@@ -116,3 +116,27 @@ prometheus:
   controller:
     serviceMonitor:
       enabled: false
+
+resources:
+  agent:
+    resources:
+      limits:
+        cpu: 10m
+        memory: 50Mi
+      requests:
+        cpu: 5m
+        memory: 8Mi
+  apiserver:
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        cpu: 10m
+        memory: 40Mi
+  controller:
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        cpu: 10m
+        memory: 40Mi
