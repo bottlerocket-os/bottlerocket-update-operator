@@ -74,7 +74,9 @@ spec:
           name: brupop
           resources:
             {{- toYaml .Values.resources.controller.resources | nindent 12 }}
+      {{- if .Values.placement.controller.priorityClassName }}
       priorityClassName: {{ .Values.placement.controller.priorityClassName | quote }}
+      {{- end }}
       {{ if ((.Values.image_pull_secrets)) }}
       image_pull_secrets: 
         {{ .Values.image_pull_secrets }}
