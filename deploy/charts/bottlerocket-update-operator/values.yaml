@@ -42,7 +42,6 @@ placement:
             topologyKey: kubernetes.io/hostname
     priorityClassName: ""
 
-
 # If testing against a private image registry, you can set the pull secret to fetch images.
 # This can likely remain as `brupop` so long as you run something like the following:
 # kubectl create secret docker-registry brupop \
