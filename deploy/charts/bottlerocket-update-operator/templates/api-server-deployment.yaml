@@ -53,6 +53,7 @@ spec:
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      priorityClassName: {{ .Values.placement.apiserver.priorityClassName }}
       containers:
         - command:
             - "./apiserver"
