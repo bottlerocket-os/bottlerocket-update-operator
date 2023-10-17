@@ -15,12 +15,14 @@ placement:
   agent:
     # The agent is a daemonset, so the only controls that apply to it are tolerations.
     tolerations: []
+    priorityClassName: ""
 
   controller:
     tolerations: []
     nodeSelector: {}
     podAffinity: {}
     podAntiAffinity: {}
+    priorityClassName: brupop-controller-high-priority
 
   apiserver:
     tolerations: []
@@ -38,6 +40,7 @@ placement:
                 values:
                 - apiserver
             topologyKey: kubernetes.io/hostname
+    priorityClassName: ""
 
 # If testing against a private image registry, you can set the pull secret to fetch images.
 # This can likely remain as `brupop` so long as you run something like the following:

@@ -41,6 +41,9 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if .Values.placement.agent.priorityClassName }}
+      priorityClassName: {{ .Values.placement.agent.priorityClassName | quote }}
+      {{- end }}
       containers:
         - command:
             - "./agent"
