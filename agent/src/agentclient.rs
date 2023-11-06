@@ -549,10 +549,17 @@ impl<T: APIServerClient> BrupopAgent<T> {
                 }
             };
 
-            let bottlerocket_shadow_status = bottlerocket_shadow
-                .status
-                .as_ref()
-                .context(agentclient_error::MissingBottlerocketShadowStatusSnafu)?;
+            let bottlerocket_shadow_status = match bottlerocket_shadow.status.as_ref() {
+                Some(bottlerocket_shadow_status) => bottlerocket_shadow_status,
+                None => {
+                    event!(
+                        Level::WARN,
+                        "An error occurred when fetching BottlerocketShadowStatus. Restarting event loop"
+                    );
+                    sleep(AGENT_SLEEP_DURATION).await;
+                    continue;
+                }
+            };
 
             match self.handle_state_transition(&bottlerocket_shadow).await {
                 Ok(()) => {
