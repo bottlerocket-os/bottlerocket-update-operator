@@ -515,7 +515,7 @@ brs-node-2                                         Idle    1.5.1     StagedUpdat
 The update operator provides metrics endpoints which can be scraped by [Prometheus](https://prometheus.io/).
 This allows you to monitor the history of update operations using popular metrics analysis and visualization tools.
 
-We provide a [sample configuration](./deploy/telemetry/prometheus-resources.yaml) which demonstrates a Prometheus deployment into the cluster that is configured to gather metrics data from the update operator.
+We provide a [sample configuration](./deploy/examples/prometheus-resources.yaml) which demonstrates a Prometheus deployment into the cluster that is configured to gather metrics data from the update operator.
 
 To deploy the sample configuration, you can use `kubectl`:
 
