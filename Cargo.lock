@@ -246,7 +246,7 @@ dependencies = [
  "dotenv",
  "futures",
  "governor",
- "k8s-openapi",
+ "k8s-openapi 0.21.1",
  "kube",
  "lazy_static",
  "models",
@@ -328,7 +328,7 @@ dependencies = [
  "futures",
  "governor",
  "http",
- "k8s-openapi",
+ "k8s-openapi 0.21.1",
  "kube",
  "lazy_static",
  "log",
@@ -1041,7 +1041,7 @@ dependencies = [
  "cron",
  "futures",
  "http",
- "k8s-openapi",
+ "k8s-openapi 0.21.1",
  "kube",
  "lazy_static",
  "maplit",
@@ -1819,7 +1819,7 @@ dependencies = [
  "console_log",
  "env_logger",
  "hex",
- "k8s-openapi",
+ "k8s-openapi 0.21.1",
  "kube",
  "lazy_static",
  "log",
@@ -1936,12 +1936,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "k8s-openapi"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "550f99d93aa4c2b25de527bce492d772caf5e21d7ac9bd4b508ba781c8d91e30"
+dependencies = [
+ "base64 0.21.2",
+ "chrono",
+ "serde",
+ "serde-value",
+ "serde_json",
+]
+
+[[package]]
 name = "kube"
 version = "0.85.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a189cb8721a47de68d883040713bbb9c956763d784fcf066828018d32c180b96"
 dependencies = [
- "k8s-openapi",
+ "k8s-openapi 0.19.0",
  "kube-client",
  "kube-core",
  "kube-derive",
@@ -1966,7 +1979,7 @@ dependencies = [
  "hyper-rustls",
  "hyper-timeout",
  "jsonpath_lib",
- "k8s-openapi",
+ "k8s-openapi 0.19.0",
  "kube-core",
  "pem",
  "pin-project",
@@ -1994,7 +2007,7 @@ dependencies = [
  "form_urlencoded",
  "http",
  "json-patch",
- "k8s-openapi",
+ "k8s-openapi 0.19.0",
  "once_cell",
  "schemars",
  "serde",
@@ -2028,7 +2041,7 @@ dependencies = [
  "futures",
  "hashbrown 0.14.0",
  "json-patch",
- "k8s-openapi",
+ "k8s-openapi 0.19.0",
  "kube-client",
  "parking_lot",
  "pin-project",
@@ -2208,7 +2221,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "futures",
- "k8s-openapi",
+ "k8s-openapi 0.21.1",
  "kube",
  "lazy_static",
  "maplit",
