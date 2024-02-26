@@ -22,7 +22,7 @@ rustls = { version = "0.21" }
 rustls-pemfile = { version = "1" }
 webpki = { version = "0.22.4", features = ["std"] }
 opentelemetry = { version = "0.18", features = ["rt-tokio-current-thread"]}
-opentelemetry-prometheus = "0.11"
+opentelemetry-prometheus = "0.15"
 tracing = "0.1"
 tracing-actix-web = "0.7"
 
