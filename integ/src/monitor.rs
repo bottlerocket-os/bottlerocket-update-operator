@@ -285,7 +285,7 @@ pub(crate) mod test {
     use std::str::FromStr;
 
     use k8s_openapi::api::core::v1::{Pod, PodStatus};
-    use kube::api::{ListMeta, ObjectList, ObjectMeta};
+    use kube::api::{ListMeta, ObjectList, ObjectMeta, TypeMeta};
 
     use models::node::{BottlerocketShadow, BottlerocketShadowState, BottlerocketShadowStatus};
 
@@ -316,6 +316,10 @@ pub(crate) mod test {
                         resource_version: Some("83212702".to_string()),
                         self_link: None,
                     },
+                    types: TypeMeta {
+                        api_version: "v1".to_string(),
+                        kind: "Custom".to_string(),
+                    },
                 },
                 true,
             ),
@@ -332,6 +336,10 @@ pub(crate) mod test {
                         resource_version: Some("83212702".to_string()),
                         self_link: None,
                     },
+                    types: TypeMeta {
+                        api_version: "v1".to_string(),
+                        kind: "Custom".to_string(),
+                    },
                 },
                 false,
             ),
@@ -343,6 +351,10 @@ pub(crate) mod test {
                         remaining_item_count: None,
                         resource_version: Some("83212702".to_string()),
                         self_link: None,
+                    },
+                    types: TypeMeta {
+                        api_version: "v1".to_string(),
+                        kind: "Custom".to_string(),
                     },
                 },
                 false,
@@ -408,6 +420,10 @@ pub(crate) mod test {
                         resource_version: Some("83212702".to_string()),
                         self_link: None,
                     },
+                    types: TypeMeta {
+                        api_version: "v1".to_string(),
+                        kind: "Custom".to_string(),
+                    },
                 },
                 true,
             ),
@@ -430,6 +446,10 @@ pub(crate) mod test {
                         resource_version: Some("83212702".to_string()),
                         self_link: None,
                     },
+                    types: TypeMeta {
+                        api_version: "v1".to_string(),
+                        kind: "Custom".to_string(),
+                    },
                 },
                 false,
             ),
@@ -441,6 +461,10 @@ pub(crate) mod test {
                         remaining_item_count: None,
                         resource_version: Some("83212702".to_string()),
                         self_link: None,
+                    },
+                    types: TypeMeta {
+                        api_version: "v1".to_string(),
+                        kind: "Custom".to_string(),
                     },
                 },
                 false,
@@ -485,6 +509,10 @@ pub(crate) mod test {
                         resource_version: Some("83212702".to_string()),
                         self_link: None,
                     },
+                    types: TypeMeta {
+                        api_version: "v1".to_string(),
+                        kind: "Custom".to_string(),
+                    },
                 },
                 false,
             ),
@@ -516,6 +544,10 @@ pub(crate) mod test {
                         resource_version: Some("83212702".to_string()),
                         self_link: None,
                     },
+                    types: TypeMeta {
+                        api_version: "v1".to_string(),
+                        kind: "Custom".to_string(),
+                    },
                 },
                 true,
             ),
@@ -546,6 +578,10 @@ pub(crate) mod test {
                         remaining_item_count: None,
                         resource_version: Some("83212702".to_string()),
                         self_link: None,
+                    },
+                    types: TypeMeta {
+                        api_version: "v1".to_string(),
+                        kind: "Custom".to_string(),
                     },
                 },
                 false,
