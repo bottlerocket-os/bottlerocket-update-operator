@@ -17,14 +17,16 @@ models = { path = "../models", version = "0.1.0" }
 # tracing-actix-web version must align with actix-web version
 actix-web = { version = "4.4", features = ["rustls-0_21"] }
 awc = "3"
-actix-web-opentelemetry = { version = "0.13", features = ["metrics", "metrics-prometheus"] }
+actix-web-opentelemetry = { version = "0.17", features = ["metrics", "metrics-prometheus"] }
 rustls = { version = "0.21" }
 rustls-pemfile = { version = "1" }
 webpki = { version = "0.22.4", features = ["std"] }
-opentelemetry = { version = "0.18", features = ["rt-tokio-current-thread"]}
-opentelemetry-prometheus = "0.11"
+opentelemetry = { version = "0.22"}
+opentelemetry_sdk = {version = "0.22", features = ["rt-tokio-current-thread"]}
+opentelemetry-prometheus = "0.15"
 tracing = "0.1"
 tracing-actix-web = "0.7"
+prometheus = "0.13.0"
 
 # k8s-openapi must match the version required by kube and enable a k8s version feature
 k8s-openapi = { version = "0.21", default-features = false, features = ["v1_24"] }

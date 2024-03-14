@@ -2,11 +2,12 @@ use apiserver::api::{self, APIServerSettings};
 use apiserver_error::{StartServerSnafu, StartTelemetrySnafu};
 use models::node::K8SBottlerocketShadowClient;
 use models::telemetry;
+use opentelemetry::global;
 use tracing::{event, Level};
 
-use opentelemetry::sdk::export::metrics::aggregation;
-use opentelemetry::sdk::metrics::{controllers, processors, selectors};
-
+use opentelemetry::KeyValue;
+use opentelemetry_sdk::metrics::SdkMeterProvider;
+use opentelemetry_sdk::Resource;
 use snafu::ResultExt;
 
 use std::convert::TryFrom;
@@ -34,16 +35,19 @@ async fn main() {
 
 async fn run_server() -> Result<(), apiserver_error::Error> {
     telemetry::init_telemetry_from_env().context(StartTelemetrySnafu)?;
-    let controller = controllers::basic(
-        processors::factory(
-            selectors::simple::histogram([1.0, 2.0, 5.0, 10.0, 20.0, 50.0]),
-            aggregation::cumulative_temporality_selector(),
-        )
-        .with_memory(true),
-    )
-    .build();
 
-    let prometheus_exporter = opentelemetry_prometheus::exporter(controller).init();
+    let prometheus_registry = prometheus::Registry::new();
+
+    let prometheus_exporter = opentelemetry_prometheus::exporter()
+        .with_registry(prometheus_registry.clone())
+        .build()
+        .context(apiserver_error::PrometheusRegsitrySnafu)?;
+
+    let prometheus_provider = SdkMeterProvider::builder()
+        .with_reader(prometheus_exporter)
+        .with_resource(Resource::new([KeyValue::new("service.name", "apiserver")]))
+        .build();
+    global::set_meter_provider(prometheus_provider);
 
     let incluster_config =
         kube::Config::incluster_dns().context(apiserver_error::K8sClientConfigSnafu)?;
@@ -68,7 +72,7 @@ async fn run_server() -> Result<(), apiserver_error::Error> {
         namespace,
     };
 
-    api::run_server(settings, k8s_client, prometheus_exporter)
+    api::run_server(settings, k8s_client, prometheus_registry)
         .await
         .context(StartServerSnafu)
 }
@@ -108,6 +112,11 @@ pub mod apiserver_error {
         #[snafu(display("Unable to start API server: '{}'", source))]
         StartServer {
             source: apiserver::api::error::Error,
+        },
+
+        #[snafu(display("Error creating prometheus registry: '{}'", source))]
+        PrometheusRegsitry {
+            source: opentelemetry::metrics::MetricsError,
         },
     }
 }
