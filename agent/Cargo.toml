@@ -17,8 +17,8 @@ nonzero_ext = "0.3"
 tracing = "0.1"
 
 # k8s-openapi must match the version required by kube and enable a k8s version feature
-k8s-openapi = { version = "0.19", default-features = false, features = ["v1_24"] }
-kube = { version = "0.85", default-features = false, features = [ "derive", "runtime", "rustls-tls" ] }
+k8s-openapi = { version = "0.21", default-features = false, features = ["v1_24"] }
+kube = { version = "0.88", default-features = false, features = [ "derive", "runtime", "rustls-tls" ] }
 
 semver = { version = "1.0", features = [ "serde" ] }
 serde = { version = "1", features = [ "derive" ] }

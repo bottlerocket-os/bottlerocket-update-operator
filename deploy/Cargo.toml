@@ -8,7 +8,7 @@ license = "Apache-2.0 OR MIT"
 [build-dependencies]
 models = { path = "../models", version = "0.1.0" }
 dotenv = "0.15"
-kube = { version = "0.85", default-features = false, features = [ "derive", "runtime" ] }
+kube = { version = "0.88", default-features = false, features = [ "derive", "runtime" ] }
 serde_yaml = "0.9"
 
 [dev-dependencies]
