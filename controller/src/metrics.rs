@@ -81,19 +81,19 @@ impl BrupopControllerMetrics {
             .with_description("Brupop host's state")
             .init();
 
-        let _ = meter.register_callback(move |cx| {
+        let _ = meter.register_callback(&[brupop_hosts_version_observer.as_any()], move |cx| {
             let data = hosts_data_clone_for_version.lock().unwrap();
             for (host_version, count) in &data.hosts_version_count {
                 let labels = vec![HOST_VERSION_KEY.string(host_version.to_string())];
-                brupop_hosts_version_observer.observe(cx, *count, &labels);
+                cx.observe_u64(&brupop_hosts_version_observer, *count, &labels);
             }
         });
 
-        let _ = meter.register_callback(move |cx| {
+        let _ = meter.register_callback(&[brupop_hosts_state_observer.as_any()], move |cx| {
             let data = hosts_data_clone_for_state.lock().unwrap();
             for (host_state, count) in &data.hosts_state_count {
                 let labels = vec![HOST_STATE_KEY.string(host_state.to_string())];
-                brupop_hosts_state_observer.observe(cx, *count, &labels);
+                cx.observe_u64(&brupop_hosts_state_observer, *count, &labels);
             }
         });
 

@@ -15,7 +15,8 @@ use kube::api::DeleteParams;
 use kube::runtime::reflector::Store;
 use kube::Api;
 use kube::ResourceExt;
-use opentelemetry::global;
+use opentelemetry::metrics::MeterProvider;
+use opentelemetry_sdk::metrics::SdkMeterProvider;
 use snafu::ResultExt;
 use std::collections::BTreeMap;
 use std::env;
@@ -52,10 +53,11 @@ impl<T: BottlerocketShadowClient> BrupopController<T> {
         brs_reader: Store<BottlerocketShadow>,
         node_reader: Store<Node>,
         namespace: &str,
+        provider: &SdkMeterProvider,
     ) -> Self {
         // Creates brupop-controller meter via the configured
         // GlobalMeterProvider which is setup in PrometheusExporter
-        let meter = global::meter("brupop-controller");
+        let meter = provider.meter("brupop-controller");
         let metrics = BrupopControllerMetrics::new(meter);
         BrupopController {
             k8s_client,

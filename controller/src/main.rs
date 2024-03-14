@@ -21,8 +21,7 @@ use kube::{
     ResourceExt,
 };
 
-use opentelemetry::sdk::export::metrics::aggregation;
-use opentelemetry::sdk::metrics::{controllers, processors, selectors};
+use opentelemetry_sdk::metrics::SdkMeterProvider;
 use snafu::ResultExt;
 use tracing::{event, Level};
 
@@ -50,18 +49,16 @@ async fn main() -> Result<()> {
 
     let node_client = K8SBottlerocketShadowClient::new(k8s_client.clone(), &namespace);
 
-    let controller = controllers::basic(
-        processors::factory(
-            selectors::simple::histogram([1.0, 2.0, 5.0, 10.0, 20.0, 50.0]),
-            aggregation::cumulative_temporality_selector(),
-        )
-        .with_memory(false),
-    )
-    .build();
+    let registry = prometheus::Registry::new();
 
     // Exporter has to be initialized before BrupopController
     // in order to setup global meter provider properly
-    let exporter = opentelemetry_prometheus::exporter(controller).init();
+    let exporter = opentelemetry_prometheus::exporter()
+        .with_registry(registry.clone())
+        .build()
+        .context(controller_error::PrometheusRegsitrySnafu)?;
+
+    let provider = SdkMeterProvider::builder().with_reader(exporter).build();
 
     // Setup and run a reflector, ensuring that `BottlerocketShadow` updates are reflected to the controller.
     let brs_reflector = reflector::reflector(
@@ -96,8 +93,14 @@ async fn main() -> Result<()> {
         });
 
     // Setup and run the controller.
-    let controller =
-        BrupopController::new(k8s_client, node_client, brs_reader, node_reader, &namespace);
+    let controller = BrupopController::new(
+        k8s_client,
+        node_client,
+        brs_reader,
+        node_reader,
+        &namespace,
+        &provider,
+    );
     let controller_runner = controller.run();
 
     let k8s_service_addr = env::var("KUBERNETES_SERVICE_HOST")
@@ -113,7 +116,7 @@ async fn main() -> Result<()> {
     // Setup Http server to vend prometheus metrics
     let prometheus_server = HttpServer::new(move || {
         App::new()
-            .app_data(Data::new(exporter.clone()))
+            .app_data(Data::new(registry.clone()))
             .service(vending_metrics)
     })
     .bind(format!("{}:{}", bindaddress, CONTROLLER_INTERNAL_PORT))
@@ -177,6 +180,11 @@ pub mod controller_error {
         #[snafu(display("Error configuring telemetry: '{}'", source))]
         TelemetryInit {
             source: telemetry::TelemetryConfigError,
+        },
+
+        #[snafu(display("Error creating prometheus registry: '{}'", source))]
+        PrometheusRegsitry {
+            source: opentelemetry::metrics::MetricsError,
         },
     }
 }

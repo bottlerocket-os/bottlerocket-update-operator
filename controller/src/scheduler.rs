@@ -253,7 +253,7 @@ pub(crate) mod test {
         let test_cases = vec![
             (
                 Schedule::from_str("* * * * * * *".as_ref()).unwrap(),
-                DateTime::<Utc>::from_utc(
+                DateTime::<Utc>::from_naive_utc_and_offset(
                     NaiveDate::from_ymd_opt(2099, 1, 1)
                         .unwrap()
                         .and_hms_opt(2, 0, 0)
@@ -264,7 +264,7 @@ pub(crate) mod test {
             ),
             (
                 Schedule::from_str("10 10 10 * * * *".as_ref()).unwrap(),
-                DateTime::<Utc>::from_utc(
+                DateTime::<Utc>::from_naive_utc_and_offset(
                     NaiveDate::from_ymd_opt(2099, 1, 1)
                         .unwrap()
                         .and_hms_opt(2, 0, 0)
@@ -275,7 +275,7 @@ pub(crate) mod test {
             ),
             (
                 Schedule::from_str("10 10 10 * * Mon *".as_ref()).unwrap(),
-                DateTime::<Utc>::from_utc(
+                DateTime::<Utc>::from_naive_utc_and_offset(
                     NaiveDate::from_ymd_opt(2099, 1, 1)
                         .unwrap()
                         .and_hms_opt(2, 0, 0)
@@ -297,7 +297,7 @@ pub(crate) mod test {
     fn test_duration_to_next() {
         let test_cases = vec![
             (
-                DateTime::<Utc>::from_utc(
+                DateTime::<Utc>::from_naive_utc_and_offset(
                     NaiveDate::from_ymd_opt(2099, 12, 1)
                         .unwrap()
                         .and_hms_opt(2, 0, 0)
@@ -308,7 +308,7 @@ pub(crate) mod test {
                 chrono::Duration::hours(2),
             ),
             (
-                DateTime::<Utc>::from_utc(
+                DateTime::<Utc>::from_naive_utc_and_offset(
                     NaiveDate::from_ymd_opt(2099, 12, 1)
                         .unwrap()
                         .and_hms_opt(0, 0, 0)
@@ -319,7 +319,7 @@ pub(crate) mod test {
                 chrono::Duration::days(30),
             ),
             (
-                DateTime::<Utc>::from_utc(
+                DateTime::<Utc>::from_naive_utc_and_offset(
                     NaiveDate::from_ymd_opt(2099, 12, 1)
                         .unwrap()
                         .and_hms_opt(0, 0, 0)
@@ -341,7 +341,7 @@ pub(crate) mod test {
     fn test_should_discontinue_updates_impl() {
         let test_cases = vec![
             (
-                DateTime::<Utc>::from_utc(
+                DateTime::<Utc>::from_naive_utc_and_offset(
                     NaiveDate::from_ymd_opt(2099, 12, 1)
                         .unwrap()
                         .and_hms_opt(2, 0, 0)
@@ -352,7 +352,7 @@ pub(crate) mod test {
                 false,
             ),
             (
-                DateTime::<Utc>::from_utc(
+                DateTime::<Utc>::from_naive_utc_and_offset(
                     NaiveDate::from_ymd_opt(2099, 12, 1)
                         .unwrap()
                         .and_hms_opt(0, 0, 0)
@@ -363,7 +363,7 @@ pub(crate) mod test {
                 false,
             ),
             (
-                DateTime::<Utc>::from_utc(
+                DateTime::<Utc>::from_naive_utc_and_offset(
                     NaiveDate::from_ymd_opt(2099, 12, 1)
                         .unwrap()
                         .and_hms_opt(0, 0, 0)
