@@ -1,5 +1,5 @@
 //! Project-wide utility for initializing OpenTelemetry.
-use opentelemetry::sdk::propagation::TraceContextPropagator;
+use opentelemetry_sdk::propagation::TraceContextPropagator;
 use serde::Deserialize;
 use snafu::ResultExt;
 use std::env;

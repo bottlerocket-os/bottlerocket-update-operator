@@ -291,7 +291,7 @@ impl From<BottleRocketShadowV1> for BottlerocketShadow {
 
         BottlerocketShadow {
             metadata: ObjectMeta {
-                /// The converted object has to maintain the same name, namespace and uid
+                // The converted object has to maintain the same name, namespace and uid
                 name: previous_metadata.name,
                 namespace: previous_metadata.namespace,
                 uid: previous_metadata.uid,
