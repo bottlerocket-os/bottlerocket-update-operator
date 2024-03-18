@@ -26,7 +26,7 @@ use actix_web::{
     web::{self, Data},
     App, HttpServer,
 };
-use actix_web_opentelemetry::{PrometheusMetricsHandler, RequestMetricsBuilder, RequestTracing};
+use actix_web_opentelemetry::{PrometheusMetricsHandler, RequestMetrics, RequestTracing};
 use futures::StreamExt;
 use k8s_openapi::api::core::v1::Pod;
 use kube::{
@@ -38,7 +38,7 @@ use kube::{
     },
     ResourceExt,
 };
-use opentelemetry::global::meter;
+
 use rustls::{
     server::AllowAnyAnonymousOrAuthenticatedClient, Certificate, PrivateKey, RootCertStore,
     ServerConfig,
@@ -111,7 +111,7 @@ pub struct APIServerSettings<T: BottlerocketShadowClient> {
 pub async fn run_server<T: 'static + BottlerocketShadowClient>(
     settings: APIServerSettings<T>,
     k8s_client: kube::Client,
-    prometheus_exporter: opentelemetry_prometheus::PrometheusExporter,
+    prometheus_registry: prometheus::Registry,
 ) -> Result<()> {
     let public_key_path = format!("{}/{}", TLS_KEY_MOUNT_PATH, PUBLIC_KEY_NAME);
     let certificate_cache =
@@ -145,12 +145,6 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
             event!(Level::TRACE, pod_name = %pod.name_any(), ?pod.spec, ?pod.status, "Processed event for Pod");
             futures::future::ready(())
         });
-
-    // Build the metrics meter
-    let apiserver_meter = meter("apiserver");
-
-    // Set up metrics request builder
-    let request_metrics = RequestMetricsBuilder::new().build(apiserver_meter);
 
     // Set up the actix server.
 
@@ -240,10 +234,10 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
                 .exclude(CRD_CONVERT_ENDPOINT),
             )
             .wrap(RequestTracing::new())
-            .wrap(request_metrics.clone())
+            .wrap(RequestMetrics::default())
             .route(
                 "/metrics",
-                web::get().to(PrometheusMetricsHandler::new(prometheus_exporter.clone())),
+                web::get().to(PrometheusMetricsHandler::new(prometheus_registry.clone())),
             )
             .wrap(TracingLogger::<telemetry::BrupopApiserverRootSpanBuilder>::new())
             .app_data(Data::new(settings.clone()))
