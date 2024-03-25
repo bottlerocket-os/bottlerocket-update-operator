@@ -19,7 +19,7 @@ mockall = { version = "0.11", optional = true }
 opentelemetry = { version = "0.22"}
 opentelemetry_sdk = { version = "0.22", features = ["rt-tokio-current-thread"]}
 regex = "1.9"
-reqwest = { version = "0.11", default-features = false, features =  [ "json" ] }
+reqwest = { version = "0.12", default-features = false, features =  [ "json" ] }
 schemars = "0.8.11"
 semver = "1.0"
 serde = { version = "1", features = [ "derive" ] }
