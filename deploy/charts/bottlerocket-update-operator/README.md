@@ -190,4 +190,7 @@ logging:
     tracing_filter: "info"
   apiserver:
     tracing_filter: "info"
+
+# Provide pod level labels for the brupop resources.
+podLabels: {}
 ```

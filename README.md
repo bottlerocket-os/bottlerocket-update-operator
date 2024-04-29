@@ -205,6 +205,8 @@ logging:
   apiserver:
     tracing_filter: "info"
 
+# Provide pod level labels for the brupop resources.
+podLabels: {}
 ```
 
 #### Configuration via Kubernetes yaml
