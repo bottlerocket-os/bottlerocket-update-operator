@@ -17,6 +17,9 @@ spec:
     metadata:
       labels:
         brupop.bottlerocket.aws/component: agent
+        {{- if .Values.podLabels }}
+        {{- toYaml .Values.podLabels | nindent 8 }}
+        {{- end }}
       namespace: {{ .Values.namespace }}
     spec:
       affinity:

@@ -143,3 +143,5 @@ resources:
       requests:
         cpu: 10m
         memory: 40Mi
+
+podLabels: {}
