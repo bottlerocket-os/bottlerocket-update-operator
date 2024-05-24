@@ -18,7 +18,7 @@ models = { path = "../models", version = "0.1.0" }
 actix-web = { version = "4.4", features = ["rustls-0_21"] }
 awc = "3"
 actix-web-opentelemetry = { version = "0.17", features = ["metrics", "metrics-prometheus"] }
-rustls = { version = "0.21" }
+rustls = { version = "0.23" }
 rustls-pemfile = { version = "1" }
 webpki = { version = "0.22.4", features = ["std"] }
 opentelemetry = { version = "0.22"}
