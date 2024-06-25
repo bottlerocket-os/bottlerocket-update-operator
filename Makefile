@@ -29,14 +29,13 @@ DESTDIR ?= .
 # tarball.
 DISTFILE ?= $(DESTDIR:/=)/$(subst /,_,$(IMAGE_NAME)).tar.gz
 
-BOTTLEROCKET_SDK_VERSION = v0.34.0
-BOTTLEROCKET_SDK_ARCH = $(UNAME_ARCH)
+BOTTLEROCKET_SDK_VERSION = v0.42.0
 
 # Tools used during the chart release lifecycle
 export KUBECONFORM_VERSION = v0.6.3
 export HELMV3_VERSION = v3.6.3
 
-BUILDER_IMAGE = public.ecr.aws/bottlerocket/bottlerocket-sdk-$(BOTTLEROCKET_SDK_ARCH):$(BOTTLEROCKET_SDK_VERSION)
+BUILDER_IMAGE = public.ecr.aws/bottlerocket/bottlerocket-sdk:$(BOTTLEROCKET_SDK_VERSION)
 
 export CARGO_ENV_VARS = CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 export CARGO_HOME = $(TOP)/.cargo
