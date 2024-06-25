@@ -38,6 +38,10 @@ const NUM_RETRIES: usize = 5;
 const AGENT_SLEEP_DURATION: Duration = Duration::from_secs(5);
 const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(120);
 
+// After issuing an update, the agent sleeps before gracefully exiting.
+// This avoids entering a kubernetes CrashLoop that repeatedly restarts the agent.
+const REBOOT_SLEEP_INTERVAL: Duration = Duration::from_secs(180);
+
 type SimpleRateLimiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>;
 
 lazy_static! {
@@ -476,6 +480,9 @@ impl<T: APIServerClient> BrupopAgent<T> {
                     event!(Level::INFO, "Rebooting node to complete update");
 
                     if running_desired_version(bottlerocket_shadow_spec).await? {
+                        // Uncordon the node before marking the reboot as complete
+                        self.handle_recover().await?;
+
                         // Make sure the status in BottlerocketShadow is up-to-date from the reboot
                         self.update_status_in_shadow(
                             bottlerocket_shadow,
@@ -486,17 +493,30 @@ impl<T: APIServerClient> BrupopAgent<T> {
                             ),
                         )
                         .await?;
-                        self.handle_recover().await?;
                     } else {
+                        // This branch must never complete successfully, or Brupop will assume that
+                        // we've performed the state transition when we haven't.
+                        // Returning an `Err` value is acceptable.
                         self.prepare_for_update().await?;
                         apiclient::boot_into_update().await.context(
                             agentclient_error::UpdateActionsSnafu {
                                 action: "Reboot".to_string(),
                             },
                         )?;
+
+                        // Sleep to avoid entering k8s crash loop backoff
+                        sleep(REBOOT_SLEEP_INTERVAL).await;
+                        // Gracefully exit while waiting for a reboot.
+                        event!(Level::INFO, "Agent will exit while it awaits reboot.");
+                        std::process::exit(0);
                     }
                 }
                 BottlerocketShadowState::MonitoringUpdate => {
+                    // The node should be uncordoned before transitioning to `RebootedIntoUpdate`.
+                    // Defensively uncordon again.
+                    event!(Level::INFO, "Ensuring that the node is uncordoned");
+                    self.handle_recover().await?;
+
                     event!(Level::INFO, "Monitoring node's healthy condition");
                     // TODO: we left space here for customer if they need add customized criteria
                     // which uses to decide to transition from MonitoringUpdate to WaitingForUpdate.
