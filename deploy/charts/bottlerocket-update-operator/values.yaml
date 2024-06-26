@@ -144,4 +144,5 @@ resources:
         cpu: 10m
         memory: 40Mi
 
+# Provide pod level labels for the brupop resources.
 podLabels: {}
