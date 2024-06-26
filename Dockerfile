@@ -27,6 +27,9 @@ RUN /usr/libexec/tools/bottlerocket-license-scan \
 
 
 FROM scratch
+
+ARG UNAME_ARCH
+
 # Copy CA certificates store
 COPY --from=build /etc/ssl /etc/ssl
 COPY --from=build /etc/pki /etc/pki
@@ -42,6 +45,6 @@ COPY --from=build /src/COPYRIGHT /src/LICENSE-MIT /src/LICENSE-APACHE /licenses/
 COPY --from=build /licenses /licenses
 # Build dependencies from the Bottlerocket SDK
 COPY --from=build \
-    /usr/share/licenses/bottlerocket-sdk-musl \
+    /usr/share/licenses/bottlerocket-sdk-musl-${UNAME_ARCH} \
     /usr/share/licenses/rust \
     /licenses/bottlerocket-sdk/
