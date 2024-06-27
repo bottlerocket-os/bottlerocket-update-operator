@@ -9,21 +9,19 @@ publish = false
 models = { path = "../models", version = "0.1.0" }
 apiserver = { path = "../apiserver", version = "0.1.0", default-features = false, features = ["client"] }
 
-dotenv = "0.15"
-futures = "0.3"
-governor = "0.6"
-lazy_static = "1"
-nonzero_ext = "0.3"
-tracing = "0.1"
+futures = { workspace = true }
+governor = { workspace = true }
+lazy_static = { workspace = true }
+nonzero_ext = { workspace = true }
+tracing = { workspace = true }
 
-# k8s-openapi must match the version required by kube and enable a k8s version feature
-k8s-openapi = { version = "0.21", default-features = false, features = ["v1_24"] }
-kube = { version = "0.88", default-features = false, features = [ "derive", "runtime", "rustls-tls" ] }
+k8s-openapi = { workspace = true }
+kube = { workspace = true }
 
-semver = { version = "1.0", features = [ "serde" ] }
-serde = { version = "1", features = [ "derive" ] }
-serde_json = "1"
-snafu = "0.7"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
-chrono = { version = "0.4", default-features = false, features = ["serde"] }
-tokio-retry = "0.3"
+semver = { workspace = true, features = [ "serde" ] }
+serde = { workspace = true, features = [ "derive" ] }
+serde_json = { workspace = true }
+snafu = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+tokio-retry = { workspace = true }
