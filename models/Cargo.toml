@@ -23,6 +23,7 @@ opentelemetry = { workspace = true }
 opentelemetry_sdk = { workspace = true, features = ["rt-tokio-current-thread"]}
 regex = { workspace = true }
 reqwest = { workspace = true }
+rustls = { workspace = true }
 schemars = { workspace = true }
 semver = { workspace = true }
 serde = { workspace = true, features = [ "derive" ] }

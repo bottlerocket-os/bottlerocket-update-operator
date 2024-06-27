@@ -58,6 +58,15 @@ pub enum Error {
     #[snafu(display("Failed to build TLS config from loaded certs: {}", source))]
     TLSConfigBuild { source: rustls::Error },
 
+    #[snafu(display(
+        "More than one private key for tls configured for apiserver in '{}'",
+        path
+    ))]
+    MultiplePrivateKeys { path: String },
+
+    #[snafu(display("No private key for tls provided in  '{}'", path))]
+    NoPrivateKeys { path: String },
+
     #[snafu(display("Failed to serialize Webhook response: {}", source))]
     WebhookError { source: serde_json::error::Error },
 }

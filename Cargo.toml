@@ -39,14 +39,14 @@ nonzero_ext = "0.3"
 
 # actix & opentelemetry dependencies
 # these package versions should be moved in lockstep to match upstream
-actix-web = { version = "4.4", features = ["rustls-0_21"] }
+actix-web = { version = "4.8", features = ["rustls-0_23"] }
 tracing-actix-web = "0.7"
-actix-web-opentelemetry = { version = "0.17", features = ["metrics", "metrics-prometheus"] }
+actix-web-opentelemetry = { version = "0.18", features = ["metrics", "metrics-prometheus"] }
 
 # opentelemetry dependencies
-opentelemetry = { version = "0.22"}
-opentelemetry_sdk = { version = "0.22", features = ["rt-tokio-current-thread"]}
-opentelemetry-prometheus = "0.15"
+opentelemetry = { version = "0.23"}
+opentelemetry_sdk = { version = "0.23", features = ["rt-tokio-current-thread"]}
+opentelemetry-prometheus = "0.16"
 prometheus = "0.13.0"
 
 # k8s-openapi must match the version required by kube and enable a k8s version feature
@@ -54,9 +54,9 @@ k8s-openapi = { version = "0.21", default-features = false, features = ["v1_24"]
 kube = { version = "0.88", default-features = false, features = [ "derive", "runtime", "rustls-tls" ] }
 
 regex = "1.9"
-reqwest = { version = "0.11", default-features = false, features =  [ "json", "rustls-tls" ] }
-rustls = { version = "0.21" }
-rustls-pemfile = { version = "1" }
+reqwest = { version = "0.12", default-features = false, features =  [ "json", "rustls-tls" ] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
+rustls-pemfile = { version = "2" }
 schemars = "0.8.11"
 semver = "1.0"
 serde = "1"

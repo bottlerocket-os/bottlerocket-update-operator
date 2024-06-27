@@ -30,6 +30,9 @@ type Result<T> = std::result::Result<T, controller_error::Error>;
 
 #[actix_web::main]
 async fn main() -> Result<()> {
+    models::crypto::install_default_crypto_provider()
+        .context(controller_error::CryptoConfigureSnafu)?;
+
     telemetry::init_telemetry_from_env().context(controller_error::TelemetryInitSnafu)?;
 
     let incluster_config =
@@ -160,6 +163,11 @@ pub mod controller_error {
         #[snafu(display("Error running controller server: '{}'", source))]
         ControllerError {
             source: controllerclient_error::Error,
+        },
+
+        #[snafu(display("Failed to configure crypto provider: '{}'", source))]
+        CryptoConfigure {
+            source: models::crypto::CryptoConfigError,
         },
 
         #[snafu(display("Unable to get associated node name: {}", source))]

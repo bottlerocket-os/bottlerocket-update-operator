@@ -1,6 +1,6 @@
 TOP := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 
-.PHONY: image fetch check-licenses build brupop-image clean
+.PHONY: image fetch check-licenses build brupop-image clean check clippy fmt
 
 # IMAGE_NAME is the full name of the container image being built. This may be
 # specified to fully control the name of the container image's tag.
@@ -74,8 +74,16 @@ check-licenses: fetch
 		"$(BUILDER_IMAGE)" \
 		bash -c "$(CARGO_ENV_VARS) cargo deny --all-features check --disable-fetch licenses bans sources"
 
+fmt:
+	cargo fmt --check
+
+clippy:
+	cargo clippy --locked -- -D warnings --no-deps
+
+check: fmt clippy check-licenses
+
 # Builds, Lints, and Tests the Rust workspace locally
-build: check-licenses
+build: check
 	$(CARGO_ENV_VARS) cargo fmt -- --check
 	$(CARGO_ENV_VARS) cargo test --locked
 	$(CARGO_ENV_VARS) cargo build --locked

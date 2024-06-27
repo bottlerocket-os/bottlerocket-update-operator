@@ -30,6 +30,13 @@ async fn main() {
     let termination_log =
         env::var("TERMINATION_LOG").unwrap_or_else(|_| TERMINATION_LOG.to_string());
 
+    if let Err(error) = models::crypto::install_default_crypto_provider() {
+        event!(Level::ERROR, %error);
+        fs::write(&termination_log, format!("{}", error))
+            .expect("Could not write k8s termination log.");
+        return;
+    }
+
     if let Err(error) = run_agent().await {
         fs::write(&termination_log, format!("{}", error))
             .expect("Could not write k8s termination log.");
