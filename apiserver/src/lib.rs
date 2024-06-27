@@ -1,7 +1,7 @@
 #[cfg(feature = "server")]
 pub mod api;
 #[cfg(feature = "server")]
-mod auth;
+pub mod auth;
 #[cfg(feature = "server")]
 pub mod telemetry;
 

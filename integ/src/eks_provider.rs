@@ -158,7 +158,7 @@ async fn dns_ip(
         .ip_family
         .as_ref()
         .context("IP family missing data")
-        .map(|ids| ids.clone())?;
+        .cloned()?;
 
     match ip_family {
         IpFamily::Ipv4 => {
@@ -218,7 +218,7 @@ async fn eks_version(
         .version
         .as_ref()
         .context("Cluster missing version field")
-        .map(|ids| ids.clone())
+        .cloned()
 }
 
 async fn eks_subnet_ids(
@@ -243,7 +243,7 @@ async fn eks_subnet_ids(
         .subnet_ids
         .as_ref()
         .context("resources_vpc_config missing subnet ids")
-        .map(|ids| ids.clone())
+        .cloned()
 }
 
 async fn endpoint(eks_client: &aws_sdk_eks::Client, cluster_name: &str) -> ProviderResult<String> {
@@ -261,7 +261,7 @@ async fn endpoint(eks_client: &aws_sdk_eks::Client, cluster_name: &str) -> Provi
         .endpoint
         .as_ref()
         .context("Cluster missing endpoint field")
-        .map(|ids| ids.clone())
+        .cloned()
 }
 
 async fn certificate(
@@ -286,7 +286,7 @@ async fn certificate(
         .data
         .as_ref()
         .context("Certificate authority missing data")
-        .map(|ids| ids.clone())
+        .cloned()
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -401,7 +401,7 @@ async fn instance_profile(
         .arn
         .as_ref()
         .context("Node instance profile missing arn field")
-        .map(|profile| profile.clone())
+        .cloned()
 }
 
 fn cluster_iam_identity_mapping(cluster_name: &str, region: &str) -> ProviderResult<String> {

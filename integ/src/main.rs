@@ -450,8 +450,5 @@ mod error {
 
         #[snafu(display("Failed to write content to kubeconfig: {}", source))]
         WriteKubeconfig { source: ProviderError },
-
-        #[snafu(display("Logger setup error: {}", source))]
-        Logger { source: log::SetLoggerError },
     }
 }

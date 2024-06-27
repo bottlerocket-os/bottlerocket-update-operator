@@ -5,11 +5,13 @@ edition = "2018"
 publish = false
 license = "Apache-2.0 OR MIT"
 
+[lints]
+workspace = true
+
 [features]
 default = ["client", "server"]
 client = []
 server = []
-
 
 [dependencies]
 models = { path = "../models", version = "0.1.0" }

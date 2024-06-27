@@ -8,6 +8,10 @@ members = [
     "integ",
 ]
 
+[workspace.lints.clippy]
+# tracing::instrument macro unhelpfully triggers this clippy warning
+blocks_in_conditions = "allow"
+
 [workspace.dependencies]
 argh = "0.1"
 async-trait = "0.1"

@@ -408,7 +408,7 @@ async fn instance_type(ec2_client: &aws_sdk_ec2::Client, node_ami: &str) -> Prov
         .context("Unable to get ami architecture")?
         .images
         .context("Unable to get ami architecture")?
-        .get(0)
+        .first()
         .context("Unable to get ami architecture")?
         .architecture
         .clone()
@@ -424,7 +424,7 @@ async fn instance_type(ec2_client: &aws_sdk_ec2::Client, node_ami: &str) -> Prov
 
 fn first_subnet_id(subnet_ids: &[String]) -> ProviderResult<String> {
     subnet_ids
-        .get(0)
+        .first()
         .map(|id| id.to_string())
         .context("There are no private subnet ids")
 }
@@ -584,7 +584,7 @@ async fn instance_profile_arn(
         .instance_profile()
         .and_then(|instance_profile| instance_profile.roles())
         .context("Instance profile does not contain roles.")?
-        .get(0)
+        .first()
         .context("Instance profile does not contain roles.")?
         .arn
         .as_ref()
