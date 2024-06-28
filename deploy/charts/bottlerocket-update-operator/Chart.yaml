@@ -4,7 +4,7 @@ description: A Helm chart for the Bottlerocket Update Operator
 home: https://github.com/bottlerocket-os/bottlerocket-update-operator
 icon: https://avatars.githubusercontent.com/u/61023959?s=200&v=4
 type: application
-version: 1.3.0
-appVersion: "1.3.0"
+version: 1.4.0
+appVersion: "1.4.0"
 sources:
   - https://github.com/bottlerocket-os/bottlerocket-update-operator

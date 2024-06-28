@@ -196,6 +196,15 @@ spec:
     subresources:
       status: {}
 ---
+# Source: bottlerocket-update-operator/templates/controller-priority-class.yaml
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: brupop-controller-high-priority
+  namespace: brupop-bottlerocket-aws
+preemptionPolicy: Never
+value: 1000000
+---
 # Source: bottlerocket-update-operator/templates/agent-service-account.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -470,6 +479,7 @@ spec:
   ports:
     - port: 80
       targetPort: 8080
+      name: main
   selector:
     brupop.bottlerocket.aws/component: brupop-controller
 ---
@@ -530,7 +540,7 @@ spec:
               value: "true"
             - name: TRACING_FILTER_DIRECTIVE
               value: "info"
-          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.3.0
+          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.4.0
           name: brupop
           resources:
             limits:
@@ -637,7 +647,7 @@ spec:
               value: "true"
             - name: TRACING_FILTER_DIRECTIVE
               value: "info"
-          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.3.0
+          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.4.0
           livenessProbe:
             httpGet:
               path: /ping
@@ -653,6 +663,12 @@ spec:
               port: 8443
               scheme: HTTPS
             initialDelaySeconds: 5
+          resources:
+            limits:
+              memory: 256Mi
+            requests:
+              cpu: 10m
+              memory: 40Mi
           volumeMounts:
             - mountPath: /etc/brupop-tls-keys
               name: bottlerocket-tls-keys
@@ -719,9 +735,15 @@ spec:
               value: "true"
             - name: TRACING_FILTER_DIRECTIVE
               value: "info"
-          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.3.0
+          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.4.0
           name: brupop
-      priorityClassName: brupop-controller-high-priority
+          resources:
+            limits:
+              memory: 256Mi
+            requests:
+              cpu: 10m
+              memory: 40Mi
+      priorityClassName: "brupop-controller-high-priority"
       
       serviceAccountName: brupop-controller-service-account
 ---
@@ -804,12 +826,3 @@ metadata:
   namespace: brupop-bottlerocket-aws
 spec:
   selfSigned: {}
----
-# Source: bottlerocket-update-operator/templates/controller-priority-class.yaml
-apiVersion: scheduling.k8s.io/v1
-kind: PriorityClass
-metadata:
-  name: brupop-controller-high-priority
-  namespace: brupop-bottlerocket-aws
-preemptionPolicy: Never
-value: 1000000
