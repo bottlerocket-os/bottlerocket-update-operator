@@ -1,3 +1,33 @@
+# 1.4.0
+
+## General
+
+Added
+* Added an optional ServiceMonitor for prometheus to the Helm chart ([#559] thanks @dani-CO-CN!)
+* Added the ability to overwrite resource limits and requests to the Helm chart ([#560] thanks @dani-CO-CN!)
+* Added the ability to overwrite priorityClass to the Helm chart ([#567] thanks @dani-CO-CN!)
+* Added the ability to apply additional pod labels to the Helm chart ([#617] thanks @danielvincenzi!)
+
+Fixed
+* Fixed a bug which could cause nodes to remain cordoned after an update ([#631])
+* Fixed a bug that could cause the agent to require a few restarts before stabilizing ([#568])
+
+Misc
+
+* Numerous dependency upgrades and documentation fixes ([#638], [#622], [#602], [#585] thanks @umizoom!, [#550] thanks @mooneeb!)
+
+[#559]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/559
+[#560]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/560
+[#567]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/567
+[#617]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/617
+[#631]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/631
+[#568]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/568
+[#638]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/638
+[#622]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/622
+[#602]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/602
+[#585]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/585
+[#550]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/550
+
 # 1.3.0
 
 ## General
