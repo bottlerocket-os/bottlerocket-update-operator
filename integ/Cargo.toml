@@ -5,39 +5,41 @@ license = "Apache-2.0 OR MIT"
 edition = "2018"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 models = { path = "../models", version = "0.1.0" }
 
-argh = "0.1"
-aws-config = "0.56.1"
-aws-sdk-ec2 = "0.33.1"
-aws-sdk-eks = "0.34.0"
-aws-sdk-iam = "0.30.0"
-aws-sdk-ssm = "0.30.0"
-async-trait = "0.1"
-base64 = "0.21.0"
-chrono = { version = "0.4", default-features = false, features = ["std"] }
-console_log = { version = "1.0", features = ["color"] }
-env_logger = "0.10"
-hex ="0.4.3"
-lazy_static = "1.4"
-log = "0.4"
-maplit = "1.0.2"
-mockall = { version = "0.11", optional = true }
-semver = "1.0"
-serde = { version = "1", features = [ "derive" ] }
-serde_json = "1"
-snafu = "0.7"
-strum_macros = "0.24.3"
-tokio = { version = "1", default-features = false, features = ["macros", "rt-multi-thread"] }
-tokio-retry = "0.3"
-uuid = { version = "0.8", default-features = false, features = ["serde", "v4"] }
+argh = { workspace = true }
+aws-config = { workspace = true }
+aws-sdk-ec2 = { workspace = true }
+aws-sdk-eks = { workspace = true }
+aws-sdk-iam = { workspace = true }
+aws-sdk-ssm = { workspace = true }
+async-trait = { workspace = true }
+base64 = { workspace = true }
+chrono = { workspace = true }
+console_log = { workspace = true }
+env_logger = { workspace = true }
+hex = { workspace = true }
+lazy_static = {workspace = true }
+log = { workspace = true }
+maplit = { workspace = true }
+mockall = { workspace = true, optional = true }
+semver = { workspace = true }
+serde = { workspace = true, features = [ "derive" ] }
+serde_json = { workspace = true }
+snafu = { workspace = true }
+strum_macros = { workspace = true }
+tokio = { workspace = true }
+tokio-retry = { workspace = true }
+uuid = { workspace = true }
 
-# k8s-openapi must match the version required by kube and enable a k8s version feature
-k8s-openapi = { version = "0.21", default-features = false, features = ["v1_24"] }
-kube = { version = "0.88", default-features = false, features = [ "derive", "runtime" ] }
+k8s-openapi = { workspace = true }
+kube = { workspace = true }
 
 
 [dev-dependencies]
-mockall = "0.11"
+mockall = { workspace = true }
 models = { path = "../models", version = "0.1.0", features = [ "mockall" ] }

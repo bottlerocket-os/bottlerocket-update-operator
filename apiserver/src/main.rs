@@ -21,16 +21,27 @@ const APISERVER_INTERNAL_PORT_ENV_VAR: &str = "APISERVER_INTERNAL_PORT";
 
 #[actix_web::main]
 async fn main() {
+    main_inner().await;
+
+    opentelemetry::global::shutdown_tracer_provider();
+}
+
+async fn main_inner() {
     let termination_log =
         env::var("TERMINATION_LOG").unwrap_or_else(|_| TERMINATION_LOG.to_string());
+
+    if let Err(error) = models::crypto::install_default_crypto_provider() {
+        event!(Level::ERROR, %error);
+        fs::write(&termination_log, format!("{}", error))
+            .expect("Could not write k8s termination log.");
+        return;
+    }
 
     if let Err(error) = run_server().await {
         event!(Level::ERROR, %error, "brupop apiserver failed.");
         fs::write(&termination_log, format!("{}", error))
             .expect("Could not write k8s termination log.");
     }
-
-    opentelemetry::global::shutdown_tracer_provider();
 }
 
 async fn run_server() -> Result<(), apiserver_error::Error> {
@@ -83,6 +94,9 @@ pub mod apiserver_error {
     #[derive(Debug, Snafu)]
     #[snafu(visibility(pub))]
     pub enum Error {
+        #[snafu(display("Failed to configure tls to use aws_lc for crypto."))]
+        CryptoConfigure,
+
         #[snafu(display(
             "Unable to get environment variable '{}' for API server due to : '{}'",
             variable,

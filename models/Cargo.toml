@@ -5,29 +5,33 @@ edition = "2018"
 publish = false
 license = "Apache-2.0 OR MIT"
 
-[dependencies]
-async-trait = "0.1"
-chrono = { version = "0.4", default-features = false, features = ["std"] }
-futures = "0.3"
-# k8s-openapi must match the version required by kube and enable a k8s version feature
-k8s-openapi = { version = "0.21", default-features = false, features = ["v1_24"] }
-kube = { version = "0.88", default-features = false, features = [ "client", "derive", "runtime" ] }
+[lints]
+workspace = true
 
-lazy_static = "1.4"
-maplit = "1.0"
-mockall = { version = "0.11", optional = true }
-opentelemetry = { version = "0.22"}
-opentelemetry_sdk = { version = "0.22", features = ["rt-tokio-current-thread"]}
-regex = "1.9"
-reqwest = { version = "0.11", default-features = false, features =  [ "json" ] }
-schemars = "0.8.11"
-semver = "1.0"
-serde = { version = "1", features = [ "derive" ] }
-serde_plain = "1"
-serde_json = "1"
-snafu = "0.7"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
-tokio-retry = "0.3"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["registry", "env-filter", "json"] }
-validator = { version = "0.16", features = ["derive"] }
+[dependencies]
+async-trait = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
+
+k8s-openapi = { workspace = true }
+kube = { workspace = true, features = ["client"] }
+
+lazy_static = { workspace = true }
+maplit = { workspace = true }
+mockall = { workspace = true, optional = true }
+opentelemetry = { workspace = true }
+opentelemetry_sdk = { workspace = true, features = ["rt-tokio-current-thread"]}
+regex = { workspace = true }
+reqwest = { workspace = true }
+rustls = { workspace = true }
+schemars = { workspace = true }
+semver = { workspace = true }
+serde = { workspace = true, features = [ "derive" ] }
+serde_plain = { workspace = true }
+serde_json = { workspace = true }
+snafu = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+tokio-retry = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+validator = { workspace = true }

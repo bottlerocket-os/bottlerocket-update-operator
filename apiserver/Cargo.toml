@@ -5,50 +5,50 @@ edition = "2018"
 publish = false
 license = "Apache-2.0 OR MIT"
 
+[lints]
+workspace = true
+
 [features]
 default = ["client", "server"]
 client = []
 server = []
 
-
 [dependencies]
 models = { path = "../models", version = "0.1.0" }
 
-# tracing-actix-web version must align with actix-web version
-actix-web = { version = "4.4", features = ["rustls-0_21"] }
-awc = "3"
-actix-web-opentelemetry = { version = "0.17", features = ["metrics", "metrics-prometheus"] }
-rustls = { version = "0.21" }
-rustls-pemfile = { version = "1" }
-webpki = { version = "0.22.4", features = ["std"] }
-opentelemetry = { version = "0.22"}
-opentelemetry_sdk = {version = "0.22", features = ["rt-tokio-current-thread"]}
-opentelemetry-prometheus = "0.15"
-tracing = "0.1"
-tracing-actix-web = "0.7"
-prometheus = "0.13.0"
+actix-web = { workspace = true }
+awc = { workspace = true }
+actix-web-opentelemetry = { workspace = true }
+rustls = { workspace = true }
+rustls-pemfile = { workspace = true }
+webpki = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry_sdk = { workspace = true }
+opentelemetry-prometheus = { workspace = true }
+tracing = { workspace = true }
+tracing-actix-web = { workspace = true }
+prometheus = { workspace = true }
 
-# k8s-openapi must match the version required by kube and enable a k8s version feature
-k8s-openapi = { version = "0.21", default-features = false, features = ["v1_24"] }
-kube = { version = "0.88", default-features = false, features = [ "client", "derive", "runtime", "rustls-tls" ] }
+k8s-openapi = { workspace = true }
+kube = { workspace = true, features = ["client"] }
 
-async-trait = "0.1"
-futures = "0.3"
-governor = "0.6"
-lazy_static = "1.4"
-log = "0.4"
-mockall = { version = "0.11", optional = true }
-nonzero_ext = "0.3"
-reqwest = { version = "0.11", default-features = false, features =  [ "json", "rustls-tls" ] }
+async-trait = { workspace = true }
+futures = { workspace = true }
+governor = { workspace = true }
+lazy_static = { workspace = true }
+log = { workspace = true }
+mockall = { workspace = true, optional = true }
+nonzero_ext = { workspace = true }
+reqwest = { workspace = true }
 schemars = "0.8.11"
-serde = { version = "1", features = [ "derive" ] }
-serde_json = "1"
-snafu = "0.7"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
-tokio-retry = "0.3"
+serde = { workspace = true, features = [ "derive" ] }
+serde_json = { workspace = true }
+snafu = { workspace = true }
+tokio = { workspace = true }
+tokio-retry = { workspace = true }
 
 [dev-dependencies]
-http = "0.2"
-maplit = "1.0"
-mockall = "0.11"
+http = { workspace = true }
+maplit = { workspace = true }
+mockall = { workspace = true }
 models = { path = "../models", version = "0.1.0", features = [ "mockall" ] }

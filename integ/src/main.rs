@@ -45,6 +45,9 @@ lazy_static! {
 
 #[tokio::main]
 async fn main() {
+    models::crypto::install_default_crypto_provider()
+        .expect("Failed to configure crypto provider.");
+
     env_logger::init();
 
     if let Err(e) = run().await {
@@ -450,8 +453,5 @@ mod error {
 
         #[snafu(display("Failed to write content to kubeconfig: {}", source))]
         WriteKubeconfig { source: ProviderError },
-
-        #[snafu(display("Logger setup error: {}", source))]
-        Logger { source: log::SetLoggerError },
     }
 }
