@@ -3,7 +3,7 @@ entries:
   bottlerocket-shadow:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2023-08-17T23:27:24.500156508Z"
+    created: "2024-06-28T19:17:29.239096367Z"
     description: A Helm chart for the Bottlerocket shadow CRD used by the Bottlerocket
       update operator
     digest: 1be8e7c14577f3eda75642ede46adfc52a12d289e2f1d4bc19a2673b8f80fc42
@@ -18,8 +18,22 @@ entries:
     version: 1.0.0
   bottlerocket-update-operator:
   - apiVersion: v2
+    appVersion: 1.4.0
+    created: "2024-06-28T19:17:29.242162587Z"
+    description: A Helm chart for the Bottlerocket Update Operator
+    digest: 1908340fe74a881fb85f96d97b31761edc181fc39124ba44f5bfe05b2268f31c
+    home: https://github.com/bottlerocket-os/bottlerocket-update-operator
+    icon: https://avatars.githubusercontent.com/u/61023959?s=200&v=4
+    name: bottlerocket-update-operator
+    sources:
+    - https://github.com/bottlerocket-os/bottlerocket-update-operator
+    type: application
+    urls:
+    - https://bottlerocket-os.github.io/bottlerocket-update-operator/bottlerocket-update-operator-1.4.0.tgz
+    version: 1.4.0
+  - apiVersion: v2
     appVersion: 1.3.0
-    created: "2023-08-17T23:27:24.503015816Z"
+    created: "2024-06-28T19:17:29.240465896Z"
     description: A Helm chart for the Bottlerocket Update Operator
     digest: e8cd6c7944d1ad37b8c0fcb1fd41c1e6209893a81787dd8884b6f1aa6bac2ebb
     home: https://github.com/bottlerocket-os/bottlerocket-update-operator
@@ -33,7 +47,7 @@ entries:
     version: 1.3.0
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2023-08-17T23:27:24.501406455Z"
+    created: "2024-06-28T19:17:29.239670293Z"
     description: A Helm chart for the Bottlerocket Update Operator
     digest: 78a0f1f54e140c26d1f3292cc54eaead19d3cb6774eefc159a4d6c2dc42de56a
     home: https://github.com/bottlerocket-os/bottlerocket-update-operator
@@ -45,4 +59,4 @@ entries:
     urls:
     - https://bottlerocket-os.github.io/bottlerocket-update-operator/bottlerocket-update-operator-1.0.0.tgz
     version: 1.0.0
-generated: "2023-08-17T23:27:24.499492983Z"
+generated: "2024-06-28T19:17:29.238615926Z"
