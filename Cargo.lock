@@ -1849,7 +1849,7 @@ dependencies = [
  "aws-sdk-eks",
  "aws-sdk-iam",
  "aws-sdk-ssm",
- "base64 0.21.7",
+ "base64 0.22.1",
  "chrono",
  "console_log",
  "env_logger",
