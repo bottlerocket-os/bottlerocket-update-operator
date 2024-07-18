@@ -32,7 +32,7 @@ hex ="0.4.3"
 insta = { version = "1.34.0", features = ["yaml"] }
 lazy_static = "1"
 log = "0.4"
-http = "0.2"
+http = "1.1"
 maplit = "1"
 mockall = { version = "0.11" }
 nonzero_ext = "0.3"
