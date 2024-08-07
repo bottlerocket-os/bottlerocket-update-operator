@@ -6,5 +6,5 @@ pub use authorizor::{K8STokenAuthorizor, K8STokenReviewer, TokenAuthorizor};
 pub use error::AuthorizationError;
 pub use middleware::TokenAuthMiddleware;
 
-#[cfg(any(mockall, test))]
+#[cfg(any(feature = "mockall", test))]
 pub use authorizor::mock;
