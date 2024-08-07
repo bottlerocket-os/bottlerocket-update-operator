@@ -96,7 +96,7 @@ pub async fn create_nodegroup(
         .launch_template(
             LaunchTemplateSpecification::builder()
                 .id(&launch_template.launch_template_id)
-                .version(&launch_template.latest_version_number.to_string())
+                .version(launch_template.latest_version_number.to_string())
                 .build(),
         )
         .labels(LABEL_BRUPOP_INTERFACE_NAME, BRUPOP_INTERFACE_VERSION)
@@ -257,61 +257,61 @@ async fn create_iam_instance_profile(
     let iam_instance_profile_name = format!("{}-{}", IAM_INSTANCE_PROFILE_NAME, nodegroup_name);
     let get_instance_profile_result = iam_client
         .get_instance_profile()
-        .instance_profile_name(&iam_instance_profile_name.clone())
+        .instance_profile_name(iam_instance_profile_name.clone())
         .send()
         .await;
     if instance_profile_exists(get_instance_profile_result) {
-        instance_profile_arn(iam_client, &iam_instance_profile_name.clone()).await
+        instance_profile_arn(iam_client, iam_instance_profile_name.as_str()).await
     } else {
         iam_client
             .create_role()
-            .role_name(&iam_instance_profile_name.clone())
+            .role_name(iam_instance_profile_name.clone())
             .assume_role_policy_document(eks_role_policy_document(region))
             .send()
             .await
             .context("Unable to create new role.")?;
         iam_client
             .attach_role_policy()
-            .role_name(&iam_instance_profile_name.clone())
+            .role_name(iam_instance_profile_name.clone())
             .policy_arn(SSM_MANAGED_INSTANCE_CORE_ARN)
             .send()
             .await
             .context("Unable to attach AmazonSSM policy")?;
         iam_client
             .attach_role_policy()
-            .role_name(&iam_instance_profile_name.clone())
+            .role_name(iam_instance_profile_name.clone())
             .policy_arn(EKS_WORKER_NODE_POLICY_ARN)
             .send()
             .await
             .context("Unable to attach AmazonEKSWorkerNode policy")?;
         iam_client
             .attach_role_policy()
-            .role_name(&iam_instance_profile_name.clone())
+            .role_name(iam_instance_profile_name.clone())
             .policy_arn(EKS_CNI_ARN)
             .send()
             .await
             .context("Unable to attach AmazonEKS CNI policy")?;
         iam_client
             .attach_role_policy()
-            .role_name(&iam_instance_profile_name.clone())
+            .role_name(iam_instance_profile_name.clone())
             .policy_arn(EC2_CONTAINER_REGISTRY_ARN)
             .send()
             .await
             .context("Unable to attach AmazonEC2ContainerRegistry policy")?;
         iam_client
             .create_instance_profile()
-            .instance_profile_name(&iam_instance_profile_name.clone())
+            .instance_profile_name(iam_instance_profile_name.clone())
             .send()
             .await
             .context("Unable to create instance profile")?;
         iam_client
             .add_role_to_instance_profile()
-            .instance_profile_name(&iam_instance_profile_name.clone())
-            .role_name(&iam_instance_profile_name.clone())
+            .instance_profile_name(iam_instance_profile_name.clone())
+            .role_name(iam_instance_profile_name.clone())
             .send()
             .await
             .context("Unable to add role to instance profile")?;
-        instance_profile_arn(iam_client, &iam_instance_profile_name.clone()).await
+        instance_profile_arn(iam_client, iam_instance_profile_name.as_str()).await
     }
 }
 
@@ -322,48 +322,48 @@ async fn delete_iam_instance_profile(
     let iam_instance_profile_name = format!("{}-{}", IAM_INSTANCE_PROFILE_NAME, nodegroup_name);
     iam_client
         .remove_role_from_instance_profile()
-        .role_name(&iam_instance_profile_name.clone())
-        .instance_profile_name(&iam_instance_profile_name.clone())
+        .role_name(iam_instance_profile_name.clone())
+        .instance_profile_name(iam_instance_profile_name.clone())
         .send()
         .await
         .context("Unable to remove roles from instance profile.")?;
     iam_client
         .detach_role_policy()
-        .role_name(&iam_instance_profile_name.clone())
+        .role_name(iam_instance_profile_name.clone())
         .policy_arn(SSM_MANAGED_INSTANCE_CORE_ARN)
         .send()
         .await
         .context("Unable to detach AmazonSSM policy")?;
     iam_client
         .detach_role_policy()
-        .role_name(&iam_instance_profile_name.clone())
+        .role_name(iam_instance_profile_name.clone())
         .policy_arn(EKS_WORKER_NODE_POLICY_ARN)
         .send()
         .await
         .context("Unable to detach AmazonEKSWorkerNode policy")?;
     iam_client
         .detach_role_policy()
-        .role_name(&iam_instance_profile_name.clone())
+        .role_name(iam_instance_profile_name.clone())
         .policy_arn(EKS_CNI_ARN)
         .send()
         .await
         .context("Unable to detach AmazonEKS CNI policy")?;
     iam_client
         .detach_role_policy()
-        .role_name(&iam_instance_profile_name.clone())
+        .role_name(iam_instance_profile_name.clone())
         .policy_arn(EC2_CONTAINER_REGISTRY_ARN)
         .send()
         .await
         .context("Unable to detach AmazonEC2ContainerRegistry policy")?;
     iam_client
         .delete_instance_profile()
-        .instance_profile_name(&iam_instance_profile_name.clone())
+        .instance_profile_name(iam_instance_profile_name.clone())
         .send()
         .await
         .context("Unable to create instance profile")?;
     iam_client
         .delete_role()
-        .role_name(&iam_instance_profile_name.clone())
+        .role_name(iam_instance_profile_name.clone())
         .send()
         .await
         .context("Unable to delete role.")?;
