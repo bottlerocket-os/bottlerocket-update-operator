@@ -39,7 +39,7 @@ nonzero_ext = "0.3"
 
 # actix & opentelemetry dependencies
 # these package versions should be moved in lockstep to match upstream
-actix-web = { version = "4.8", features = ["rustls-0_23"] }
+actix-web = { version = "4.9", features = ["rustls-0_23"] }
 tracing-actix-web = "0.7"
 actix-web-opentelemetry = { version = "0.18", features = ["metrics", "metrics-prometheus"] }
 
