@@ -85,6 +85,10 @@ spec:
             - mountPath: /etc/brupop-tls-keys
               name: bottlerocket-tls-keys
       serviceAccountName: brupop-agent-service-account
+      {{- with .Values.placement.apiserver.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
       {{- if ((.Values.image_pull_secrets)) }}
       image_pull_secrets: 
         {{ .Values.image_pull_secrets }}
