@@ -25,6 +25,8 @@ placement:
     priorityClassName: brupop-controller-high-priority
 
   apiserver:
+    # -- Topology spread constraints.
+    topologySpreadConstraints: []
     tolerations: []
     nodeSelector: {}
     podAffinity: {}
