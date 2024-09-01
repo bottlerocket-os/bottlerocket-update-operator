@@ -1,4 +1,4 @@
-use actix_web::{get, web::Data, HttpResponse};
+use actix_web::{get, http::header::ContentType, web::Data, HttpResponse};
 use opentelemetry::{global, metrics::MetricsError};
 use prometheus::{Encoder, TextEncoder};
 
@@ -13,6 +13,6 @@ pub async fn vending_metrics(registry: Data<prometheus::Registry>) -> HttpRespon
 
     let body = String::from_utf8(buf).unwrap_or_default();
     HttpResponse::Ok()
-        .insert_header((http::header::CONTENT_TYPE, prometheus::TEXT_FORMAT))
+        .insert_header(ContentType::plaintext())
         .body(body)
 }
