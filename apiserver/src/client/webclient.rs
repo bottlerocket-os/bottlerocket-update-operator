@@ -8,7 +8,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use models::{
-    constants::{APISERVER_SERVICE_NAME, CA_NAME, TLS_KEY_MOUNT_PATH},
+    constants::{APISERVER_SERVICE_NAME, CA_NAME, KUBERNETES_SERVICE_CLUSTER_DOMAIN, TLS_KEY_MOUNT_PATH},
     node::{BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowStatus},
 };
 use snafu::ResultExt;
@@ -65,6 +65,7 @@ pub struct K8SAPIServerClient {
     k8s_projected_token_path: String,
     service_port: u16,
     namespace: String,
+    cluster_domain_suffix: String,
 }
 
 impl K8SAPIServerClient {
@@ -77,10 +78,16 @@ impl K8SAPIServerClient {
             .context(error::CreateK8sClientSnafu)?;
         event!(Level::INFO, %service_port, "Created K8s API Server client using service port");
 
+        // Get cluster domain suffix from env var or use default
+        let cluster_domain_suffix = env::var("KUBERNETES_SERVICE_CLUSTER_DOMAIN")
+            .unwrap_or_else(|_| KUBERNETES_SERVICE_CLUSTER_DOMAIN.to_string());
+        event!(Level::INFO, %cluster_domain_suffix, "Using cluster domain suffix");
+
         Ok(Self {
             k8s_projected_token_path,
             service_port: service_port as u16,
             namespace: namespace.to_string(),
+            cluster_domain_suffix,
         })
     }
 
@@ -99,8 +106,8 @@ impl K8SAPIServerClient {
     /// Returns the domain on which the server can be reached.
     pub fn server_domain(&self) -> String {
         format!(
-            "{}.{}.svc.cluster.local:{}",
-            APISERVER_SERVICE_NAME, self.namespace, self.service_port
+            "{}.{}.{}:{}",
+            APISERVER_SERVICE_NAME, self.namespace, self.cluster_domain_suffix, self.service_port
         )
     }
 
