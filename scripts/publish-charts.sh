@@ -11,7 +11,7 @@ if [[ "${VERSION}" =~ ^v[0-9]+(\.[0-9]+){2}$ ]]; then
     git config pull.rebase false
     git checkout gh-pages
     git checkout -b "gh-pages-release-${VERSION}"
-    mv -n "${CHART_BUILD_DIR}"/charts/*.tgz .
+    mv --update=none "${CHART_BUILD_DIR}"/charts/*.tgz .
     helmv3 repo index . --url "https://${GITHUB_REPO_OWNER}.github.io/${GITHUB_REPO_NAME}"
     git add ./*.tgz index.yaml
     git commit -m "Publish helm charts for ${VERSION}"
