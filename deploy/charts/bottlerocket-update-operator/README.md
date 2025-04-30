@@ -80,6 +80,21 @@ namespace: "brupop-bottlerocket-aws"
 # The image to use for brupop
 image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.5.0"
 
+# Provide pod level labels and annotations for all brupop workloads
+podLabels: {}
+podAnnotations: {}
+
+# Brupop workload specific pod labels and annotations
+controller:
+  podLabels: {}
+  podAnnotations: {}
+apiserver:
+  podLabels: {}
+  podAnnotations: {}
+agent:
+  podLabels: {}
+  podAnnotations: {}
+
 # Placement controls
 # See the Kubernetes documentation about placement controls for more details:
 # * https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/

@@ -19,10 +19,22 @@ spec:
       maxUnavailable: 33%
   template:
     metadata:
+      {{- if or .Values.podAnnotations .Values.apiserver.podAnnotations }}
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.apiserver.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
       labels:
         brupop.bottlerocket.aws/component: apiserver
-        {{- if .Values.podLabels }}
-        {{- toYaml .Values.podLabels | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.apiserver.podLabels }}
+        {{- toYaml . | nindent 8 }}
         {{- end }}
       namespace: {{ .Values.namespace }}
     spec:

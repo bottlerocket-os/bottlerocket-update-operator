@@ -15,10 +15,22 @@ spec:
       brupop.bottlerocket.aws/component: agent
   template:
     metadata:
+      {{- if or .Values.podAnnotations .Values.agent.podAnnotations }}
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.agent.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
       labels:
         brupop.bottlerocket.aws/component: agent
-        {{- if .Values.podLabels }}
-        {{- toYaml .Values.podLabels | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.agent.podLabels }}
+        {{- toYaml . | nindent 8 }}
         {{- end }}
       namespace: {{ .Values.namespace }}
     spec:
