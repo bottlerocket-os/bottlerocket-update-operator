@@ -150,5 +150,17 @@ resources:
         cpu: 10m
         memory: 40Mi
 
-# Provide pod level labels for the brupop resources.
+# Provide pod level labels and annotations for all brupop workloads
 podLabels: {}
+podAnnotations: {}
+
+# Brupop workload specific pod labels and annotations
+controller:
+  podLabels: {}
+  podAnnotations: {}
+apiserver:
+  podLabels: {}
+  podAnnotations: {}
+agent:
+  podLabels: {}
+  podAnnotations: {}
