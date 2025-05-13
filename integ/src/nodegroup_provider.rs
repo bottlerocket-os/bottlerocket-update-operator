@@ -187,7 +187,6 @@ async fn create_launch_template(
         get_launch_template_result
             .context("Failed to describe launch templates")?
             .launch_templates()
-            .context("Failed to describe launch templates")?
             .first()
             .context("Failed to get launch template")?
             .to_owned()
@@ -575,21 +574,19 @@ async fn instance_profile_arn(
     iam_client: &aws_sdk_iam::Client,
     iam_instance_profile_name: &str,
 ) -> ProviderResult<String> {
-    iam_client
+    Ok(iam_client
         .get_instance_profile()
         .instance_profile_name(iam_instance_profile_name)
         .send()
         .await
         .context("Unable to get instance profile.")?
         .instance_profile()
-        .and_then(|instance_profile| instance_profile.roles())
+        .map(|instance_profile| instance_profile.roles())
         .context("Instance profile does not contain roles.")?
         .first()
         .context("Instance profile does not contain roles.")?
-        .arn
-        .as_ref()
-        .context("Role does not contain an arn.")
-        .map(|arn| arn.to_string())
+        .arn()
+        .to_string())
 }
 
 async fn cluster_iam_identity_mapping(

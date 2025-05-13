@@ -62,16 +62,7 @@ license-files = [
     { path = "src/unicode_tables/LICENSE-UNICODE", hash = 0xa7f28b93 },
 ]
 
-[[clarify.ring]]
-version = "=0.16"
-expression = "MIT AND ISC AND OpenSSL"
-license-files = [
-    { path = "LICENSE", hash = 0xbd0eed23 },
-    { path = "third_party/fiat/LICENSE", hash = 0xdad0527d },
-]
-
-[[clarify.ring]]
-version = "=0.17"
+[clarify.ring]
 expression = "Apache-2.0 AND ISC AND MIT AND OpenSSL"
 license-files = [
     { path = "LICENSE", hash = 0xd99693a },
