@@ -253,7 +253,7 @@ pub(crate) mod test {
     fn test_duration_between_next_two_points() {
         let test_cases = vec![
             (
-                Schedule::from_str("* * * * * * *".as_ref()).unwrap(),
+                Schedule::from_str("* * * * * * *").unwrap(),
                 DateTime::<Utc>::from_naive_utc_and_offset(
                     NaiveDate::from_ymd_opt(2099, 1, 1)
                         .unwrap()
@@ -264,7 +264,7 @@ pub(crate) mod test {
                 chrono::Duration::seconds(1),
             ),
             (
-                Schedule::from_str("10 10 10 * * * *".as_ref()).unwrap(),
+                Schedule::from_str("10 10 10 * * * *").unwrap(),
                 DateTime::<Utc>::from_naive_utc_and_offset(
                     NaiveDate::from_ymd_opt(2099, 1, 1)
                         .unwrap()
@@ -275,7 +275,7 @@ pub(crate) mod test {
                 chrono::Duration::hours(24),
             ),
             (
-                Schedule::from_str("10 10 10 * * Mon *".as_ref()).unwrap(),
+                Schedule::from_str("10 10 10 * * Mon *").unwrap(),
                 DateTime::<Utc>::from_naive_utc_and_offset(
                     NaiveDate::from_ymd_opt(2099, 1, 1)
                         .unwrap()

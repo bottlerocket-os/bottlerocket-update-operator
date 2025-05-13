@@ -29,7 +29,7 @@ DESTDIR ?= .
 # tarball.
 DISTFILE ?= $(DESTDIR:/=)/$(subst /,_,$(IMAGE_NAME)).tar.gz
 
-BOTTLEROCKET_SDK_VERSION = v0.50.1
+BOTTLEROCKET_SDK_VERSION = v0.61.0
 
 # Tools used during the chart release lifecycle
 export KUBECONFORM_VERSION = v0.6.3
