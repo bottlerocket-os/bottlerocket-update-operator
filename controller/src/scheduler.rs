@@ -1,10 +1,10 @@
 use chrono::{DateTime, Utc};
 use cron::Schedule;
-use lazy_static::lazy_static;
 use regex::Regex;
 use snafu::{OptionExt, ResultExt};
 use std::env;
 use std::str::FromStr;
+use std::sync::LazyLock;
 use tracing::{event, Level};
 use validator::Validate;
 
@@ -21,15 +21,16 @@ const SCHEDULER_DEFAULT: &str = "* * * * * * *";
 type Result<T> = std::result::Result<T, scheduler_error::Error>;
 
 // regex format: HH:MM:SS
-lazy_static! {
-    pub(crate) static ref VALID_UPDATE_TIME_WINDOW_VARIABLE: Regex =
-        Regex::new(r"^(2[0-3]|[01]?[0-9]):([0-5]?[0-9]):([0-5]?[0-9])$").unwrap();
-}
+pub(crate) static VALID_UPDATE_TIME_WINDOW_VARIABLE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(2[0-3]|[01]?[0-9]):([0-5]?[0-9]):([0-5]?[0-9])$")
+        .expect("Invalid regex literal.")
+});
+
 #[derive(Validate)]
 struct LegacyUpdateWindow {
-    #[validate(regex = "VALID_UPDATE_TIME_WINDOW_VARIABLE")]
+    #[validate(regex(path = "VALID_UPDATE_TIME_WINDOW_VARIABLE"))]
     start_time: String,
-    #[validate(regex = "VALID_UPDATE_TIME_WINDOW_VARIABLE")]
+    #[validate(regex(path = "VALID_UPDATE_TIME_WINDOW_VARIABLE"))]
     end_time: String,
 }
 impl LegacyUpdateWindow {

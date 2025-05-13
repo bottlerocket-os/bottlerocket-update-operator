@@ -70,5 +70,5 @@ tokio-retry = "0.3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["registry", "env-filter", "json"] }
 uuid = { version = "0.8", default-features = false, features = ["serde", "v4"] }
-validator = { version = "0.16", features = ["derive"] }
+validator = { version = "0.20", features = ["derive"] }
 webpki = { version = "0.22.4", features = ["std"] }
