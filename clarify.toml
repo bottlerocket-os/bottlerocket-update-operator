@@ -62,6 +62,26 @@ license-files = [
     { path = "src/unicode_tables/LICENSE-UNICODE", hash = 0xa7f28b93 },
 ]
 
+[[clarify.ring]]
+version = "=0.16"
+expression = "MIT AND ISC AND OpenSSL"
+license-files = [
+    { path = "LICENSE", hash = 0xbd0eed23 },
+    { path = "third_party/fiat/LICENSE", hash = 0xdad0527d },
+]
+
+[[clarify.ring]]
+version = "=0.17"
+expression = "Apache-2.0 AND ISC AND MIT AND OpenSSL"
+license-files = [
+    { path = "LICENSE", hash = 0xd99693a },
+    { path = "LICENSE-BoringSSL", hash = 0x8f795a3 },
+    { path = "LICENSE-other-bits", hash = 0x8b770de2 },
+    { path = "third_party/fiat/LICENSE", hash = 0x931a8dd4 },
+    { path = "src/polyfill/once_cell/LICENSE-APACHE", hash = 0x24b54f4b },
+    { path = "src/polyfill/once_cell/LICENSE-MIT", hash = 0x69371061 },
+]
+
 [clarify.typenum]
 expression = "MIT OR Apache-2.0"
 license-files = [
