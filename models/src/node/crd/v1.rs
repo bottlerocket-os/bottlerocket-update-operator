@@ -118,7 +118,7 @@ pub struct BottlerocketShadowSpec {
     /// The time at which the most recent state was set as the desired state.
     state_transition_timestamp: Option<String>,
     /// The desired update version, if any.
-    #[validate(regex = "SEMVER_RE")]
+    #[validate(regex(path = "SEMVER_RE"))]
     version: Option<String>,
 }
 
@@ -188,9 +188,9 @@ impl From<BottlerocketShadowSpecV2> for BottlerocketShadowSpec {
 /// while the spec is updated by the brupop controller.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, PartialEq, JsonSchema)]
 pub struct BottlerocketShadowStatus {
-    #[validate(regex = "SEMVER_RE")]
+    #[validate(regex(path = "SEMVER_RE"))]
     current_version: String,
-    #[validate(regex = "SEMVER_RE")]
+    #[validate(regex(path = "SEMVER_RE"))]
     target_version: String,
     pub current_state: BottlerocketShadowState,
 }

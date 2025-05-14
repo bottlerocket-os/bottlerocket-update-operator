@@ -381,27 +381,18 @@ async fn instance_profile(
         .send()
         .await
         .context("Unable to list instance profiles")?;
-    list_result
+    Ok(list_result
         .instance_profiles
-        .as_ref()
-        .context("No instance profiles found")?
         .iter()
         .find(|instance_profile| {
             instance_profile
                 .roles
-                .as_ref()
-                .map(|roles| {
-                    roles
-                        .iter()
-                        .any(|role| role.arn == Some(node_instance_role.to_string()))
-                })
-                .unwrap_or_default()
+                .iter()
+                .any(|role| role.arn() == node_instance_role)
         })
         .context("Node instance profile not found")?
-        .arn
-        .as_ref()
-        .context("Node instance profile missing arn field")
-        .cloned()
+        .arn()
+        .to_string())
 }
 
 fn cluster_iam_identity_mapping(cluster_name: &str, region: &str) -> ProviderResult<String> {
