@@ -39,7 +39,7 @@ pub const PUBLIC_KEY_NAME: &str = "tls.crt";
 pub const PRIVATE_KEY_NAME: &str = "tls.key";
 pub const TLS_KEY_MOUNT_PATH: &str = "/etc/brupop-tls-keys";
 // Certificate object name
-pub const ROOT_CERTIFICATE_NAME: &str = "root-certificate";
+pub const ROOT_CERTIFICATE_NAME: &str = "brupop-selfsigned-ca";
 
 // Label keys
 pub const LABEL_COMPONENT: &str = brupop_domain!("component");
