@@ -78,7 +78,7 @@ The following configuration values are supported:
 namespace: "brupop-bottlerocket-aws"
 
 # The image to use for brupop
-image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.5.0"
+image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.6.0"
 
 # Provide pod level labels and annotations for all brupop workloads
 podLabels: {}
