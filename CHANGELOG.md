@@ -1,3 +1,22 @@
+# 1.6.0
+## General
+
+Added
+* Allow customization of service annotations in Helm values ([#738] thanks @mbovo)
+* Allow arbitrary labels and annotations to be added to all or select workloads ([#742] thanks @grumps)
+
+Fixed
+* script: use --update=none for mv in publish-charts ([#731])
+
+Misc
+* Upgrade dependencies ([#732], [#744])
+
+[#731]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/731
+[#732]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/732
+[#738]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/738
+[#742]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/742
+[#744]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/744
+
 # 1.5.0
 ## General
 
@@ -274,7 +293,7 @@ Instead of having the independent controller and agent cooperate and pass messag
 The agent performs all cluster object mutation operations via the API Server.
 [Service Account Token Volume Projection](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#service-account-token-volume-projection) is used in API Server instead of the usual Kubernetes [rbac](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) system for authorization to limit sufficient permissions for any node being able to modify any other nodes.
 
-Brupop 0.2.0 also integrates with [Prometheus](https://prometheus.io/docs/instrumenting/clientlibs/) by exposing an HTTP endpoint from which Prometheus can gather metrics, allowing customers insight into the actions that the operator is taking. 
+Brupop 0.2.0 also integrates with [Prometheus](https://prometheus.io/docs/instrumenting/clientlibs/) by exposing an HTTP endpoint from which Prometheus can gather metrics, allowing customers insight into the actions that the operator is taking.
 
 
 Fixed:
@@ -292,13 +311,13 @@ Removed:
 * Deprecated updog platform integration in favor of Bottlerocket API ([#60])
 
 [#74]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/74
-[#71]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/71 
-[#68]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/68 
+[#71]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/71
+[#68]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/68
 [#60]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/60
 [#132]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/132
 [#147]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/147
 [#101]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/101
-[#85]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/85 
+[#85]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/85
 
 # 0.1.5
 
