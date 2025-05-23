@@ -540,7 +540,7 @@ spec:
               value: "true"
             - name: TRACING_FILTER_DIRECTIVE
               value: "info"
-          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.5.0
+          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.6.0
           name: brupop
           resources:
             limits:
@@ -647,7 +647,7 @@ spec:
               value: "true"
             - name: TRACING_FILTER_DIRECTIVE
               value: "info"
-          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.5.0
+          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.6.0
           livenessProbe:
             httpGet:
               path: /ping
@@ -738,7 +738,7 @@ spec:
               value: "true"
             - name: TRACING_FILTER_DIRECTIVE
               value: "info"
-          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.5.0
+          image: public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.6.0
           name: brupop
           resources:
             limits:
@@ -747,7 +747,7 @@ spec:
               cpu: 10m
               memory: 40Mi
       priorityClassName: "brupop-controller-high-priority"
-      
+
       serviceAccountName: brupop-controller-service-account
 ---
 # Source: bottlerocket-update-operator/templates/cert-manager-agent-cert.yaml

@@ -92,7 +92,7 @@ namespace: "brupop-bottlerocket-aws"
 
 # The image to use for brupop
 # This defaults to the image built alongside a particular helm chart, but you can override it by uncommenting this line:
-# image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.5.0"
+# image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.6.0"
 
 # Placement controls
 # See the Kubernetes documentation about placement controls for more details:
@@ -299,8 +299,8 @@ will concurrently update up to `MAX_CONCURRENT_UPDATE` nodes respecting [PodDisr
 When `MAX_CONCURRENT_UPDATE` is set to `unlimited`, bottlerocket update operator
 will concurrently update all nodes respecting [PodDisruptionBudgets](https://kubernetes.io/docs/tasks/run-application/configure-pdb/).
 
-Note: The `MAX_CONCURRENT_UPDATE` configuration does not work well with `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC` 
-configuration, especially when `MAX_CONCURRENT_UPDATE` is set to `unlimited`, it could potentially exclude all 
+Note: The `MAX_CONCURRENT_UPDATE` configuration does not work well with `EXCLUDE_FROM_LB_WAIT_TIME_IN_SEC`
+configuration, especially when `MAX_CONCURRENT_UPDATE` is set to `unlimited`, it could potentially exclude all
 nodes from load balancer at the same time.
 
 To enable this feature, set the `max_concurrent_updates` value in your helm values yaml file to a positive integer value or `unlimited`. For example,
@@ -370,7 +370,7 @@ If you still decide to use these settings, please use "hour:00:00" format only i
 To enable this feature, set the `update_window_start` and `update_window_stop` values in your helm values yaml file to a `hour:minute:second` formatted value (UTCE 24-hour time notation).
 For example: `update_window_start: "08:0:0"` and `update_window_stop: "12:30:0"`.
 
-Otherwise, go to `bottlerocket-update-operator.yaml` and change `UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` to a `hour:minute:second` formatted value (UTC (24-hour time notation)). 
+Otherwise, go to `bottlerocket-update-operator.yaml` and change `UPDATE_WINDOW_START` and `UPDATE_WINDOW_STOP` to a `hour:minute:second` formatted value (UTC (24-hour time notation)).
 
 Note that `UPDATE_WINDOW_START` is inclusive and `UPDATE_WINDOW_STOP` is exclusive.
 
@@ -415,8 +415,8 @@ kubectl get nodes
 ```
 Make a note of all the node names that you would like the Bottlerocket update operator to manage.
 
-Next, add the `updater-interface-version` label to the nodes. 
-For each node, use this command to add `updater-interface-version` label. 
+Next, add the `updater-interface-version` label to the nodes.
+For each node, use this command to add `updater-interface-version` label.
 Make sure to change `NODE_NAME` with the name collected from the previous command:
 
 ```sh
@@ -494,21 +494,21 @@ This view will inform you of the current Bottlerocket version of each node manag
 The following command requires `kubectl` to be configured for the desired cluster to be monitored:
 
 ``` sh
-kubectl get bottlerocketshadows --namespace brupop-bottlerocket-aws 
+kubectl get bottlerocketshadows --namespace brupop-bottlerocket-aws
 ```
 
 You can shorten this with:
 
 ``` sh
-kubectl get brs --namespace brupop-bottlerocket-aws 
+kubectl get brs --namespace brupop-bottlerocket-aws
 ```
 
 You should see output akin to the following:
 
 ```
-$ kubectl get brs --namespace brupop-bottlerocket-aws 
+$ kubectl get brs --namespace brupop-bottlerocket-aws
 NAME                                               STATE   VERSION   TARGET STATE   TARGET VERSION
-brs-node-1                                         Idle    1.5.2     Idle           
+brs-node-1                                         Idle    1.5.2     Idle
 brs-node-2                                         Idle    1.5.1     StagedUpdate   1.5.2
 ```
 
@@ -529,19 +529,19 @@ Now that Prometheus is running in the cluster, you can use the UI provided to vi
 Get the Prometheus pod name (e.g. `prometheus-deployment-5554fd6fb5-8rm25`):
 
 ```sh
-kubectl get pods --namespace brupop-bottlerocket-aws 
+kubectl get pods --namespace brupop-bottlerocket-aws
 ```
 
 Set up port forwarding to access Prometheus on the cluster:
 
 ```sh
-kubectl port-forward $prometheus-pod-name 9090:9090 --namespace brupop-bottlerocket-aws 
+kubectl port-forward $prometheus-pod-name 9090:9090 --namespace brupop-bottlerocket-aws
 ```
 
 Point your browser to `localhost:9090/graph` to access the sample Prometheus UI.
 
 Search for:
-* `brupop_hosts_state` to check how many hosts are in each state. 
+* `brupop_hosts_state` to check how many hosts are in each state.
 * `brupop_hosts_version` to check how many hosts are in each Bottlerocket version.
 
 
@@ -596,13 +596,13 @@ Because mutations to a node are orchestrated through the API server component, s
 To get logs for the API server, run the following:
 
 ```sh
-kubectl logs deployment/brupop-apiserver --namespace brupop-bottlerocket-aws 
+kubectl logs deployment/brupop-apiserver --namespace brupop-bottlerocket-aws
 ```
 
 The controller logs will usually not help troubleshoot issues about the state of updates in a cluster, but they can similarly be fetched:
 
 ```sh
-kubectl logs deployment/brupop-controller-deployment --namespace brupop-bottlerocket-aws 
+kubectl logs deployment/brupop-controller-deployment --namespace brupop-bottlerocket-aws
 ```
 
 ### Why are updates stuck in my cluster?
@@ -625,7 +625,7 @@ kubectl get pods --selector=brupop.bottlerocket.aws/component=agent -o wide --na
 Then fetch the logs for that agent:
 
 ```sh
-kubectl logs brupop-agent-podname --namespace brupop-bottlerocket-aws 
+kubectl logs brupop-agent-podname --namespace brupop-bottlerocket-aws
 ```
 
 ### Why are my bottlerocket nodes egressing to `https://updates.bottlerocket.aws`?

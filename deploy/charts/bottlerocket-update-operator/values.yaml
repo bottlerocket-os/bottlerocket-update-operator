@@ -4,7 +4,7 @@
 namespace: "brupop-bottlerocket-aws"
 
 # The image to use for brupop
-image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.5.0"
+image: "public.ecr.aws/bottlerocket/bottlerocket-update-operator:v1.6.0"
 
 # Placement controls
 # See the Kubernetes documentation about placement controls for more details:
@@ -56,7 +56,7 @@ placement:
 
 # External load balancer setting.
 # When `exclude_from_lb_wait_time_in_sec` is set to positive value
-# brupop will exclude the node from load balancer and 
+# brupop will exclude the node from load balancer and
 # wait for `exclude_from_lb_wait_time_in_sec` seconds before draining node.
 exclude_from_lb_wait_time_in_sec: "0"
 
