@@ -5,7 +5,7 @@ When installed, the Bottlerocket update operator starts a controller deployment 
 The controller orchestrates updates across your cluster, while the agent is responsible for periodically querying for Bottlerocket updates, draining the node, and performing the update when asked by the controller.
 The agent performs all cluster object mutation operations via the API Server, which performs additional authorization using the Kubernetes TokenReview API -- ensuring that any request associated with a node is being made by the agent pod running on that node.
 Further, `cert-manager` is required in order for the API server to use a CA certificate to communicate over SSL with the agents.
-Updates to Bottlerocket are rolled out in [waves](https://github.com/bottlerocket-os/bottlerocket/tree/develop/sources/updater/waves) to reduce the impact of issues; the nodes in your cluster may not all see updates at the same time.
+Updates to Bottlerocket are rolled out in [waves](https://github.com/bottlerocket-os/twoliter/tree/develop/twoliter/embedded/waves) to reduce the impact of issues; the nodes in your cluster may not all see updates at the same time.
 
 For a deep dive on installing Brupop, how it works, and its integration with Bottlerocket, [check out this design deep dive document!](./design/1.0.0-release.md)
 
@@ -659,7 +659,7 @@ An in depth discussion on [building your own TUF repos can be found in the core 
 
 ### Why do only some of my Bottlerocket instances have an update available?
 
-Updates to Bottlerocket are rolled out in [waves](https://github.com/bottlerocket-os/bottlerocket/tree/develop/sources/updater/waves) to reduce the impact of issues; the container instances in your cluster may not all see updates at the same time.
+Updates to Bottlerocket are rolled out in [waves](https://github.com/bottlerocket-os/twoliter/tree/develop/twoliter/embedded/waves) to reduce the impact of issues; the container instances in your cluster may not all see updates at the same time.
 You can check whether an update is available on your instance by running the `apiclient update check` command from within the [control](https://github.com/bottlerocket-os/bottlerocket#control-container) or [admin](https://github.com/bottlerocket-os/bottlerocket#admin-container) container.
 
 ### Why do new container instances launch with older Bottlerocket versions?
