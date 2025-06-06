@@ -58,6 +58,7 @@ pub const APISERVER_MAX_UNAVAILABLE: &str = "33%"; // The maximum number of unav
 pub const APISERVER_HEALTH_CHECK_ROUTE: &str = "/ping"; // Route used for apiserver k8s liveness and readiness checks.
 pub const APISERVER_CRD_CONVERT_ENDPOINT: &str = "/crdconvert"; // Custom Resource convert endpoint
 pub const APISERVER_SERVICE_NAME: &str = "brupop-apiserver"; // The name for the `svc` fronting the apiserver.
+pub const KUBERNETES_SERVICE_CLUSTER_DOMAIN: &str = "svc.cluster.local"; // The default cluster domain suffix used for internal service communication.
 
 // agent constants
 pub const AGENT: &str = "agent";
