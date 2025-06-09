@@ -8,7 +8,9 @@ use crate::{
 };
 use async_trait::async_trait;
 use models::{
-    constants::{APISERVER_SERVICE_NAME, CA_NAME, KUBERNETES_SERVICE_CLUSTER_DOMAIN, TLS_KEY_MOUNT_PATH},
+    constants::{
+        APISERVER_SERVICE_NAME, CA_NAME, KUBERNETES_SERVICE_CLUSTER_DOMAIN, TLS_KEY_MOUNT_PATH,
+    },
     node::{BottlerocketShadow, BottlerocketShadowSelector, BottlerocketShadowStatus},
 };
 use snafu::ResultExt;
