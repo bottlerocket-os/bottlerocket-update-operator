@@ -40,7 +40,7 @@ log = { workspace = true }
 mockall = { workspace = true, optional = true }
 nonzero_ext = { workspace = true }
 reqwest = { workspace = true }
-schemars = "0.8.11"
+schemars = "1.0.2"
 serde = { workspace = true, features = [ "derive" ] }
 serde_json = { workspace = true }
 snafu = { workspace = true }
