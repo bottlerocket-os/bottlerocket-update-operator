@@ -1,9 +1,11 @@
-use models::node::BottlerocketShadow;
-use opentelemetry::{metrics::Meter, Key};
-use snafu::ResultExt;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+use opentelemetry::{metrics::Meter, Key, KeyValue};
+use snafu::ResultExt;
 use tracing::instrument;
+
+use models::node::BottlerocketShadow;
 
 const HOST_VERSION_KEY: Key = Key::from_static_str("bottlerocket_version");
 const HOST_STATE_KEY: Key = Key::from_static_str("state");
@@ -69,34 +71,31 @@ impl BrupopControllerMetrics {
         let hosts_data_clone_for_version = Arc::clone(&brupop_shared_hosts_data);
         let hosts_data_clone_for_state = Arc::clone(&brupop_shared_hosts_data);
 
-        // Observer for cluster host's bottlerocket version
-        let brupop_hosts_version_observer = meter
+        // Create observable gauges with callbacks using OpenTelemetry API
+        let _brupop_hosts_version_observer = meter
             .u64_observable_gauge("brupop_hosts_version")
             .with_description("Brupop host's bottlerocket version")
-            .init();
+            .with_callback(move |observer| {
+                let data = hosts_data_clone_for_version.lock().unwrap();
+                for (host_version, count) in &data.hosts_version_count {
+                    let attributes = [KeyValue::new(HOST_VERSION_KEY, host_version.to_string())];
+                    observer.observe(*count, &attributes);
+                }
+            })
+            .build();
 
         // Observer for cluster host's brupop state
-        let brupop_hosts_state_observer = meter
+        let _brupop_hosts_state_observer = meter
             .u64_observable_gauge("brupop_hosts_state")
             .with_description("Brupop host's state")
-            .init();
-
-        let _ = meter.register_callback(&[brupop_hosts_version_observer.as_any()], move |cx| {
-            let data = hosts_data_clone_for_version.lock().unwrap();
-            for (host_version, count) in &data.hosts_version_count {
-                let labels = vec![HOST_VERSION_KEY.string(host_version.to_string())];
-                cx.observe_u64(&brupop_hosts_version_observer, *count, &labels);
-            }
-        });
-
-        let _ = meter.register_callback(&[brupop_hosts_state_observer.as_any()], move |cx| {
-            let data = hosts_data_clone_for_state.lock().unwrap();
-            for (host_state, count) in &data.hosts_state_count {
-                let labels = vec![HOST_STATE_KEY.string(host_state.to_string())];
-                cx.observe_u64(&brupop_hosts_state_observer, *count, &labels);
-            }
-        });
-
+            .with_callback(move |observer| {
+                let data = hosts_data_clone_for_state.lock().unwrap();
+                for (host_state, count) in &data.hosts_state_count {
+                    let attributes = [KeyValue::new(HOST_STATE_KEY, host_state.to_string())];
+                    observer.observe(*count, &attributes);
+                }
+            })
+            .build();
         BrupopControllerMetrics {
             brupop_shared_hosts_data,
         }

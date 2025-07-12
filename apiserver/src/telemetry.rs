@@ -1,13 +1,15 @@
-use crate::api::NO_TELEMETRY_ENDPOINTS;
-use crate::constants::HEADER_BRUPOP_NODE_NAME;
+use std::collections::HashSet;
 
 use actix_web::body::MessageBody;
 use actix_web::dev::{ServiceRequest, ServiceResponse};
+use actix_web::{http::header::ContentType, web::Data, HttpResponse};
 use lazy_static::lazy_static;
+use prometheus::{Encoder, TextEncoder};
 use tracing::Span;
 use tracing_actix_web::{DefaultRootSpanBuilder, RootSpanBuilder};
 
-use std::collections::HashSet;
+use crate::api::NO_TELEMETRY_ENDPOINTS;
+use crate::constants::HEADER_BRUPOP_NODE_NAME;
 
 // tracing-actix-web doesn't provide a convenient way to remove any routes from the logs, so we use a global
 // settings containing API paths to generate empty `tracing::Span`s on paths which we don't want logged.
@@ -46,5 +48,32 @@ impl RootSpanBuilder for BrupopApiserverRootSpanBuilder {
         response: &std::result::Result<ServiceResponse<B>, actix_web::Error>,
     ) {
         DefaultRootSpanBuilder::on_request_end(span, response);
+    }
+}
+
+/// Custom error handler for OpenTelemetry metrics encoding errors
+fn handle_metrics_error(err: prometheus::Error) {
+    tracing::error!("Metrics encoding error: {}", err);
+}
+
+pub async fn vending_metrics(registry: Data<prometheus::Registry>) -> HttpResponse {
+    let encoder = TextEncoder::new();
+    let metric_families = registry.gather();
+    let mut buf = Vec::new();
+
+    match encoder.encode(&metric_families[..], &mut buf) {
+        Ok(()) => {
+            let body = String::from_utf8(buf).unwrap_or_default();
+            HttpResponse::Ok()
+                .insert_header(ContentType::plaintext())
+                .body(body)
+        }
+        Err(err) => {
+            handle_metrics_error(err);
+            // Return empty metrics response on error
+            HttpResponse::InternalServerError()
+                .insert_header(ContentType::plaintext())
+                .body("# Metrics encoding error\n")
+        }
     }
 }

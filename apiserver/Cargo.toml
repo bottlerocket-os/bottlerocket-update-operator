@@ -18,7 +18,7 @@ models = { path = "../models", version = "0.1.0" }
 
 actix-web = { workspace = true }
 awc = { workspace = true }
-actix-web-opentelemetry = { workspace = true }
+opentelemetry-instrumentation-actix-web = { workspace = true }
 rustls = { workspace = true }
 rustls-pemfile = { workspace = true }
 webpki = { workspace = true }

@@ -439,11 +439,11 @@ fn find_unlabeled_nodes(mut nodes: Vec<Node>) -> Vec<String> {
 
 #[instrument(skip(node))]
 fn node_has_label(node: &Node) -> bool {
-    return node.labels().get_key_value(LABEL_BRUPOP_INTERFACE_NAME)
+    node.labels().get_key_value(LABEL_BRUPOP_INTERFACE_NAME)
         == Some((
             &LABEL_BRUPOP_INTERFACE_NAME.to_string(),
             &BRUPOP_INTERFACE_VERSION.to_string(),
-        ));
+        ))
 }
 
 fn read_env_var(env_var: &str) -> Result<String> {

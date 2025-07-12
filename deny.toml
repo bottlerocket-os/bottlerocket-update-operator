@@ -19,8 +19,8 @@ allow = [
 ]
 
 exceptions = [
-    # Explicitly allows MPL-2 being pulled in through reqwest's and actix's rustls dependency chain (which uses webpki)
-    { name = "webpki-roots", allow = ["MPL-2.0"], version = "*" },
+    # Explicitly allows CDLA-Permissive-2.0 being pulled in through reqwest's and actix's rustls dependency chain (which uses webpki)
+    { name = "webpki-roots", allow = ["CDLA-Permissive-2.0"], version = "*" },
 ]
 
 [bans]

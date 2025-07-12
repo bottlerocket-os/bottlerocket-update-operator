@@ -1,14 +1,6 @@
 use std::{convert::TryFrom, env};
 
-use controller::{telemetry::vending_metrics, BrupopController};
-use models::{
-    constants::CONTROLLER_INTERNAL_PORT,
-    node::{BottlerocketShadow, K8SBottlerocketShadowClient},
-    telemetry,
-};
-
 use actix_web::{web::Data, App, HttpServer};
-
 use futures::StreamExt;
 use k8s_openapi::api::core::v1::Node;
 use kube::{
@@ -20,10 +12,16 @@ use kube::{
     },
     ResourceExt,
 };
-
 use opentelemetry_sdk::metrics::SdkMeterProvider;
 use snafu::ResultExt;
 use tracing::{event, Level};
+
+use controller::{telemetry::vending_metrics, BrupopController};
+use models::{
+    constants::CONTROLLER_INTERNAL_PORT,
+    node::{BottlerocketShadow, K8SBottlerocketShadowClient},
+    telemetry,
+};
 
 /// The module-wide result type.
 type Result<T> = std::result::Result<T, controller_error::Error>;
@@ -192,7 +190,7 @@ pub mod controller_error {
 
         #[snafu(display("Error creating prometheus registry: '{}'", source))]
         PrometheusRegsitry {
-            source: opentelemetry::metrics::MetricsError,
+            source: opentelemetry_sdk::metrics::MetricError,
         },
     }
 }

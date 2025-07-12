@@ -1,29 +1,43 @@
-use apiserver::api::{self, APIServerSettings};
-use apiserver_error::{StartServerSnafu, StartTelemetrySnafu};
-use models::node::K8SBottlerocketShadowClient;
-use models::telemetry;
-use opentelemetry::global;
-use tracing::{event, Level};
+use std::convert::TryFrom;
+use std::env;
+use std::fs;
+use std::sync::OnceLock;
 
+use opentelemetry::global;
 use opentelemetry::KeyValue;
 use opentelemetry_sdk::metrics::SdkMeterProvider;
 use opentelemetry_sdk::Resource;
 use snafu::ResultExt;
+use tracing::{event, Level};
 
-use std::convert::TryFrom;
-use std::env;
-use std::fs;
+use apiserver::api::{self, APIServerSettings};
+use apiserver_error::{StartServerSnafu, StartTelemetrySnafu};
+use models::node::K8SBottlerocketShadowClient;
+use models::telemetry;
 
 // By default, errors resulting in termination of the apiserver are written to this file,
 // which is the location kubernetes uses by default to surface termination-causing errors.
 const TERMINATION_LOG: &str = "/dev/termination-log";
 const APISERVER_INTERNAL_PORT_ENV_VAR: &str = "APISERVER_INTERNAL_PORT";
 
+// Store the meter provider so we can shut it down properly
+static METER_PROVIDER: OnceLock<SdkMeterProvider> = OnceLock::new();
+
+/// Custom error handler for OpenTelemetry operations
+fn handle_opentelemetry_error(operation: &str, error: impl std::fmt::Display) {
+    tracing::error!("OpenTelemetry {} error: {}", operation, error);
+}
+
 #[actix_web::main]
 async fn main() {
     main_inner().await;
 
-    opentelemetry::global::shutdown_tracer_provider();
+    // Properly shutdown the OpenTelemetry meter provider
+    if let Some(provider) = METER_PROVIDER.get() {
+        if let Err(e) = provider.shutdown() {
+            handle_opentelemetry_error("shutdown", e);
+        }
+    }
 }
 
 async fn main_inner() {
@@ -56,8 +70,17 @@ async fn run_server() -> Result<(), apiserver_error::Error> {
 
     let prometheus_provider = SdkMeterProvider::builder()
         .with_reader(prometheus_exporter)
-        .with_resource(Resource::new([KeyValue::new("service.name", "apiserver")]))
+        .with_resource(
+            Resource::builder()
+                .with_attribute(KeyValue::new("service.name", "apiserver"))
+                .build(),
+        )
         .build();
+
+    // Store the provider for shutdown
+    METER_PROVIDER
+        .set(prometheus_provider.clone())
+        .expect("Failed to set meter provider");
     global::set_meter_provider(prometheus_provider);
 
     let incluster_config =
@@ -130,7 +153,7 @@ pub mod apiserver_error {
 
         #[snafu(display("Error creating prometheus registry: '{}'", source))]
         PrometheusRegsitry {
-            source: opentelemetry::metrics::MetricsError,
+            source: opentelemetry_sdk::metrics::MetricError,
         },
     }
 }
