@@ -5,6 +5,30 @@ pub mod error;
 mod node;
 mod ping;
 
+use std::{env, fs::File, io::BufReader};
+
+use actix_web::{
+    dev::ServerHandle,
+    http::header::HeaderMap,
+    web::{self, Data},
+    App, HttpServer,
+};
+use futures::StreamExt;
+use k8s_openapi::api::core::v1::Pod;
+use kube::{
+    api::Api,
+    runtime::{
+        reflector,
+        watcher::{watcher, Config},
+        WatchStreamExt,
+    },
+    ResourceExt,
+};
+use opentelemetry_instrumentation_actix_web::{RequestMetrics, RequestTracing};
+use rustls::ServerConfig;
+use rustls_pemfile::{certs, pkcs8_private_keys};
+use snafu::{OptionExt, ResultExt};
+
 use crate::{
     auth::{K8STokenAuthorizor, K8STokenReviewer, TokenAuthMiddleware},
     constants::{
@@ -19,30 +43,6 @@ use models::constants::{
     PUBLIC_KEY_NAME, TLS_KEY_MOUNT_PATH,
 };
 use models::node::{read_certificate, BottlerocketShadowClient, BottlerocketShadowSelector};
-
-use actix_web::{
-    dev::ServerHandle,
-    http::header::HeaderMap,
-    web::{self, Data},
-    App, HttpServer,
-};
-use actix_web_opentelemetry::{PrometheusMetricsHandler, RequestMetrics, RequestTracing};
-use futures::StreamExt;
-use k8s_openapi::api::core::v1::Pod;
-use kube::{
-    api::Api,
-    runtime::{
-        reflector,
-        watcher::{watcher, Config},
-        WatchStreamExt,
-    },
-    ResourceExt,
-};
-
-use rustls::ServerConfig;
-use rustls_pemfile::{certs, pkcs8_private_keys};
-use snafu::{OptionExt, ResultExt};
-use std::{env, fs::File, io::BufReader};
 use tokio::time::{sleep, Duration};
 use tracing::{event, Level};
 use tracing_actix_web::TracingLogger;
@@ -217,12 +217,10 @@ pub async fn run_server<T: 'static + BottlerocketShadowClient>(
             )
             .wrap(RequestTracing::new())
             .wrap(RequestMetrics::default())
-            .route(
-                "/metrics",
-                web::get().to(PrometheusMetricsHandler::new(prometheus_registry.clone())),
-            )
+            .route("/metrics", web::get().to(crate::telemetry::vending_metrics))
             .wrap(TracingLogger::<telemetry::BrupopApiserverRootSpanBuilder>::new())
             .app_data(Data::new(settings.clone()))
+            .app_data(Data::new(prometheus_registry.clone()))
             .service(
                 web::resource(NODE_RESOURCE_ENDPOINT)
                     .route(web::post().to(node::create_bottlerocket_shadow_resource::<T>))
