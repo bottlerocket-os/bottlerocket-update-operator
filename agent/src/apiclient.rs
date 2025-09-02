@@ -110,6 +110,7 @@ pub(super) mod api {
         state::{InMemoryState, NotKeyed},
         Quota, RateLimiter,
     };
+    use http::StatusCode;
     use lazy_static::lazy_static;
     use nonzero_ext::nonzero;
     use semver::Version;
@@ -124,7 +125,7 @@ pub(super) mod api {
     use tracing::{event, instrument, Level};
 
     const API_CLIENT_BIN: &str = "apiclient";
-    const UPDATE_API_BUSY_STATUSCODE: &str = "423";
+    const UPDATE_API_BUSY_STATUSCODE: StatusCode = StatusCode::LOCKED;
     const ACTIVATE_UPDATES_URI: &str = "/actions/activate-update";
     const OS_URI: &str = "/os";
     const PREPARE_UPDATES_URI: &str = "/actions/prepare-update";
@@ -232,12 +233,15 @@ pub(super) mod api {
     /// Extract error statuscode from stderr string
     /// Error Example:
     /// "Failed POST request to '/actions/refresh-updates': Status 423 when POSTing /actions/refresh-updates: Update lock held\n"
-    fn extract_status_code_from_error(error: &str) -> &str {
-        let error_content_split_by_status: Vec<&str> = error.split("Status").collect();
-        let error_content_split_by_whitespace: Vec<&str> = error_content_split_by_status[1]
+    fn extract_status_code_from_error(error: &str) -> Option<StatusCode> {
+        error
+            .split("Status ")
+            .nth(1)?
             .split_whitespace()
-            .collect();
-        error_content_split_by_whitespace[0]
+            .next()?
+            .parse::<u16>()
+            .ok()
+            .and_then(|code| StatusCode::from_u16(code).ok())
     }
 
     /// Wait time between invoking the Bottlerocket API
@@ -294,7 +298,7 @@ pub(super) mod api {
                         let error_statuscode = extract_status_code_from_error(&error_content);
 
                         match error_statuscode {
-                            UPDATE_API_BUSY_STATUSCODE => {
+                            Some(UPDATE_API_BUSY_STATUSCODE) => {
                                 event!(
                                     Level::DEBUG,
                                     "The lock for the update API is held by another process ..."
@@ -307,7 +311,10 @@ pub(super) mod api {
                                 apiclient_error::BadHttpResponseSnafu {
                                     args: args.clone(),
                                     error_content: &error_content,
-                                    statuscode: error_statuscode,
+                                    statuscode: error_statuscode.map_or_else(
+                                        || "None".to_string(),
+                                        |s| s.as_u16().to_string(),
+                                    ),
                                 }
                                 .fail()
                             }
