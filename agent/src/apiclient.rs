@@ -110,11 +110,12 @@ pub(super) mod api {
         state::{InMemoryState, NotKeyed},
         Quota, RateLimiter,
     };
+    use http::StatusCode;
     use lazy_static::lazy_static;
     use nonzero_ext::nonzero;
     use semver::Version;
     use serde::Deserialize;
-    use snafu::ResultExt;
+    use snafu::{OptionExt, ResultExt};
     use std::process::{Command, Output};
     use tokio::time::Duration;
     use tokio_retry::{
@@ -124,7 +125,7 @@ pub(super) mod api {
     use tracing::{event, instrument, Level};
 
     const API_CLIENT_BIN: &str = "apiclient";
-    const UPDATE_API_BUSY_STATUSCODE: &str = "423";
+    const UPDATE_API_BUSY_STATUSCODE: StatusCode = StatusCode::LOCKED;
     const ACTIVATE_UPDATES_URI: &str = "/actions/activate-update";
     const OS_URI: &str = "/os";
     const PREPARE_UPDATES_URI: &str = "/actions/prepare-update";
@@ -232,12 +233,22 @@ pub(super) mod api {
     /// Extract error statuscode from stderr string
     /// Error Example:
     /// "Failed POST request to '/actions/refresh-updates': Status 423 when POSTing /actions/refresh-updates: Update lock held\n"
-    fn extract_status_code_from_error(error: &str) -> &str {
-        let error_content_split_by_status: Vec<&str> = error.split("Status").collect();
-        let error_content_split_by_whitespace: Vec<&str> = error_content_split_by_status[1]
+    pub fn extract_status_code_from_error(error: &str) -> Result<StatusCode> {
+        let status_str = error
+            .split("Status ")
+            .nth(1)
+            .context(apiclient_error::StatusCodeParsingSnafu)?;
+
+        let code_str = status_str
             .split_whitespace()
-            .collect();
-        error_content_split_by_whitespace[0]
+            .next()
+            .context(apiclient_error::StatusCodeParsingSnafu)?;
+
+        let code = code_str
+            .parse::<u16>()
+            .context(apiclient_error::StatusCodeIntParsingSnafu)?;
+
+        StatusCode::from_u16(code).context(apiclient_error::InvalidStatusCodeSnafu)
     }
 
     /// Wait time between invoking the Bottlerocket API
@@ -294,7 +305,7 @@ pub(super) mod api {
                         let error_statuscode = extract_status_code_from_error(&error_content);
 
                         match error_statuscode {
-                            UPDATE_API_BUSY_STATUSCODE => {
+                            Ok(UPDATE_API_BUSY_STATUSCODE) => {
                                 event!(
                                     Level::DEBUG,
                                     "The lock for the update API is held by another process ..."
@@ -307,7 +318,10 @@ pub(super) mod api {
                                 apiclient_error::BadHttpResponseSnafu {
                                     args: args.clone(),
                                     error_content: &error_content,
-                                    statuscode: error_statuscode,
+                                    statuscode: error_statuscode.map_or_else(
+                                        |_| "None".to_string(),
+                                        |s| s.as_u16().to_string(),
+                                    ),
                                 }
                                 .fail()
                             }
@@ -447,5 +461,69 @@ pub mod apiclient_error {
 
         #[snafu(display("Unable to parse version information: '{}'", source))]
         VersionParseError { source: semver::Error },
+
+        #[snafu(display("Failed to parse status code from error string"))]
+        StatusCodeParsing,
+
+        #[snafu(display("Failed to parse integer from status code string"))]
+        StatusCodeIntParsing { source: std::num::ParseIntError },
+
+        #[snafu(display("Invalid HTTP status code"))]
+        InvalidStatusCode {
+            source: http::status::InvalidStatusCode,
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::api::*;
+    use super::apiclient_error::Error;
+    use http::StatusCode;
+
+    #[test]
+    fn test_extract_status_code_from_error_success() {
+        let error = "Failed POST request to '/actions/refresh-updates': Status 423 when POSTing /actions/refresh-updates: Update lock held";
+        let result = extract_status_code_from_error(error);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), StatusCode::LOCKED);
+    }
+
+    #[test]
+    fn test_extract_status_code_from_error_no_status() {
+        let error = "Some error without status code";
+        let result = extract_status_code_from_error(error);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), Error::StatusCodeParsing));
+    }
+
+    #[test]
+    fn test_extract_status_code_from_error_invalid_number() {
+        let error = "Failed POST request: Status abc when POSTing";
+        let result = extract_status_code_from_error(error);
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            Error::StatusCodeIntParsing { .. }
+        ));
+    }
+
+    #[test]
+    fn test_extract_status_code_from_error_invalid_status_code() {
+        let error = "Failed POST request: Status 1000 when POSTing";
+        let result = extract_status_code_from_error(error);
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            Error::InvalidStatusCode { .. }
+        ));
+    }
+
+    #[test]
+    fn test_extract_status_code_from_error_no_whitespace() {
+        let error = "Status 200";
+        let result = extract_status_code_from_error(error);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), StatusCode::OK);
     }
 }
