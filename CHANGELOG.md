@@ -1,3 +1,20 @@
+# 1.7.0
+## General
+Added
+* Allow for custom cluster domain for agent to api connection ([#736] thanks @mikn)
+
+Fixed
+* Fixed a bug where out-of-bounds exception can be returned when parsing error message ([#781])
+
+Misc
+* Upgrade dependencies and documentation fixes ([#750], [#756], [#777])
+
+[#736]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/736
+[#750]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/750
+[#756]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/756
+[#777]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/777
+[#781]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/781
+
 # 1.6.0
 ## General
 
