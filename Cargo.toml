@@ -69,6 +69,6 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 tokio-retry = "0.3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["registry", "env-filter", "json"] }
-uuid = { version = "0.8", default-features = false, features = ["serde", "v4"] }
+uuid = { version = "1", default-features = false, features = ["serde", "v4"] }
 validator = { version = "0.20", features = ["derive"] }
 webpki = { version = "0.22", features = ["std"] }
