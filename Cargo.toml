@@ -16,11 +16,11 @@ blocks_in_conditions = "allow"
 argh = "0.1"
 async-trait = "0.1"
 awc = "3"
-aws-config = "0.57"
-aws-sdk-ec2 = "0.35"
-aws-sdk-eks = "0.35"
-aws-sdk-iam = "0.35"
-aws-sdk-ssm = "0.35"
+aws-config = { version = "1", default-features = false, features = ["credentials-process", "default-https-client", "rt-tokio"] }
+aws-sdk-ec2 = { version = "1", default-features = false, features = ["behavior-version-latest", "default-https-client", "rt-tokio"] }
+aws-sdk-eks = { version = "1", default-features = false, features = ["behavior-version-latest", "default-https-client", "rt-tokio"] }
+aws-sdk-iam = { version = "1", default-features = false, features = ["behavior-version-latest", "default-https-client", "rt-tokio"] }
+aws-sdk-ssm = { version = "1", default-features = false, features = ["behavior-version-latest", "default-https-client", "rt-tokio"] }
 base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = ["serde", "std"] }
 console_log = { version = "1", features = ["color"] }
