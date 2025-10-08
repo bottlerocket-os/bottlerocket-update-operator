@@ -18,6 +18,9 @@ on:
       - 'design/**'
     branches: [develop]
 
+permissions:
+  contents: read
+
 jobs:
 
   build-binary:
