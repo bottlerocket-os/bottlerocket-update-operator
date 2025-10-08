@@ -4,6 +4,7 @@
 !*/
 
 use aws_config::meta::region::RegionProviderChain;
+use aws_config::BehaviorVersion;
 use aws_sdk_ec2::config::Region;
 use aws_sdk_ec2::types::{Filter, SecurityGroup, Subnet};
 use aws_sdk_eks::types::IpFamily;
@@ -65,7 +66,10 @@ pub fn write_kubeconfig(
 
 pub async fn get_cluster_info(cluster_name: &str, region: &str) -> ProviderResult<ClusterInfo> {
     let region_provider = RegionProviderChain::first_try(Some(Region::new(region.to_string())));
-    let shared_config = aws_config::from_env().region(region_provider).load().await;
+    let shared_config = aws_config::defaults(BehaviorVersion::latest())
+        .region(region_provider)
+        .load()
+        .await;
     let eks_client = aws_sdk_eks::Client::new(&shared_config);
     let ec2_client = aws_sdk_ec2::Client::new(&shared_config);
     let iam_client = aws_sdk_iam::Client::new(&shared_config);

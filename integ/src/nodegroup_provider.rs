@@ -13,6 +13,7 @@ use std::time::Duration;
 use aws_sdk_eks::types::IpFamily;
 
 use aws_config::meta::region::RegionProviderChain;
+use aws_config::BehaviorVersion;
 use aws_sdk_ec2::types::{
     ArchitectureValues, InstanceType, LaunchTemplateHttpTokensState,
     LaunchTemplateInstanceMetadataOptionsRequest, LaunchTemplateTagSpecificationRequest,
@@ -59,7 +60,10 @@ pub async fn create_nodegroup(
 ) -> ProviderResult<()> {
     // Setup aws_sdk_config and clients.
     let region_provider = RegionProviderChain::first_try(Some(Region::new(cluster.region.clone())));
-    let shared_config = aws_config::from_env().region(region_provider).load().await;
+    let shared_config = aws_config::defaults(BehaviorVersion::latest())
+        .region(region_provider)
+        .load()
+        .await;
     let ec2_client = aws_sdk_ec2::Client::new(&shared_config);
     let ssm_client = aws_sdk_ssm::Client::new(&shared_config);
     let eks_client = aws_sdk_eks::Client::new(&shared_config);
@@ -127,7 +131,10 @@ pub async fn create_nodegroup(
 pub async fn terminate_nodegroup(cluster: ClusterInfo, nodegroup_name: &str) -> ProviderResult<()> {
     // Setup aws_sdk_config and clients.
     let region_provider = RegionProviderChain::first_try(Some(Region::new(cluster.region.clone())));
-    let shared_config = aws_config::from_env().region(region_provider).load().await;
+    let shared_config = aws_config::defaults(BehaviorVersion::latest())
+        .region(region_provider)
+        .load()
+        .await;
     let ec2_client = aws_sdk_ec2::Client::new(&shared_config);
     let eks_client = aws_sdk_eks::Client::new(&shared_config);
     let iam_client = aws_sdk_iam::Client::new(&shared_config);
