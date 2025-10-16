@@ -70,6 +70,20 @@ license-files = [
     { path = "src/unicode_tables/LICENSE-UNICODE", hash = 0xa7f28b93 },
 ]
 
+[clarify.aws-lc-rs]
+expression = "ISC AND (Apache-2.0 OR ISC) AND MIT"
+license-files = [
+    { path = "LICENSE", hash = 0x8f713da7 },
+]
+
+[clarify.aws-lc-fips-sys]
+expression = "ISC AND (Apache-2.0 OR ISC) AND OpenSSL AND MIT"
+license-files = [
+    { path = "LICENSE", hash = 0xf308ccd7 },
+    { path = "aws-lc/LICENSE", hash = 0xb6d14686 },
+    { path = "aws-lc/third_party/fiat/LICENSE", hash = 0x75829ee2 },
+]
+
 [clarify.ring]
 expression = "Apache-2.0 AND ISC AND MIT AND OpenSSL"
 license-files = [

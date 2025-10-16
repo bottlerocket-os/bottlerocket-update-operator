@@ -10,7 +10,7 @@ use rustls::crypto::CryptoProvider;
 use snafu::Snafu;
 
 pub fn install_default_crypto_provider() -> Result<(), CryptoConfigError> {
-    CryptoProvider::install_default(rustls::crypto::ring::default_provider())
+    CryptoProvider::install_default(rustls::crypto::aws_lc_rs::default_provider())
         .map_err(|_| CryptoConfigError)
 }
 
