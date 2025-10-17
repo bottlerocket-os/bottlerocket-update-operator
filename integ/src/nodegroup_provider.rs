@@ -46,6 +46,8 @@ const EKS_CNI_ARN: &str = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy";
 const EC2_CONTAINER_REGISTRY_ARN: &str =
     "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly";
 const SSM_MANAGED_INSTANCE_CORE_ARN: &str = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore";
+const EBS_CSI_DRIVER_POLICY_ARN: &str =
+    "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy";
 const EKS_ROLE_POLICY_DOCUMENT_CN: &str = "ec2.amazonaws.com.cn";
 const EKS_ROLE_POLICY_DOCUMENT: &str = "ec2.amazonaws.com";
 const CHINA_REGION_PREFIX: &str = "cn-";
@@ -304,6 +306,13 @@ async fn create_iam_instance_profile(
             .send()
             .await
             .context("Unable to attach AmazonEC2ContainerRegistry policy")?;
+        iam_client
+            .attach_role_policy()
+            .role_name(iam_instance_profile_name.clone())
+            .policy_arn(EBS_CSI_DRIVER_POLICY_ARN)
+            .send()
+            .await
+            .context("Unable to attach AmazonEBSCSIDriver policy")?;
         iam_client
             .create_instance_profile()
             .instance_profile_name(iam_instance_profile_name.clone())
