@@ -13,6 +13,9 @@ ADD ./ /src/
 # Ensure cargo dependencies are fetched and available in the Docker context
 RUN cargo fetch --locked --manifest-path /src/Cargo.toml
 
+# Set bindgen clang arguments for cross-compilation targeting Bottlerocket's musl environment
+ENV BINDGEN_EXTRA_CLANG_ARGS="--target=${UNAME_ARCH}-bottlerocket-linux-musl --sysroot=/${UNAME_ARCH}-bottlerocket-linux-musl/sys-root"
+
 # Builds brupop binaries
 RUN cargo install --offline --locked --target ${UNAME_ARCH}-bottlerocket-linux-musl --path /src/agent --root /src/agent && \
     cargo install --offline --locked --target ${UNAME_ARCH}-bottlerocket-linux-musl --path /src/apiserver --root /src/apiserver && \

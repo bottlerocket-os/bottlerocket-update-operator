@@ -10,6 +10,7 @@ workspace = true
 
 [dependencies]
 async-trait = { workspace = true }
+aws-lc-rs = { workspace = true }
 chrono = { workspace = true }
 futures = { workspace = true }
 
