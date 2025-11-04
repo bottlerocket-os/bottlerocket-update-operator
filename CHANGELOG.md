@@ -1,4 +1,4 @@
-# 1.8.0
+# [1.8.0]
 ## General
 Added
 * Add EBS CSI driver policy to nodegroup IAM role for integration tests ([#791])
@@ -16,7 +16,7 @@ Misc
 [#792]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/792
 [#795]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/795
 
-# 1.7.0
+# [1.7.0]
 ## General
 Added
 * Allow for custom cluster domain for agent to api connection ([#736] thanks @mikn)
@@ -33,7 +33,7 @@ Misc
 [#777]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/777
 [#781]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/781
 
-# 1.6.0
+# [1.6.0]
 ## General
 
 Added
@@ -52,7 +52,7 @@ Misc
 [#742]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/742
 [#744]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/744
 
-# 1.5.0
+# [1.5.0]
 ## General
 
 Added
@@ -74,7 +74,7 @@ Misc
 [#715]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/715
 [#716]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/716
 
-# 1.4.0
+# [1.4.0]
 
 ## General
 
@@ -104,7 +104,7 @@ Misc
 [#585]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/585
 [#550]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/550
 
-# 1.3.0
+# [1.3.0]
 
 ## General
 
@@ -139,7 +139,7 @@ Misc
 [#513]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/513
 [#516]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/516
 
-# 1.2.0
+# [1.2.0]
 
 ## General
 
@@ -170,7 +170,7 @@ Misc
 [#462]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/462
 [#476]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/476
 
-# 1.1.0
+# [1.1.0]
 
 ## General
 
@@ -201,7 +201,7 @@ Misc
 [#405]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/405
 [#356]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/356
 
-# 1.0.0
+# [1.0.0]
 
 ## General
 
@@ -257,7 +257,7 @@ Misc
 [#321]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/321
 [#331]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/331
 
-# 0.2.2
+# [0.2.2]
 
 ## General
 
@@ -301,7 +301,7 @@ Fixed
 [#216]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/216
 
 
-# 0.2.1
+# [0.2.1]
 
 Fixed:
 
@@ -316,7 +316,7 @@ Added:
 [#179]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/179
 [#178]: https://github.com/bottlerocket-os/bottlerocket-update-operator/issues/178
 
-# 0.2.0
+# [0.2.0]
 
 Bottlerocket Update Operator (Brupop) 0.2.0 is a complete overhaul and rewrite of the update operator.
 It will, by default, continue to rely on Bottlerocket’s client-side update API to determine when to perform an update on any given node — foregoing any complex deployment velocity controls, and instead relying on the wave system built-in to update Bottlerocket.
@@ -354,7 +354,7 @@ Removed:
 [#101]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/101
 [#85]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/85
 
-# 0.1.5
+# [0.1.5]
 
 * Use ECR Public image instead of region-specific image ([#65])
 * Reduced memory and CPU limits for Agent pod. ([#55])
@@ -366,7 +366,7 @@ Removed:
 [#70]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/70
 [#63]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/63
 
-# 0.1.4
+# [0.1.4]
 
 * Use bottlerocket update API to drive updates [#35] [#39]
 
@@ -395,7 +395,7 @@ kubectl label node --overwrite=true $(kubectl get nodes -o jsonpath='{.items[*].
 [#40]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/40
 [#41]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/41
 
-# 0.1.3
+# [0.1.3]
 
 * Add missing backtick in README instructions ([#25])
 * Add license info to the operator container images ([#6])
@@ -423,8 +423,27 @@ kubectl label nodes --all "bottlerocket.aws/platform-version"-
 [#21]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/21
 [#31]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/31
 
-# 0.1.2
+# [0.1.2]
 
 Initial release of **bottlerocket-update-operator** - a Kubernetes operator that coordinates Bottlerocket updates on hosts in a cluster..
 
 See the [README](README.md) for additional information.
+
+[Unreleased]: https://github.com/bottlerocket-os/bottlerocket-update-operator/compare/v1.8.0...develop
+[1.8.0]: https://github.com/bottlerocket-os/bottlerocket-update-operator/compare/v1.7.0...v1.8.0
+[1.7.0]: https://github.com/bottlerocket-os/bottlerocket-update-operator/compare/v1.6.0...v1.7.0
+[1.6.0]: https://github.com/bottlerocket-os/bottlerocket-update-operator/compare/v1.5.0...v1.6.0
+[1.5.0]: https://github.com/bottlerocket-os/bottlerocket-update-operator/compare/v1.4.0...v1.5.0
+[1.4.0]: https://github.com/bottlerocket-os/bottlerocket-update-operator/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/bottlerocket-os/bottlerocket-update-operator/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/bottlerocket-os/bottlerocket-update-operator/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/bottlerocket-os/bottlerocket-update-operator/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/bottlerocket-os/bottlerocket-update-operator/compare/v0.2.2...v1.0.0
+[0.2.2]: https://github.com/bottlerocket-os/bottlerocket-update-operator/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/bottlerocket-os/bottlerocket-update-operator/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/bottlerocket-os/bottlerocket-update-operator/compare/v0.1.5...v0.2.0
+[0.1.5]: https://github.com/bottlerocket-os/bottlerocket-update-operator/compare/v0.1.4...v0.1.5
+[0.1.4]: https://github.com/bottlerocket-os/bottlerocket-update-operator/compare/v0.1.3...v0.1.4
+[0.1.3]: https://github.com/bottlerocket-os/bottlerocket-update-operator/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/bottlerocket-os/bottlerocket-update-operator/releases/tag/v0.1.2
+
