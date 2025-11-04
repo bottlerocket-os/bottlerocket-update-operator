@@ -1,3 +1,21 @@
+# 1.8.0
+## General
+Added
+* Add EBS CSI driver policy to nodegroup IAM role for integration tests ([#791])
+
+Misc
+* Replace ring cryptography library with aws-lc-rs ([#795])
+* Upgrade bottlerocket-sdk from 0.62.0 to 0.65.0 ([#792])
+* Updated Github Actions workflows ([#776], [#787])
+* Updated cargo dependencies ([#786])
+
+[#776]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/776
+[#786]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/786
+[#787]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/787
+[#791]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/791
+[#792]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/792
+[#795]: https://github.com/bottlerocket-os/bottlerocket-update-operator/pull/795
+
 # 1.7.0
 ## General
 Added
