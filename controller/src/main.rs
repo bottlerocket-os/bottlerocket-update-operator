@@ -190,7 +190,7 @@ pub mod controller_error {
 
         #[snafu(display("Error creating prometheus registry: '{}'", source))]
         PrometheusRegsitry {
-            source: opentelemetry_sdk::metrics::MetricError,
+            source: opentelemetry_sdk::error::OTelSdkError,
         },
     }
 }

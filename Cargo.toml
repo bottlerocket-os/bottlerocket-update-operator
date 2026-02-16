@@ -42,12 +42,12 @@ nonzero_ext = "0.3"
 # these package versions should be moved in lockstep to match upstream
 actix-web = { version = "4.9", features = ["rustls-0_23"] }
 tracing-actix-web = "0.7"
-opentelemetry-instrumentation-actix-web = { version = "0.22", features = ["metrics"] }
+opentelemetry-instrumentation-actix-web = { version = "0.23", features = ["metrics"] }
 
 # opentelemetry dependencies
-opentelemetry = { version = "0.29", features = ["metrics"]}
-opentelemetry_sdk = { version = "0.29", features = ["rt-tokio-current-thread", "metrics"]}
-opentelemetry-prometheus = "0.29"
+opentelemetry = { version = "0.31", features = ["metrics"]}
+opentelemetry_sdk = { version = "0.31", features = ["rt-tokio-current-thread", "metrics"]}
+opentelemetry-prometheus = "0.31"
 prometheus = "0.14"
 
 # k8s-openapi must match the version required by kube and enable a k8s version feature
