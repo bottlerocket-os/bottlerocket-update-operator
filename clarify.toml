@@ -142,9 +142,3 @@ license-files = [
     { path = "LICENSE-MIT", hash = 0x386ca1bc },
     { path = "LICENSE.md", hash = 0xfe66d806 },
 ]
-
-[clarify.rustls-webpki]
-expression = "ISC"
-license-files = [
-    { path = "LICENSE", hash = 0x001c7e6c },
-]

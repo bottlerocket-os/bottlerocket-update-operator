@@ -21,7 +21,6 @@ awc = { workspace = true }
 opentelemetry-instrumentation-actix-web = { workspace = true }
 rustls = { workspace = true }
 rustls-pemfile = { workspace = true }
-webpki = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry_sdk = { workspace = true }
 opentelemetry-prometheus = { workspace = true }
