@@ -46,7 +46,7 @@ opentelemetry-instrumentation-actix-web = { version = "0.22", features = ["metri
 
 # opentelemetry dependencies
 opentelemetry = { version = "0.29", features = ["metrics"]}
-opentelemetry_sdk = { version = "0.29", features = ["rt-tokio-current-thread", "metrics"]}
+opentelemetry_sdk = { version = "0.31", features = ["rt-tokio-current-thread", "metrics"]}
 opentelemetry-prometheus = "0.29"
 prometheus = "0.14"
 
