@@ -275,7 +275,11 @@ pub(crate) mod test {
     ) -> K8STokenAuthorizor<MockTokenReviewer> {
         let mut pod_store = reflector::store::Writer::<Pod>::default();
         let pod_reader = pod_store.as_reader();
-        pod_store.apply_watcher_event(&Event::Restarted(pods));
+        pod_store.apply_watcher_event(&Event::Init);
+        for pod in pods {
+            pod_store.apply_watcher_event(&Event::InitApply(pod));
+        }
+        pod_store.apply_watcher_event(&Event::InitDone);
 
         K8STokenAuthorizor::new(reviewer, namespace.to_string(), pod_reader, audiences)
     }

@@ -48,7 +48,10 @@ spec:
         description: Auto-generated derived type for BottlerocketShadowSpec via `CustomResource`
         properties:
           spec:
-            description: The `BottlerocketShadowSpec` can be used to drive a node through the update state machine. A node linearly drives towards the desired state. The brupop controller updates the spec to specify a node's desired state, and the host agent drives state changes forward and updates the `BottlerocketShadowStatus`.
+            description: |-
+              The `BottlerocketShadowSpec` can be used to drive a node through the update state machine. A node
+              linearly drives towards the desired state. The brupop controller updates the spec to specify a node's desired state,
+              and the host agent drives state changes forward and updates the `BottlerocketShadowStatus`.
             properties:
               state:
                 description: Records the desired state of the `BottlerocketShadow`
@@ -72,7 +75,9 @@ spec:
             - state
             type: object
           status:
-            description: '`BottlerocketShadowStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent, while the spec is updated by the brupop controller.'
+            description: |-
+              `BottlerocketShadowStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent,
+              while the spec is updated by the brupop controller.
             nullable: true
             properties:
               crash_count:
@@ -130,7 +135,10 @@ spec:
         description: Auto-generated derived type for BottlerocketShadowSpec via `CustomResource`
         properties:
           spec:
-            description: The `BottlerocketShadowSpec` can be used to drive a node through the update state machine. A node linearly drives towards the desired state. The brupop controller updates the spec to specify a node's desired state, and the host agent drives state changes forward and updates the `BottlerocketShadowStatus`.
+            description: |-
+              The `BottlerocketShadowSpec` can be used to drive a node through the update state machine. A node
+              linearly drives towards the desired state. The brupop controller updates the spec to specify a node's desired state,
+              and the host agent drives state changes forward and updates the `BottlerocketShadowStatus`.
             properties:
               state:
                 description: Records the desired state of the `BottlerocketShadow`
@@ -154,7 +162,9 @@ spec:
             - state
             type: object
           status:
-            description: '`BottlerocketShadowStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent, while the spec is updated by the brupop controller.'
+            description: |-
+              `BottlerocketShadowStatus` surfaces the current state of a bottlerocket node. The status is updated by the host agent,
+              while the spec is updated by the brupop controller.
             nullable: true
             properties:
               current_state:

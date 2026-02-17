@@ -51,14 +51,14 @@ opentelemetry-prometheus = "0.31"
 prometheus = "0.14"
 
 # k8s-openapi must match the version required by kube and enable a k8s version feature
-k8s-openapi = { version = "0.21", default-features = false, features = ["v1_24"] }
-kube = { version = "0.88", default-features = false, features = [ "derive", "runtime", "rustls-tls" ] }
+k8s-openapi = { version = "0.26", default-features = false, features = ["v1_30"] }
+kube = { version = "2", default-features = false, features = [ "derive", "runtime", "rustls-tls" ] }
 
 regex = "1"
 reqwest = { version = "0.12", default-features = false, features =  [ "json", "rustls-tls" ] }
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "logging", "std", "tls12"] }
 rustls-pemfile = { version = "2" }
-schemars = "0.8"
+schemars = "1"
 semver = "1"
 serde = "1"
 serde_json = "1"
