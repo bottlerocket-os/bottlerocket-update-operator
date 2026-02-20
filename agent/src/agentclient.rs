@@ -713,7 +713,9 @@ pub mod agentclient_error {
         },
 
         #[snafu(display("Unable to operate on BottlerocketShadow: '{}'", error))]
-        BottlerocketShadowError { error: BottlerocketShadowRWError },
+        BottlerocketShadowError {
+            error: Box<BottlerocketShadowRWError>,
+        },
 
         #[snafu(display("Agent client failed due to internal assertion issue: '{}'", message))]
         Assertion { message: String },
@@ -737,7 +739,9 @@ pub mod agentclient_error {
 
     impl From<BottlerocketShadowRWError> for Error {
         fn from(err: BottlerocketShadowRWError) -> Self {
-            Self::BottlerocketShadowError { error: err }
+            Self::BottlerocketShadowError {
+                error: Box::new(err),
+            }
         }
     }
 

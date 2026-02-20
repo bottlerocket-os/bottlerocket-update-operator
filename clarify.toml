@@ -31,7 +31,7 @@ license-files = [
 expression = "ISC AND (Apache-2.0 OR ISC) AND OpenSSL AND MIT"
 license-files = [
     { path = "LICENSE", hash = 0xf308ccd7 },
-    { path = "aws-lc/LICENSE", hash = 0xba56ed2c },
+    { path = "aws-lc/LICENSE", hash = 0x2ff829bc },
     { path = "aws-lc/third_party/fiat/LICENSE", hash = 0x75829ee2 },
 ]
 
@@ -141,10 +141,4 @@ license-files = [
     { path = "LICENSE-APACHE", hash = 0x4fccb6b7 },
     { path = "LICENSE-MIT", hash = 0x386ca1bc },
     { path = "LICENSE.md", hash = 0xfe66d806 },
-]
-
-[clarify.rustls-webpki]
-expression = "ISC"
-license-files = [
-    { path = "LICENSE", hash = 0x001c7e6c },
 ]
