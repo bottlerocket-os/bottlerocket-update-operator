@@ -3,7 +3,7 @@ entries:
   bottlerocket-shadow:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2025-09-16T21:39:26.430236338Z"
+    created: "2026-02-25T21:08:15.736365815Z"
     description: A Helm chart for the Bottlerocket shadow CRD used by the Bottlerocket
       update operator
     digest: 1be8e7c14577f3eda75642ede46adfc52a12d289e2f1d4bc19a2673b8f80fc42
@@ -18,8 +18,22 @@ entries:
     version: 1.0.0
   bottlerocket-update-operator:
   - apiVersion: v2
+    appVersion: 1.8.0
+    created: "2026-02-25T21:08:15.741892867Z"
+    description: A Helm chart for the Bottlerocket Update Operator
+    digest: cca196a88f1f672a95f9e9e1fc369ece1bbfa9d7ffe60b2cb4d06f03007e6f71
+    home: https://github.com/bottlerocket-os/bottlerocket-update-operator
+    icon: https://avatars.githubusercontent.com/u/61023959?s=200&v=4
+    name: bottlerocket-update-operator
+    sources:
+    - https://github.com/bottlerocket-os/bottlerocket-update-operator
+    type: application
+    urls:
+    - https://bottlerocket-os.github.io/bottlerocket-update-operator/bottlerocket-update-operator-1.8.0.tgz
+    version: 1.8.0
+  - apiVersion: v2
     appVersion: 1.7.0
-    created: "2025-09-16T21:39:26.435388038Z"
+    created: "2026-02-25T21:08:15.741047483Z"
     description: A Helm chart for the Bottlerocket Update Operator
     digest: 81ec46a3d7c5873da35370ea7b70e9fd2ae161ef468c98c95326c9f6df159787
     home: https://github.com/bottlerocket-os/bottlerocket-update-operator
@@ -33,7 +47,7 @@ entries:
     version: 1.7.0
   - apiVersion: v2
     appVersion: 1.6.0
-    created: "2025-09-16T21:39:26.434533637Z"
+    created: "2026-02-25T21:08:15.740204634Z"
     description: A Helm chart for the Bottlerocket Update Operator
     digest: 0995ae50db7f4095e34343e3d8f8cae465d7cb138283321b512d3f709540d585
     home: https://github.com/bottlerocket-os/bottlerocket-update-operator
@@ -47,7 +61,7 @@ entries:
     version: 1.6.0
   - apiVersion: v2
     appVersion: 1.5.0
-    created: "2025-09-16T21:39:26.433690648Z"
+    created: "2026-02-25T21:08:15.739349045Z"
     description: A Helm chart for the Bottlerocket Update Operator
     digest: 37cac44a79c62cf90623ef87773a2a756a6d3de15adaccbf82ed722921bf439e
     home: https://github.com/bottlerocket-os/bottlerocket-update-operator
@@ -61,7 +75,7 @@ entries:
     version: 1.5.0
   - apiVersion: v2
     appVersion: 1.4.0
-    created: "2025-09-16T21:39:26.432619009Z"
+    created: "2026-02-25T21:08:15.738535432Z"
     description: A Helm chart for the Bottlerocket Update Operator
     digest: 1908340fe74a881fb85f96d97b31761edc181fc39124ba44f5bfe05b2268f31c
     home: https://github.com/bottlerocket-os/bottlerocket-update-operator
@@ -75,7 +89,7 @@ entries:
     version: 1.4.0
   - apiVersion: v2
     appVersion: 1.3.0
-    created: "2025-09-16T21:39:26.431743789Z"
+    created: "2026-02-25T21:08:15.73764097Z"
     description: A Helm chart for the Bottlerocket Update Operator
     digest: e8cd6c7944d1ad37b8c0fcb1fd41c1e6209893a81787dd8884b6f1aa6bac2ebb
     home: https://github.com/bottlerocket-os/bottlerocket-update-operator
@@ -89,7 +103,7 @@ entries:
     version: 1.3.0
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2025-09-16T21:39:26.430943812Z"
+    created: "2026-02-25T21:08:15.736920229Z"
     description: A Helm chart for the Bottlerocket Update Operator
     digest: 78a0f1f54e140c26d1f3292cc54eaead19d3cb6774eefc159a4d6c2dc42de56a
     home: https://github.com/bottlerocket-os/bottlerocket-update-operator
@@ -101,4 +115,4 @@ entries:
     urls:
     - https://bottlerocket-os.github.io/bottlerocket-update-operator/bottlerocket-update-operator-1.0.0.tgz
     version: 1.0.0
-generated: "2025-09-16T21:39:26.429439832Z"
+generated: "2026-02-25T21:08:15.735877824Z"
