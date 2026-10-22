@@ -224,7 +224,7 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
                         }
                         Ok(StatusCode::NOT_FOUND) => {
                             return Err(error::EvictionError::NonRetriableEviction {
-                                source: kube::Error::Api(e.clone()),
+                                source: Box::new(kube::Error::Api(e.clone())),
                                 pod_name: pod.name_any(),
                             });
                         }
@@ -233,7 +233,7 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
                             // `kubectl drain` will still wait for these pods to be deleted; however, kube-rs does not provide granular enough access to
                             // API error statuses to determine if we can proceed, so we ignore these.
                             return Err(error::EvictionError::NonRetriableEviction {
-                                source: kube::Error::Api(e.clone()),
+                                source: Box::new(kube::Error::Api(e.clone())),
                                 pod_name: pod.name_any(),
                             });
                         }
@@ -245,7 +245,7 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
                                 e
                             );
                             return Err(error::EvictionError::RetriableEviction {
-                                source: kube::Error::Api(e.clone()),
+                                source: Box::new(kube::Error::Api(e.clone())),
                                 pod_name: pod.name_any(),
                             });
                         }
@@ -256,7 +256,7 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
                                 e
                             );
                             return Err(error::EvictionError::RetriableEviction {
-                                source: kube::Error::Api(e.clone()),
+                                source: Box::new(kube::Error::Api(e.clone())),
                                 pod_name: pod.name_any(),
                             });
                         }
@@ -265,7 +265,7 @@ async fn evict_pod(k8s_client: &kube::Client, pod: &Pod) -> Result<(), error::Ev
                 Err(e) => {
                     event!(Level::ERROR, "Eviction failed: '{}'. Retrying...", e);
                     return Err(error::EvictionError::RetriableEviction {
-                        source: e,
+                        source: Box::new(e),
                         pod_name: pod.name_any(),
                     });
                 }
@@ -341,7 +341,8 @@ pub mod error {
     pub enum DrainError {
         #[snafu(display("Unable to find drainable Pods for Node '{}': '{}'", node_name, source))]
         FindTargetPods {
-            source: kube::Error,
+            #[snafu(source(from(kube::Error, Box::new)))]
+            source: Box<kube::Error>,
             node_name: String,
         },
 
@@ -358,14 +359,16 @@ pub mod error {
         #[snafu(display("Unable to create eviction for Pod '{}': '{}'", pod_name, source))]
         /// An error occurred while attempting to evict a Pod. This may result in an attempt to retry the eviction.
         RetriableEviction {
-            source: kube::Error,
+            #[snafu(source(from(kube::Error, Box::new)))]
+            source: Box<kube::Error>,
             pod_name: String,
         },
 
         #[snafu(display("Unable to create eviction for Pod '{}': '{}'", pod_name, source))]
         /// A fatal error occurred while attempting to evict a Pod. This will not be retried.
         NonRetriableEviction {
-            source: kube::Error,
+            #[snafu(source(from(kube::Error, Box::new)))]
+            source: Box<kube::Error>,
             pod_name: String,
         },
     }

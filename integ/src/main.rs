@@ -206,7 +206,7 @@ async fn generate_kubeconfig(arguments: &CommonArgs) -> Result<String> {
     .context(error::WriteKubeconfigSnafu)?;
     info!(
         "kubeconfig has been written and store at {:?}",
-        &kube_config_path
+        kube_config_path
     );
 
     Ok(kube_config_path)
@@ -219,7 +219,7 @@ async fn generate_kubeconfig_file_path(arguments: &CommonArgs) -> Result<String>
 
     let kube_config_path = format!(
         "{}/{}",
-        &unique_kube_config_temp_dir, DEFAULT_KUBECONFIG_FILE_NAME
+        unique_kube_config_temp_dir, DEFAULT_KUBECONFIG_FILE_NAME
     );
 
     Ok(kube_config_path)

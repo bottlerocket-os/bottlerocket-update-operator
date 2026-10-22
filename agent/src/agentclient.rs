@@ -788,7 +788,8 @@ pub mod agentclient_error {
         ))]
         UnableFetchBottlerocketShadow {
             node_name: String,
-            source: kube::Error,
+            #[snafu(source(from(kube::Error, Box::new)))]
+            source: Box<kube::Error>,
         },
     }
 }
