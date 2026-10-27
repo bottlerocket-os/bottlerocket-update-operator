@@ -17,7 +17,7 @@ license-files = [
 expression = "ISC AND (Apache-2.0 OR ISC) AND OpenSSL AND MIT"
 license-files = [
     { path = "LICENSE", hash = 0xf308ccd7 },
-    { path = "aws-lc/LICENSE", hash = 0xb6d14686 },
+    { path = "aws-lc/LICENSE", hash = 0xba56ed2c },
     { path = "aws-lc/third_party/fiat/LICENSE", hash = 0x75829ee2 },
 ]
 
@@ -30,8 +30,8 @@ license-files = [
 [clarify.aws-lc-sys]
 expression = "ISC AND (Apache-2.0 OR ISC) AND OpenSSL AND MIT"
 license-files = [
-    { path = "LICENSE", hash = 0xf308ccd7 },
-    { path = "aws-lc/LICENSE", hash = 0x2ff829bc },
+    { path = "LICENSE", hash = 0x6cb0b0bb },
+    { path = "aws-lc/LICENSE", hash = 0xc884acb6 },
     { path = "aws-lc/third_party/fiat/LICENSE", hash = 0x75829ee2 },
 ]
 
